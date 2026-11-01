@@ -96,6 +96,9 @@ struct Config {
     holiday_country: String,
     #[serde(default)]
     holiday_region: String,
+    /// The secret in the phone-calendar link. Empty: sharing is off.
+    #[serde(default)]
+    share_token: String,
 }
 
 fn default_remind() -> u32 {
@@ -170,6 +173,9 @@ async fn main() {
         .route("/api/timezone", post(save_timezone))
         .route("/api/remind", post(save_remind))
         .route("/api/holidays", post(save_holidays))
+        .route("/api/share", post(share_change))
+        .route("/api/share/{token}", get(share_feed))
+        .route("/api/hub-event/restore", post(restore_hub_event))
         .route("/api/events", get(events))
         .route("/api/pocketpals/connect", post(pp_connect))
         .route("/api/pocketpals/disconnect", post(pp_disconnect))
@@ -328,7 +334,7 @@ async fn state(State(app): Shared) -> Json<Value> {
     Json(json!({
         "version": VERSION,
         "people": people,
-        "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars, "hour24": config.hour24, "timezone": config.timezone, "remind_min": config.remind_min, "holidays": {"country": config.holiday_country, "region": config.holiday_region}, "pocketpals": pocketpals_json(&config), "weather": {"connected": !config.weather_place.is_empty(), "place": config.weather_place, "fahrenheit": config.weather_f}},
+        "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars, "hour24": config.hour24, "timezone": config.timezone, "remind_min": config.remind_min, "share": !config.share_token.is_empty(), "holidays": {"country": config.holiday_country, "region": config.holiday_region}, "pocketpals": pocketpals_json(&config), "weather": {"connected": !config.weather_place.is_empty(), "place": config.weather_place, "fahrenheit": config.weather_f}},
         "catalog": catalog_json(),
     }))
 }
@@ -559,6 +565,12 @@ async fn events(State(app): Shared, Query(q): Query<EventsQuery>) -> impl IntoRe
         v["series"] = json!(h.id);
         v["people"] = json!(h.people);
         v["repeats"] = json!(h.repeat.freq != "none");
+        v["notes"] = json!(h.notes);
+        v["link"] = json!(h.link);
+        v["travel"] = json!(h.travel);
+        v["checklist"] = json!(h.checklist);
+        v["icon"] = json!(h.icon);
+        v["remind"] = json!(h.remind);
         all.push((e.start.clone(), v));
     }
     // Birthdays, from the family. They show on the person's colour and can't be edited as events (change them in the family list).
@@ -895,6 +907,47 @@ async fn save_hub_event(State(app): Shared, Json(body): Json<family::HubEvent>) 
         Ok(id) => Json(json!({"id": id})).into_response(),
         Err(e) => e.into_response(),
     }
+}
+
+/// Put a deleted event back as it was.
+async fn restore_hub_event(State(app): Shared, Json(body): Json<family::HubEvent>) -> impl IntoResponse {
+    match edit_family(&app, |f| f.restore_event(body)).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct ShareBody {
+    on: bool,
+}
+
+/// A fresh random secret from the system, as 32 letters and numbers.
+fn new_secret() -> Option<String> {
+    use std::io::Read;
+    let mut b = [0u8; 16];
+    std::fs::File::open("/dev/urandom").ok()?.read_exact(&mut b).ok()?;
+    Some(b.iter().map(|x| format!("{x:02x}")).collect())
+}
+
+/// Turn the phone-calendar link on (or make a new one, which stops the old one working) or off. Returns the secret once, for the link.
+async fn share_change(State(app): Shared, Json(body): Json<ShareBody>) -> impl IntoResponse {
+    let token = if body.on { new_secret() } else { Some(String::new()) };
+    let Some(token) = token else { return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't make a secret link on this machine.").into_response() };
+    let config = Config { share_token: token.clone(), ..app.config.read().await.clone() };
+    if save(&app, config).await.is_err() {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
+    }
+    Json(json!({"token": token})).into_response()
+}
+
+/// The hub's own events and birthdays as an iCal feed, for a phone to follow. Read only, and only with the secret.
+async fn share_feed(State(app): Shared, axum::extract::Path(token): axum::extract::Path<String>) -> impl IntoResponse {
+    let want = app.config.read().await.share_token.clone();
+    if want.is_empty() || token.trim_end_matches(".ics") != want {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    ([(axum::http::header::CONTENT_TYPE, "text/calendar; charset=utf-8")], app.family.read().await.to_ics()).into_response()
 }
 
 #[derive(Deserialize)]

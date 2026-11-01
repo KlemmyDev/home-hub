@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, post } from "../lib/api";
-import { addDays, dayDiff, fmtT, fromYmd, hmOf, longDay, shortDate, ymd } from "../lib/dates";
-import type { Ev } from "../lib/events";
+import { addDays, dayDiff, fmtT, fromYmd, hmOf, longDay, shortDate, startOfDay, ymd } from "../lib/dates";
+import { calOf, fetchEvents, type Ev, type EvData } from "../lib/events";
 import { useDinners } from "../data";
 import { quickAdd } from "../lib/quickadd";
 import { useHub, type EventDraft, type Sheet } from "../hub";
@@ -10,6 +10,7 @@ import { FamilyEditor } from "./Family";
 import { Lab, Pill, SheetFrame } from "./SheetFrame";
 import { StepsSheet } from "./Chores";
 import { FoodIcon } from "../lib/foodicons";
+import { FindSheet } from "./Find";
 
 const DAYCODES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
 const DAYNAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -19,7 +20,7 @@ const dot = (c: string) => <i style={{ width: 12, height: 12, borderRadius: "50%
 export function newEventDraft(day: Date, hour: number | undefined, now: Date, who: string | null): EventDraft {
   const h = hour !== undefined ? hour : ymd(day) === ymd(now) ? Math.min(20, Math.max(8, now.getHours() + 1)) : 9;
   const s = new Date(day.getFullYear(), day.getMonth(), day.getDate(), Math.floor(h), (h % 1) * 60), e = new Date(+s + 3600000);
-  return { id: "", title: "", location: "", allDay: false, sd: ymd(s), st: hmOf(s), ned: ymd(e), net: hmOf(e), people: who ? [who] : [], freq: "none", interval: 1, days: [DAYCODES[(s.getDay() + 6) % 7]], untilOn: false, until: ymd(addDays(s, 90)) };
+  return { id: "", title: "", location: "", allDay: false, sd: ymd(s), st: hmOf(s), ned: ymd(e), net: hmOf(e), people: who ? [who] : [], freq: "none", interval: 1, days: [DAYCODES[(s.getDay() + 6) % 7]], untilOn: false, until: ymd(addDays(s, 90)), notes: "", link: "", travel: 0, checklist: [], icon: "", remind: null };
 }
 export async function loadEventDraft(e: Ev): Promise<EventDraft> {
   const h = await api("/api/hub-event?id=" + encodeURIComponent(e.series!));
@@ -31,11 +32,15 @@ export async function loadEventDraft(e: Ev): Promise<EventDraft> {
     people: h.people.slice(), freq: h.repeat.freq, interval: h.repeat.interval,
     days: h.repeat.days.length ? h.repeat.days.slice() : [DAYCODES[(first.getDay() + 6) % 7]],
     untilOn: !!h.repeat.until, until: h.repeat.until || ymd(addDays(first, 90)),
+    notes: h.notes || "", link: h.link || "", travel: h.travel || 0, checklist: (h.checklist || []).slice(), icon: h.icon || "", remind: h.remind ?? null,
   };
 }
 
 const joinNames = (n: string[]) => n.length < 2 ? n.join("") : n.slice(0, -1).join(", ") + " and " + n[n.length - 1];
 const QUICK_TIMES: [string, string][] = [["Morning", "09:00"], ["Lunchtime", "12:00"], ["After school", "15:30"], ["Evening", "18:00"]];
+const ICONS = ["⚽", "🏊", "🎹", "🦷", "🎂", "🏥", "🛒", "🚌", "📚", "🎭", "🐶", "✈️", "🍽️", "🎉", "💼", "🏃"];
+const TRAVEL: [number, string][] = [[0, "None"], [10, "10 min"], [15, "15 min"], [20, "20 min"], [30, "30 min"], [45, "45 min"], [60, "1 hour"]];
+const REMIND: [number | null, string][] = [[null, "The usual"], [0, "None"], [5, "5 min"], [15, "15 min"], [30, "30 min"], [60, "1 hour"]];
 const LENGTHS: [number, string][] = [[30, "30 min"], [60, "1 hour"], [120, "2 hours"], [180, "3 hours"]];
 
 /** Opens and closes a part of the sheet smoothly instead of popping it in. */
@@ -54,6 +59,9 @@ function EventSheet({ draft: start }: { draft: EventDraft }) {
   const [busy, setBusy] = useState(false);
   const [custom, setCustom] = useState(() => !start.allDay && !LENGTHS.some(([m]) => m === Math.round((+new Date(`${start.ned}T${start.net}`) - +new Date(`${start.sd}T${start.st}`)) / 60000)) && !!start.id);
   const [quick, setQuick] = useState("");
+  const [ck, setCk] = useState("");
+  const [askScope, setAskScope] = useState(false);
+  const { soon } = useHub();
   const daysEdited = useRef(!!start.id);       // until the weekdays are picked by hand, a weekly repeat follows the start day
   const dayOf = (ds: string) => DAYCODES[(fromYmd(ds).getDay() + 6) % 7];
   const titleRef = useRef<HTMLInputElement>(null);
@@ -68,17 +76,54 @@ function EventSheet({ draft: start }: { draft: EventDraft }) {
   const startAt = () => new Date(`${t.sd}T${t.st}`);
   const endAt = () => new Date(`${t.ned}T${t.net}`);
   const dur = Math.round((+endAt() - +startAt()) / 60000);
+  const dayOk = /^\d{4}-\d{2}-\d{2}$/.test(t.sd) && /^\d{4}-\d{2}-\d{2}$/.test(t.ned) && t.ned >= t.sd;
+  const { data: nearby } = useQuery({ queryKey: ["clash", t.sd, t.ned], enabled: dayOk, staleTime: 30000, queryFn: () => fetchEvents(fromYmd(t.sd), addDays(fromYmd(t.ned), 1)) });
+  const clash = !t.allDay && dayOk && t.people.length && dur > 0 ? (nearby?.list || []).filter(e => !e.all_day && e.hub && e.series !== t.id && (e.people || []).some(p => t.people.includes(p)) && +e.s < +endAt() && +e.e > +startAt()) : [];
+  const { data: past } = useQuery({ queryKey: ["recent-events"], enabled: !start.id, staleTime: 60000, queryFn: () => fetchEvents(addDays(startOfDay(now), -60), addDays(startOfDay(now), 1)) });
+  const again = (() => {
+    if (start.id || !past) return [];
+    const seen = new Set<string>(), out: Ev[] = [];
+    for (const e of [...past.list].reverse()) { if (!e.hub || e.fixed || seen.has(e.name!)) continue; seen.add(e.name!); out.push(e); if (out.length >= 6) break; }
+    return out;
+  })();
+  const useAgain = (e: Ev) => {
+    const len = Math.max(15, Math.round((+e.e - +e.s) / 60000)), st = new Date(`${t.sd}T${t.st}`), en = new Date(+st + len * 60000);
+    setCustom(false); setErr("");
+    setT(x => ({ ...x, title: e.name!, people: e.people || x.people, location: e.location, icon: e.icon || "", notes: e.notes || "", link: e.link || "", travel: e.travel || 0, checklist: e.checklist || [], remind: e.remind ?? null, allDay: e.all_day, ...(e.all_day ? {} : { ned: ymd(en), net: hmOf(en) }) }));
+  };
   const done = () => { closeSheet(); qc.invalidateQueries({ queryKey: ["events"] }); };
-  const save = async () => {
+  const bodyOf = (over: Record<string, any> = {}) => ({ id: t.id, title: t.title.trim(), location: t.location, all_day: t.allDay, start: t.allDay ? t.sd : `${t.sd}T${t.st}`, end: t.allDay ? t.ned : `${t.ned}T${t.net}`, people: t.people,
+    notes: t.notes.trim(), link: t.link.trim(), travel: t.travel, checklist: t.checklist, icon: t.icon, remind: t.remind,
+    repeat: { freq: t.freq, interval: t.interval, days: t.freq === "weekly" ? t.days : [], until: t.freq !== "none" && t.untilOn ? t.until : null }, ...over });
+  const save = async (scope: "all" | "after" = "all") => {
     if (!t.title.trim()) { setErr("Give it a name first."); titleRef.current?.focus({ preventScroll: true }); return; }
     if (t.allDay ? t.ned < t.sd : +endAt() <= +startAt()) { setErr("It ends before it starts. Change the end."); setCustom(true); return; }
     if (t.freq === "weekly" && !t.days.length) { setErr("Pick at least one day for it to repeat on."); return; }
-    const body = { id: t.id, title: t.title.trim(), location: t.location, all_day: t.allDay, start: t.allDay ? t.sd : `${t.sd}T${t.st}`, end: t.allDay ? t.ned : `${t.ned}T${t.net}`, people: t.people,
-      repeat: { freq: t.freq, interval: t.interval, days: t.freq === "weekly" ? t.days : [], until: t.freq !== "none" && t.untilOn ? t.until : null } };
+    if (t.link.trim() && !/^https?:\/\//i.test(t.link.trim())) { setErr("A link should start with https://"); return; }
+    if (editing && start.freq !== "none" && t.occ && !askScope && scope === "all" && ymd(new Date(t.occ.slice(0, 10) + "T00:00")) > start.sd) { setAskScope(true); return; }
     setBusy(true);
-    try { await post("/api/hub-event", body); done(); } catch (e: any) { setErr(e.message); setBusy(false); }
+    try {
+      if (scope === "after" && t.occ) {      // the earlier ones stay as they were; a new series carries on from this day with the changes
+        const orig = await api("/api/hub-event?id=" + encodeURIComponent(t.id));
+        const occDay = t.occ.slice(0, 10);
+        await post("/api/hub-event", { ...orig, repeat: { ...orig.repeat, until: ymd(addDays(fromYmd(occDay), -1)) } });
+        const shift = dayDiff(fromYmd(t.sd), fromYmd(start.sd)), nsd = ymd(addDays(fromYmd(occDay), shift)), len = dayDiff(fromYmd(t.ned), fromYmd(t.sd));
+        const ned = ymd(addDays(fromYmd(nsd), len));
+        await post("/api/hub-event", bodyOf({ id: "", start: t.allDay ? nsd : `${nsd}T${t.st}`, end: t.allDay ? ned : `${ned}T${t.net}`, repeat: { freq: t.freq, interval: t.interval, days: t.freq === "weekly" ? t.days : [], until: t.untilOn ? t.until : null } }));
+      } else await post("/api/hub-event", bodyOf());
+      done();
+    } catch (e: any) { setErr(e.message); setBusy(false); setAskScope(false); }
   };
-  const del = async (only: boolean) => { setBusy(true); try { await post("/api/hub-event/delete", { id: t.id, only: only ? t.occ : null }); done(); } catch (e: any) { setErr(e.message); setBusy(false); } };
+  const del = async (only: boolean) => {
+    setBusy(true);
+    try {
+      let before: any = null;
+      try { before = await api("/api/hub-event?id=" + encodeURIComponent(t.id)); } catch { /* no undo then */ }
+      await post("/api/hub-event/delete", { id: t.id, only: only ? t.occ : null });
+      done();
+      soon(only ? "That day was taken off." : "Event deleted.", before ? async () => { try { await post("/api/hub-event/restore", before); qc.invalidateQueries({ queryKey: ["events"] }); } catch (e: any) { soon(e.message); } } : undefined);
+    } catch (e: any) { setErr(e.message); setBusy(false); }
+  };
   const changeDate = (k: "sd" | "st" | "ned" | "net" | "until", v: string) => {
     setErr("");
     const before = +endAt() - +startAt(), n = { ...t, [k]: v };
@@ -105,6 +150,7 @@ function EventSheet({ draft: start }: { draft: EventDraft }) {
           <button type="submit" className="primary" disabled={!quick.trim()}>Fill in</button>
         </form>
       )}
+      {!editing && again.length ? <div className="fx again" aria-label="Add something you've made before">{again.map(e => <button key={e.name} className="pill" onClick={() => useAgain(e)}>{e.icon ? e.icon + " " : ""}{e.name}</button>)}</div> : null}
       <div className="whobar" aria-hidden>{pick.length ? pick.map(p => <i key={p.id} style={{ background: p.color }} />) : <i style={{ background: "#d5dbe6" }} />}</div>
       <input ref={titleRef} value={t.title} onChange={e => set({ title: e.target.value })} maxLength={80} placeholder="What's happening?" autoComplete="off" style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-.02em", minHeight: 76, marginTop: 14 }} />
 
@@ -186,16 +232,44 @@ function EventSheet({ draft: start }: { draft: EventDraft }) {
       <Sec n={4} label="Where? (optional)">
         <input value={t.location} onChange={e => set({ location: e.target.value })} maxLength={80} placeholder="School, the park…" autoComplete="off" />
       </Sec>
+
+      <Sec n={5} label="More (optional)">
+        <div className="cap" style={{ margin: "0 0 8px" }}>A picture</div>
+        <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>
+          <button className={"pill ico" + (!t.icon ? " on" : "")} aria-label="No picture" onClick={() => set({ icon: "" })}>None</button>
+          {ICONS.map(i => <button key={i} className={"pill ico" + (t.icon === i ? " on" : "")} aria-label={"Picture " + i} onClick={() => set({ icon: t.icon === i ? "" : i })}>{i}</button>)}
+        </div>
+        <div className="cap" style={{ margin: "20px 0 8px" }}>Notes</div>
+        <input value={t.notes} onChange={e => set({ notes: e.target.value })} maxLength={600} placeholder="Anything to remember" autoComplete="off" />
+        <div className="cap" style={{ margin: "20px 0 8px" }}>Link</div>
+        <input value={t.link} onChange={e => set({ link: e.target.value })} maxLength={300} inputMode="url" autoCapitalize="off" placeholder="https://… a map or booking page" autoComplete="off" />
+        <div className="cap" style={{ margin: "20px 0 8px" }}>Time to get there</div>
+        <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>{TRAVEL.map(([m, l]) => <Pill key={m} on={t.travel === m} onClick={() => set({ travel: m })}>{l}</Pill>)}</div>
+        <div className="cap" style={{ margin: "20px 0 8px" }}>Remind us</div>
+        <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>{REMIND.map(([m, l]) => <Pill key={String(m)} on={t.remind === m} onClick={() => set({ remind: m })}>{l}</Pill>)}</div>
+        <div className="cap" style={{ margin: "20px 0 8px" }}>Things to take</div>
+        {t.checklist.map((c, i) => (
+          <div className="fx ckrow" key={i}><span>{c}</span><button className="cnav" aria-label={"Remove " + c} onClick={() => set({ checklist: t.checklist.filter((_, j) => j !== i) })}>×</button></div>
+        ))}
+        <form className="qadd" onSubmit={e => { e.preventDefault(); const v = ck.trim(); if (v && t.checklist.length < 20) { set({ checklist: [...t.checklist, v] }); setCk(""); } }}>
+          <input value={ck} onChange={e => setCk(e.target.value)} maxLength={60} placeholder="Swim bag, towel…" aria-label="Add a thing to take" autoComplete="off" enterKeyHint="done" />
+          <button type="submit" disabled={!ck.trim()}>Add</button>
+        </form>
+      </Sec>
     </>
   );
-  const foot = confirmDel
+  const foot = askScope
+    ? <><button className="primary" style={{ flex: 1 }} disabled={busy} onClick={() => save("after")}>This and the ones after</button><button style={{ flex: 1 }} disabled={busy} onClick={() => save("all")}>All of them</button><button onClick={() => setAskScope(false)}>Back</button></>
+    : confirmDel
     ? (rep ? <><button className="danger" style={{ flex: 1 }} disabled={busy} onClick={() => del(true)}>Just this day</button><button className="danger" style={{ flex: 1 }} disabled={busy} onClick={() => del(false)}>Every one</button><button onClick={() => setConfirmDel(false)}>Keep it</button></>
         : <><button className="danger" style={{ flex: 1 }} disabled={busy} onClick={() => del(false)}>Yes, delete it</button><button style={{ flex: 1 }} onClick={() => setConfirmDel(false)}>Keep it</button></>)
-    : <>{editing ? <button className="danger-o" onClick={() => setConfirmDel(true)}>Delete</button> : null}<button style={{ marginLeft: "auto" }} onClick={closeSheet}>Cancel</button><button className="primary" disabled={busy} style={{ minWidth: 200 }} onClick={save}>{busy ? "Saving…" : editing ? "Save" : "Add to calendar"}</button></>;
+    : <>{editing ? <button className="danger-o" onClick={() => setConfirmDel(true)}>Delete</button> : null}{editing ? <button onClick={() => openSheet({ mode: "event", draft: { ...t, id: "", occ: undefined } })}>Copy</button> : null}<button style={{ marginLeft: "auto" }} onClick={closeSheet}>Cancel</button><button className="primary" disabled={busy} style={{ minWidth: 200 }} onClick={() => save()}>{busy ? "Saving…" : editing ? "Save" : "Add to calendar"}</button></>;
   const sum = (
     <div className="evsum" aria-live="polite">
       <b>{t.title.trim() || "New event"}</b>{pick.length ? <> for {joinNames(pick.map(p => p.name))}</> : null}
       <span>{whenText}{repeatText}{t.location.trim() ? " · " + t.location.trim() : ""}</span>
+      {askScope ? <span className="clash">Change just the ones from {longDay(fromYmd(t.occ!.slice(0, 10)))} onwards, or all of them?</span> : null}
+      {clash.length ? <span className="clash">Overlaps {joinNames(clash.slice(0, 2).map(e => e.name + " (" + fmtT(e.s, h24) + ")"))}</span> : null}
     </div>
   );
   return <SheetFrame title={editing ? "Change event" : "New event"} body={body} foot={foot} error={err} sum={confirmDel ? undefined : sum} />;
@@ -330,6 +404,7 @@ function SheetBody({ sheet }: { sheet: Sheet }) {
     case "steps": return <StepsSheet k={sheet.key} />;
     case "dinner": return <DinnerSheet date={sheet.date} cook={sheet.cook} />;
     case "meals": return <MealsSheet />;
+    case "find": return <FindSheet />;
   }
 }
 

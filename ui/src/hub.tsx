@@ -7,7 +7,7 @@ import { DEMO_PEOPLE, type Person } from "./lib/events";
 export const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 15000, retry: false, refetchOnWindowFocus: false } } });
 
 export type Config = {
-  name: string; setup_done: boolean; hour24?: boolean; timezone?: string; remind_min?: number; holidays?: { country: string; region: string }; widgets: { id: string; url: string }[];
+  name: string; setup_done: boolean; hour24?: boolean; timezone?: string; remind_min?: number; share?: boolean; holidays?: { country: string; region: string }; widgets: { id: string; url: string }[];
   calendars: { id: string; name: string; color: string; site?: string }[]; pocketpals?: { connected?: boolean; tick?: boolean; url?: string };
   weather?: { connected: boolean; place: string; fahrenheit: boolean };
 };
@@ -26,10 +26,12 @@ export type Sheet =
   | { mode: "family"; back?: EventDraft }
   | { mode: "steps"; key: string }
   | { mode: "dinner"; date: string; cook: string | null }
-  | { mode: "meals" };
+  | { mode: "meals" }
+  | { mode: "find" };
 export type EventDraft = {
   id: string; occ?: string; title: string; location: string; allDay: boolean; sd: string; st: string; ned: string; net: string;
   people: string[]; freq: string; interval: number; days: string[]; untilOn: boolean; until: string;
+  notes: string; link: string; travel: number; checklist: string[]; icon: string; remind: number | null;
 };
 
 type Ctx = {
@@ -41,7 +43,7 @@ type Ctx = {
   choreDay: Date; setChoreDay: (d: Date) => void;
   showDone: boolean; setShowDone: (b: boolean) => void;
   sheet: Sheet | null; openSheet: (s: Sheet | null) => void; closeSheet: () => void;
-  toast: string; soon: (msg?: string) => void;
+  toast: string; toastAct: (() => void) | null; soon: (msg?: string, act?: () => void) => void;
   ppOn: boolean;
 };
 const HubCtx = createContext<Ctx | null>(null);
@@ -111,17 +113,18 @@ function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNod
   const [sheet, openSheet] = useState<Sheet | null>(null);
   const [toast, setToast] = useState("");
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const soon = useCallback((msg?: string) => {
-    setToast(typeof msg === "string" ? msg : "Coming soon");
-    clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(""), 1800);
+  const [toastAct, setToastAct] = useState<(() => void) | null>(null);
+  const soon = useCallback((msg?: string, act?: () => void) => {
+    setToast(typeof msg === "string" ? msg : "Coming soon"); setToastAct(act ? () => act : null);
+    clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => { setToast(""); setToastAct(null); }, act ? 8000 : 1800);     // an undo stays long enough to be reached
   }, []);
   const refreshState = useCallback(async () => { await qc.fetchQuery({ queryKey: ["state"], queryFn: () => api<HubState>("/api/state"), staleTime: 0 }); }, [qc]);
   const value = useMemo<Ctx>(() => ({
     S, people: DEMO && !S.people?.length ? DEMO_PEOPLE : S.people || [], h24: !!S.config.hour24, dim, now, refreshState,
     cal, setCal: f => setCalState(f), ovMode, setOvMode, menuWeek, setMenuWeek, choreDay, setChoreDay, showDone, setShowDone,
-    sheet, openSheet, closeSheet: () => openSheet(null), toast, soon,
+    sheet, openSheet, closeSheet: () => openSheet(null), toast, toastAct, soon,
     ppOn: DEMO || !!S.config.pocketpals?.connected,
-  }), [S, dim, now, refreshState, cal, ovMode, menuWeek, choreDay, showDone, sheet, toast, soon]);
+  }), [S, dim, now, refreshState, cal, ovMode, menuWeek, choreDay, showDone, sheet, toast, toastAct, soon]);
   return <HubCtx.Provider value={value}>{children}</HubCtx.Provider>;
 }
 

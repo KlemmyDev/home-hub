@@ -402,3 +402,25 @@ button:disabled{opacity:.55;pointer-events:none}
 @keyframes remin{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 .phone #remind{left:10px;right:10px}.phone .rem-what b{font-size:20px}.phone .rem-when{min-width:72px;font-size:19px}.phone .rem-x{display:none}
 .qadd{display:flex;gap:10px;margin-bottom:6px}.qadd input{flex:1;min-width:0;background:#f1f4f9;border-color:transparent}.qadd button{flex:none;padding:0 22px}
+
+/* settings home */
+.shome{display:flex;flex-direction:column;gap:14px}
+.settings .stile{display:flex;align-items:center;gap:18px;width:100%;min-height:104px;padding:16px 22px;border:0;border-radius:30px;background:#fff;box-shadow:0 1px 2px rgba(20,32,70,.05),0 10px 28px rgba(20,32,70,.06);text-align:left;color:var(--text);font-size:inherit}
+.stile .bi{width:60px;height:60px;border-radius:20px}.stt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.stt b{font-size:27px;font-weight:700;letter-spacing:-.03em}.stt small{font-size:18px;font-weight:500;color:var(--soft)}
+.stile svg:last-child{flex:none;color:#9aa3b5}
+.settings .shead .cnav{flex:none;padding:0;width:52px;height:52px;min-height:0;border-radius:50%}
+
+.toast.act{display:flex;align-items:center;gap:18px;padding-right:10px}.toast.act.on{pointer-events:auto}
+.toast-undo{min-height:48px;padding:0 22px;border-radius:999px;border:0;background:#c3f23f;color:#101828;font-weight:800;font-size:19px}
+
+.pill.ico{min-width:56px;padding:0 10px;font-size:26px;justify-content:center}.pill.ico:first-child{font-size:17px;padding:0 18px}
+.ckrow{justify-content:space-between;gap:12px;padding:6px 0 6px 4px;font-size:21px;font-weight:600;border-bottom:1px solid #edf0f5}.ckrow .cnav{width:48px;height:48px;font-size:28px;line-height:1}
+.again{gap:8px;flex-wrap:wrap;margin:10px 0 0}.again .pill{height:48px}
+.clash{display:block;color:#b45309;font-weight:700}
+
+.srow{display:flex;align-items:center;gap:16px;width:100%;min-height:76px;padding:8px 14px 8px 10px;margin-bottom:8px;border:0;border-radius:18px;background:#f6f8fb;text-align:left}
+.srow .sd{flex:none;width:64px;height:60px;border-radius:16px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}.srow .sd b{font-size:24px}.srow .sd small{font-size:14px;font-weight:700;color:#5a6478;text-transform:uppercase}
+.srow .sm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.srow .sm b{font-size:21px;font-weight:700;letter-spacing:-.02em;line-height:1.2}.srow .sm small{font-size:16px;font-weight:600;color:#5a6478;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.rem-when.go{min-width:132px;font-size:20px;line-height:1.1;text-align:center}.rem-ck{color:#fff!important;font-weight:700!important;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill.ico.on{background:var(--hub-soft);color:#101828;border-color:#101828;box-shadow:inset 0 0 0 1px #101828}

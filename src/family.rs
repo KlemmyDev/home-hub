@@ -64,6 +64,23 @@ pub struct HubEvent {
     /// Days of a repeating event that were skipped, written like `start`.
     #[serde(default)]
     pub skip: Vec<String>,
+    /// Free notes, and a link (like a map or a booking page).
+    #[serde(default)]
+    pub notes: String,
+    #[serde(default)]
+    pub link: String,
+    /// Minutes it takes to get there, so the reminder can say when to leave.
+    #[serde(default)]
+    pub travel: u32,
+    /// Things to take or do, one per line.
+    #[serde(default)]
+    pub checklist: Vec<String>,
+    /// A small picture for it: one emoji.
+    #[serde(default)]
+    pub icon: String,
+    /// Minutes before to remind. Empty: the hub's usual; 0: no reminder for this one.
+    #[serde(default)]
+    pub remind: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
@@ -121,6 +138,15 @@ impl HubEvent {
         }
         if self.location.chars().count() > 80 {
             return Err("The place is a bit long (up to 80 letters).");
+        }
+        if self.notes.chars().count() > 600 || self.link.chars().count() > 300 {
+            return Err("The notes or link are too long.");
+        }
+        if !self.link.is_empty() && !(self.link.starts_with("https://") || self.link.starts_with("http://")) {
+            return Err("A link should start with https://");
+        }
+        if self.travel > 480 || self.checklist.len() > 20 || self.checklist.iter().any(|c| c.chars().count() > 60) || self.icon.chars().count() > 8 || self.remind.is_some_and(|m| m > 1440) {
+            return Err("Something in the details is too long.");
         }
         let start = self.start_at().ok_or("That start time doesn't look right.")?;
         let end = if self.all_day {
@@ -243,6 +269,73 @@ impl Family {
         Ok(())
     }
 
+    /// Put an event back exactly as it was (for Undo): same id, skipped days and all.
+    pub fn restore_event(&mut self, ev: HubEvent) -> Result<(), &'static str> {
+        ev.check(&self.people)?;
+        if ev.id.is_empty() {
+            return Err("That event has no id.");
+        }
+        match self.events.iter().position(|e| e.id == ev.id) {
+            Some(i) => self.events[i] = ev,
+            None if self.events.len() >= MAX_EVENTS => return Err("That's a lot of events. Remove some old ones first."),
+            None => self.events.push(ev),
+        }
+        Ok(())
+    }
+
+    /// Every event and birthday as an iCal feed, so a phone's own calendar app can follow the hub (it only reads).
+    pub fn to_ics(&self) -> String {
+        let esc = |t: &str| t.replace('\\', "\\\\").replace(';', "\\;").replace(',', "\\,").replace('\n', "\\n");
+        let mut o = String::from("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Home Hub//EN\r\nCALSCALE:GREGORIAN\r\nX-WR-CALNAME:Home Hub\r\n");
+        let day = |d: NaiveDate| d.format("%Y%m%d").to_string();
+        for e in &self.events {
+            let Some(start) = e.start_at() else { continue };
+            let end = if e.all_day { parse_date(&e.end).map(|d| d + Duration::days(1)).map(|d| d.and_hms_opt(0, 0, 0).unwrap()) } else { parse_dt(&e.end) };
+            let Some(end) = end else { continue };
+            o.push_str(&format!("BEGIN:VEVENT\r\nUID:{}@home-hub\r\nDTSTAMP:20260101T000000Z\r\nSUMMARY:{}\r\n", e.id, esc(&format!("{} {}", e.icon, e.title).trim())));
+            if e.all_day {
+                o.push_str(&format!("DTSTART;VALUE=DATE:{}\r\nDTEND;VALUE=DATE:{}\r\n", day(start.date()), day(end.date())));
+            } else {
+                o.push_str(&format!("DTSTART:{}\r\nDTEND:{}\r\n", start.format("%Y%m%dT%H%M%S"), end.format("%Y%m%dT%H%M%S")));
+            }
+            if !e.location.is_empty() {
+                o.push_str(&format!("LOCATION:{}\r\n", esc(&e.location)));
+            }
+            let desc = [e.notes.clone(), e.link.clone()].into_iter().filter(|x| !x.is_empty()).collect::<Vec<_>>().join("\n");
+            if !desc.is_empty() {
+                o.push_str(&format!("DESCRIPTION:{}\r\n", esc(&desc)));
+            }
+            let r = &e.repeat;
+            if r.freq != "none" {
+                let mut rule = format!("FREQ={};INTERVAL={}", r.freq.to_ascii_uppercase(), r.interval.max(1));
+                if r.freq == "weekly" && !r.days.is_empty() {
+                    rule.push_str(&format!(";BYDAY={}", r.days.join(",")));
+                }
+                if let Some(u) = r.until.as_deref().filter(|u| !u.is_empty()).and_then(parse_date) {
+                    rule.push_str(&format!(";UNTIL={}", day(u + Duration::days(1))));
+                }
+                o.push_str(&format!("RRULE:{rule}\r\n"));
+                for k in &e.skip {
+                    if e.all_day {
+                        if let Some(d) = parse_date(k) {
+                            o.push_str(&format!("EXDATE;VALUE=DATE:{}\r\n", day(d)));
+                        }
+                    } else if let Some(n) = parse_dt(k) {
+                        o.push_str(&format!("EXDATE:{}\r\n", n.format("%Y%m%dT%H%M%S")));
+                    }
+                }
+            }
+            o.push_str("END:VEVENT\r\n");
+        }
+        for p in &self.people {
+            if let Some(b) = p.birthday.as_deref().and_then(parse_date) {
+                o.push_str(&format!("BEGIN:VEVENT\r\nUID:bday-{}@home-hub\r\nDTSTAMP:20260101T000000Z\r\nSUMMARY:{}\r\nDTSTART;VALUE=DATE:{}\r\nDTEND;VALUE=DATE:{}\r\nRRULE:FREQ=YEARLY\r\nEND:VEVENT\r\n", p.id, esc(&format!("{}'s birthday", p.name)), day(b), day(b + Duration::days(1))));
+            }
+        }
+        o.push_str("END:VCALENDAR\r\n");
+        o
+    }
+
     /// Add an event, or change the one with the same id. Returns its id.
     pub fn save_event(&mut self, mut ev: HubEvent) -> Result<String, &'static str> {
         ev.check(&self.people)?;
@@ -310,6 +403,25 @@ mod tests {
         assert!(f.birthdays(d(2026, 11, 6), d(2026, 12, 31)).is_empty());
         assert!(f.birthdays(d(2016, 1, 1), d(2016, 11, 4)).is_empty());
         assert!(f.set_people(vec![PersonIn { id: None, name: "X".into(), color: "#2f6fe0".into(), birthday: Some("soon".into()) }]).is_err());
+    }
+
+    #[test]
+    fn the_phone_feed_carries_repeats_and_skipped_days_and_undo_puts_it_all_back() {
+        let mut f = dad();
+        let mut e = ev(&f);
+        e.repeat = Repeat { freq: "weekly".into(), interval: 1, days: vec!["MO".into()], until: None };
+        e.notes = "Bring a towel, goggles".into();
+        let id = f.save_event(e).unwrap();
+        f.remove_event(&id, Some("2026-11-09T16:00:00")).unwrap();
+        let ics = f.to_ics();
+        assert!(ics.contains("RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO"), "{ics}");
+        assert!(ics.contains("EXDATE:20261109T160000"), "{ics}");
+        assert!(ics.contains("DESCRIPTION:Bring a towel\\, goggles"), "{ics}");
+        let before = f.events[0].clone();
+        f.remove_event(&id, None).unwrap();
+        assert!(f.events.is_empty());
+        f.restore_event(before.clone()).unwrap();
+        assert_eq!(f.events[0], before);
     }
 
     fn ev(f: &Family) -> HubEvent {

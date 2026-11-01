@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState
 import { flushSync } from "react-dom";
 import { addDays, clockT, dayDiff, fmtT, hourLabel, longDay, nowZ, sameDay, shortDate, startOfDay, weekStart, ymd } from "../lib/dates";
 import { calOf, colorsOf, onDay, peopleOf, timedOn, visibleTo, type Ev, type EvData, type Person } from "../lib/events";
-import { ChevL, ChevR } from "../lib/icons";
+import { ChevL, ChevR, SearchIcon } from "../lib/icons";
 import { DEMO } from "../lib/api";
 import { EMPTY_EVENTS, useEvents, usePrefetchEvents } from "../data";
 import { useHub, type CalView } from "../hub";
@@ -475,11 +475,13 @@ export function CalendarPanel() {
           <button className="cnav" aria-label="Forward" onClick={() => slide.current(1)}><ChevR /></button>
         </div>
         <div className="fx" style={{ gap: 8, flex: "none" }}>
+          {P ? null : <button className="cnav" aria-label="Search, or find a free time" onClick={() => openSheet({ mode: "find" })}><SearchIcon /></button>}
           {DEMO ? null : <button className="cbtn accent" id="c-new" aria-label="New event" style={{ padding: "0 22px" }} onClick={() => openSheet({ mode: "event", draft: newEventDraft(startOfDay(cal.mode === "month" ? nowZ() : cal.date), undefined, now, cal.who) })}>{P ? "+" : "+ New"}</button>}
           <button className="cbtn" style={{ background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={() => { morph(x => ({ ...x, date: nowZ() }), false); setNonce(n => n + 1); }}>Today</button>
         </div>
       </div>
       <div className="fx" style={{ gap: 8, padding: "0 0 10px", overflowX: "auto", scrollbarWidth: "none" }}>
+        {P ? <button className="cnav" style={{ flex: "none" }} aria-label="Search, or find a free time" onClick={() => openSheet({ mode: "find" })}><SearchIcon /></button> : null}
         {chip("", "Everyone")}{people.map(p => chip(p.id, p.name, p.color))}
         {DEMO ? null : <button className="pill" aria-label="Add or change family members" style={{ height: 48, fontSize: 16, padding: "0 18px" }} onClick={() => openSheet({ mode: "family" })}>+ Family</button>}
       </div>

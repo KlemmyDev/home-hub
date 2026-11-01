@@ -7,13 +7,13 @@ export const tint = (c: string) => c + "2b";
 export type Person = { id: string; name: string; color: string; birthday?: string };
 export type CalInfo = { id: string; name: string; color: string; ok: boolean; error?: string };
 export type Ev = {
-  id: string; title: string; location: string; all_day: boolean; cal?: string; hub?: boolean; fixed?: boolean; series?: string; people?: string[];
+  id: string; title: string; location: string; all_day: boolean; cal?: string; hub?: boolean; fixed?: boolean; notes?: string; link?: string; travel?: number; checklist?: string[]; icon?: string; remind?: number | null; name?: string; series?: string; people?: string[];
   start?: string; end?: string; s: Date; e: Date;
 };
 export type EvData = { list: Ev[]; cals: Record<string, CalInfo> };
 
 const dateOf = (s: string, allDay: boolean) => { if (allDay) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); } return s.endsWith("Z") ? toZoned(new Date(s)) : new Date(s); };      // an instant reads in the family's zone; a wall-clock time already does
-const prep = (e: any): Ev => ({ ...e, s: dateOf(e.start, e.all_day), e: dateOf(e.end, e.all_day) });
+const prep = (e: any): Ev => ({ ...e, name: e.title, title: e.icon ? e.icon + " " + e.title : e.title, s: dateOf(e.start, e.all_day), e: dateOf(e.end, e.all_day) });
 
 export function onDay(e: Ev, day: Date) {
   const a = startOfDay(day), b = addDays(a, 1);

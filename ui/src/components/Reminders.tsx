@@ -11,22 +11,22 @@ export function Reminders() {
   const [gone, setGone] = useState<string[]>([]);
   const day = startOfDay(now);
   const { data = EMPTY_EVENTS } = useEvents(day, addDays(day, 2));
-  if (!lead) return null;
   const soon = data.list
     .filter(e => !e.all_day && !gone.includes(e.id + e.start))
-    .map(e => ({ e, m: Math.ceil((+e.s - +now) / 60000) }))
-    .filter(x => x.m >= 0 && x.m <= lead)
+    .map(e => { const l = e.remind ?? lead, tr = e.travel || 0, m = Math.ceil((+e.s - +now) / 60000); return { e, m, tr, l, show: l > 0 && m >= 0 && m <= l + tr }; })
+    .filter(x => x.show)
     .sort((a, b) => a.m - b.m)
     .slice(0, 2);
   if (!soon.length) return null;
   return (
     <div id="remind" role="status" aria-live="polite" style={{ bottom: 120 + dim.sb }}>
-      {soon.map(({ e, m }) => {
+      {soon.map(({ e, m, tr }) => {
+        const leave = Math.max(0, m - tr), badge = tr ? (leave < 1 ? "Leave now" : `Leave in ${leave} min`) : m < 1 ? "Now" : m === 1 ? "1 min" : `${m} min`;
         const ps = peopleOf(e, people), c = colorsOf(e, data, people)[0];
         return (
           <button key={e.id + e.start} className="rem" style={{ "--rc": c } as CSSProperties} onClick={() => setGone(g => [...g, e.id + e.start])} aria-label={`${e.title}, ${m < 1 ? "starting now" : `in ${m} minutes`}. Tap to dismiss`}>
-            <span className="rem-when num">{m < 1 ? "Now" : m === 1 ? "1 min" : `${m} min`}</span>
-            <span className="rem-what"><b>{e.title}</b><small>{fmtT(e.s, h24)}{ps.length ? " · " + ps.map(p => p.name).join(", ") : ""}</small></span>
+            <span className={"rem-when num" + (tr ? " go" : "")}>{badge}</span>
+            <span className="rem-what"><b>{e.title}</b><small>{fmtT(e.s, h24)}{tr ? ` · ${tr} min to get there` : ""}{ps.length ? " · " + ps.map(p => p.name).join(", ") : ""}</small>{e.checklist?.length ? <small className="rem-ck">Take: {e.checklist.join(" · ")}</small> : null}</span>
             <span className="rem-x" aria-hidden>Got it</span>
           </button>
         );

@@ -71,7 +71,7 @@ function Dock() {
 }
 
 export function Stage() {
-  const { dim, sheet, toast, closeSheet } = useHub();
+  const { dim, sheet, toast, toastAct, closeSheet, soon } = useHub();
   const page = usePage();
   const style = { "--s": dim.s, "--W": dim.W + "px", "--H": dim.H + "px", "--st": dim.st + "px", "--sb": dim.sb + "px" } as CSSProperties;
   return (
@@ -87,7 +87,7 @@ export function Stage() {
         <Dock />
         <div id="sheetscrim" onClick={closeSheet} />
         <SheetHost />
-        <div id="toast" className={"toast" + (toast ? " on" : "")} role="status">{toast || "Coming soon"}</div>
+        <div id="toast" className={"toast" + (toast ? " on" : "") + (toastAct ? " act" : "")} role="status">{toast || "Coming soon"}{toastAct ? <button className="toast-undo" onClick={() => { toastAct(); soon(""); }}>Undo</button> : null}</div>
       </div>
     </div>
   );

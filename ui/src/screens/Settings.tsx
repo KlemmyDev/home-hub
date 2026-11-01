@@ -6,7 +6,7 @@ import { clockIn, deviceZone } from "../lib/dates";
 import { FamilyEditor } from "../components/Family";
 import { useHub } from "../hub";
 import { useNav } from "../nav";
-import { DockIcon } from "../lib/icons";
+import { ChevL, ChevR, DockIcon } from "../lib/icons";
 
 const TINT: Record<string, [string, string]> = { clock: ["#e6edfb", "#1d4ed8"], chores: ["#ece8fe", "#5b3bf0"], family: ["#fde8ef", "#d6336c"], weather: ["#fff3d6", "#d98a00"], calendar: ["#e1f5ec", "#14a06c"], update: ["#eef1f6", "#101828"] };
 const Box = ({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) => {
@@ -69,9 +69,36 @@ function Time() {
         <Seg items={[["12", "12-hour (3:30pm)"], ["24", "24-hour (15:30)"]]} value={h24 ? "24" : "12"} onPick={async v => { try { await post("/api/clock", { hour24: v === "24" }); await refreshState(); } catch { /* keep the old choice */ } }} />
       </Box>
       <Zone />
-      <Reminders />
-      <Holidays />
     </>
+  );
+}
+
+/** A private link so a phone's own calendar app can follow the hub's events (it only reads them). */
+function Share() {
+  const { S, refreshState } = useHub();
+  const [link, setLink] = useState(""), [err, setErr] = useState(""), [copied, setCopied] = useState(false);
+  const on = !!S.config.share;
+  const change = async (turnOn: boolean) => {
+    try { const r = await post("/api/share", { on: turnOn }); setLink(turnOn ? `${location.origin}/api/share/${r.token}.ics` : ""); setErr(""); setCopied(false); await refreshState(); }
+    catch (e: any) { setErr(e.message || "Couldn't do that."); }
+  };
+  const copy = async () => { try { await navigator.clipboard.writeText(link); setCopied(true); } catch { (document.getElementById("share-link") as HTMLInputElement | null)?.select(); } };
+  return (
+    <Box title="Phone calendar link" icon="calendar">
+      <p>Add the hub's events to a phone's own calendar app (Google, Apple or Outlook: choose <em>add by link</em> or <em>subscribe</em>). It only reads, so nothing on the phone changes the hub. The phone has to reach the hub's address, like at home.</p>
+      {link ? (
+        <>
+          <input id="share-link" readOnly value={link} onFocus={e => e.currentTarget.select()} aria-label="Calendar link" style={{ userSelect: "text" }} />
+          <div className="row" style={{ marginTop: 12 }}><button className="primary" onClick={copy}>{copied ? "Copied" : "Copy the link"}</button></div>
+          <p style={{ fontSize: 16 }}>Keep it private: anyone with the link can read the family's events. This is the only time it is shown.</p>
+        </>
+      ) : null}
+      <div className="row" style={{ marginTop: 12 }}>
+        {on ? <><button onClick={() => change(true)}>Make a new link</button><button onClick={() => change(false)}>Turn off</button></> : <button className="primary" onClick={() => change(true)}>Turn on</button>}
+      </div>
+      {on && !link ? <p style={{ fontSize: 16 }}>The link is on. Make a new one to see it again; the old one then stops working.</p> : null}
+      {err ? <div className="err" role="alert">{err}</div> : null}
+    </Box>
   );
 }
 
@@ -240,18 +267,46 @@ function Updates() {
   );
 }
 
+type Section = "general" | "calendar" | "family" | "apps" | "about";
+const SECTIONS: { id: Section; title: string; about: string; icon: string }[] = [
+  { id: "general", title: "General", about: "Clock, time zone and weather", icon: "clock" },
+  { id: "calendar", title: "Calendar", about: "Calendars, reminders and holidays", icon: "calendar" },
+  { id: "family", title: "Family", about: "Who is in the family, and birthdays", icon: "family" },
+  { id: "apps", title: "Apps", about: "PocketPals and the widgets on the screen", icon: "chores" },
+  { id: "about", title: "Updates", about: "Version and new releases", icon: "update" },
+];
+
+/** Settings are grouped: a home list of sections, and each section opens on its own page with a way back. */
 export function Settings() {
   const { go } = useNav();
+  const [open, setOpen] = useState<Section | null>(() => { try { return (sessionStorage.getItem("settings-section") as Section) || null; } catch { return null; } });
+  const pick = (v: Section | null) => { setOpen(v); try { v ? sessionStorage.setItem("settings-section", v) : sessionStorage.removeItem("settings-section"); } catch { /* fine without it */ } document.getElementById("setlayer")?.scrollTo({ top: 0 }); };
+  const sec = SECTIONS.find(x => x.id === open);
   return (
     <div className="page settings">
-      <header className="shead"><div><h1>Settings</h1><p className="lead">Everything for your hub in one place.</p></div><button className="primary" onClick={() => go("overview")}>Done</button></header>
-      <Time />
-      <PocketPals />
-      <Box title="Family" icon="family"><FamilyEditor /></Box>
-      <Weather />
-      <Calendars />
-      <Updates />
-      <div className="row"><button onClick={() => go("setup")}>Change widgets</button></div>
+      <header className="shead">
+        {sec ? <button className="cnav" aria-label="Back to all settings" onClick={() => pick(null)}><ChevL /></button> : null}
+        <div style={{ flex: 1, minWidth: 0 }}><h1>{sec ? sec.title : "Settings"}</h1><p className="lead">{sec ? sec.about : "Everything for your hub in one place."}</p></div>
+        <button className="primary" onClick={() => { try { sessionStorage.removeItem("settings-section"); } catch { /* fine */ } go("overview"); }}>Done</button>
+      </header>
+      {!sec ? (
+        <nav className="shome" aria-label="Settings sections">
+          {SECTIONS.map(x => {
+            const [bg, fg] = TINT[x.icon] || TINT.update;
+            return (
+              <button key={x.id} className="stile" onClick={() => pick(x.id)}>
+                <span className="bi" style={x.icon === "chores" ? undefined : { background: bg, color: fg }}><DockIcon name={x.icon} size={26} /></span>
+                <span className="stt"><b>{x.title}</b><small>{x.about}</small></span>
+                <ChevR />
+              </button>
+            );
+          })}
+        </nav>
+      ) : open === "general" ? <><Time /><Weather /></>
+        : open === "calendar" ? <><Calendars /><Reminders /><Holidays /><Share /></>
+        : open === "family" ? <Box title="Family" icon="family"><FamilyEditor /></Box>
+        : open === "apps" ? <><PocketPals /><div className="row"><button onClick={() => go("setup")}>Change widgets</button></div></>
+        : <Updates />}
     </div>
   );
 }

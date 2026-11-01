@@ -7,6 +7,7 @@ const Svg = ({ size, w = 2.6, children }: { size: number; w?: number; children: 
 export const Chev = () => <Svg size={16}><path d="M9 5l7 7-7 7" /></Svg>;
 export const ChevL = () => <Svg size={22}><path d="M15 5l-7 7 7 7" /></Svg>;
 export const ChevR = () => <Svg size={22}><path d="M9 5l7 7-7 7" /></Svg>;
+export const SearchIcon = () => <Svg size={24}><circle cx="11" cy="11" r="6.5" /><path d="M16 16l5 5" /></Svg>;
 export const XIcon = () => <Svg size={26}><path d="M6 6l12 12M18 6L6 18" /></Svg>;
 export const Check = () => <Svg size={18} w={3.4}><path d="M5 12.5l4.5 4.5L19 7.5" /></Svg>;
 export const GridIcon = () => <svg className="i-open" width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">{[6, 12, 18].flatMap(y => [6, 12, 18].map(x => <circle key={x + "," + y} cx={x} cy={y} r="1.8" />))}</svg>;
