@@ -150,8 +150,6 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 .sn{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .sx{width:52px;height:52px;min-height:0;padding:0;border:0;border-radius:50%;background:none;color:#8a93a6;display:flex;align-items:center;justify-content:center;flex:none}
 .phone .stk{font-size:20px;min-height:56px}
-.cband:empty{display:none}
-.cband{padding:0 0 6px}
 .jrow{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-top:1px solid #edf0f5}
 .jkid{display:flex;align-items:center;gap:7px;width:112px;flex:none;line-height:44px;font-size:17px}
 .jkid i{width:12px;height:12px;border-radius:50%;background:var(--kc);flex:none}
@@ -170,10 +168,9 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 .jchip.stp .jc small{font-size:11px;font-weight:800;color:var(--kc);letter-spacing:-.02em}
 .jchip .jw{font-size:12px;font-weight:700;color:#8a5200;background:#fdefd3;border-radius:999px;padding:2px 8px;flex:none}
 .jchip[data-locked]:not(.done){opacity:.6}
-.kpill{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;font-size:14px;font-weight:650;color:#101828}
-.kpill i{width:9px;height:9px;border-radius:50%;flex:none}
-.kpill.sm{height:24px;padding:0 7px;font-size:12px;gap:4px;margin-bottom:3px}
-.kcell{min-height:0;padding:0 2px;border:0;border-radius:0;background:none;display:flex;flex-direction:column;align-items:center;color:inherit}
+.jnote{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-size:17px;font-weight:600;color:#6b7488}
+.jnote.ok{color:#14a06c}
+.dtoggle{min-height:40px;padding:0 16px;border-radius:999px;border:1.5px solid #d5dbe6;background:#fff;font-size:15px;font-weight:650;color:#5a6478}
 .kcard{border:1.5px solid #edf0f5;border-radius:22px;padding:14px 16px;margin-bottom:12px}
 .ov::-webkit-scrollbar{display:none}
 .ov>*{flex:none}
@@ -373,7 +370,7 @@ async function loadOverview() {
   const mon = weekStart(new Date());
   const today = startOfDay(new Date());
   await Promise.all([loadRange(mon, addDays(mon, 7)), loadDinners(), loadChores(today, today)]);
-  drawToday(); drawDinner();
+  drawToday(); drawDinner(); drawChoresCard();
 }
 /* The Overview's week view: the days side by side, each with its events stacked underneath. */
 function weekRows(mon, now) {
@@ -396,7 +393,6 @@ function drawToday() {
     return `<button class="wd" data-day="${i}" style="border:0;background:none;border-radius:0" aria-label="${esc(day.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}))}"><span style="font-size:13px;font-weight:700;letter-spacing:.06em;color:${today ? "#101828" : "#8a93a6"}">${w}</span><span class="num fx" style="width:44px;height:44px;border-radius:50%;justify-content:center;font-size:21px;font-weight:700;${today ? "background:#101828;color:#fff" : "color:" + (i >= 5 ? "#8a93a6" : "#101828")}">${day.getDate()}</span><span class="fx" style="gap:4px;height:6px">${dotHtml(dotsFor(day))}</span></button>`;
   }).join("");
   const todays = EV.list.filter(e => onDay(e, now) && (e.all_day || e.e > now || (+e.e === +e.s && e.s >= now)));
-  const jobsToday = ppOn() ? jobRows(now, {}) : "";
   const shown = todays.slice(0, 3), rest = todays.slice(3);
   const hasCals = true;      // events can be added right on the hub, so the calendar is always there
   const bad = Object.values(EV.cals).find(c => !c.ok);
@@ -424,7 +420,7 @@ function drawToday() {
     </div>
     ${wk ? `<div style="margin-top:8px">${weekRows(mon, now)}</div>`
          : `<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;margin-top:14px;padding-bottom:12px;border-bottom:1px solid #edf0f5">${strip}</div>
-    ${body}${jobsToday ? `<div class="cap" style="margin:6px 0 2px">Chores</div>${jobsToday}` : ""}`}
+    ${body}`}
     <div class="fx" style="justify-content:space-between;gap:14px;border-top:1px solid #edf0f5;padding-top:12px;margin-top:2px">
       <span style="font-size:16px;font-weight:500;color:${bad ? "#b3321f" : "#6b7488"};min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${bad ? "Can't reach " + esc(bad.name) : wk ? (weekCount ? `${weekCount} on this week` : "A quiet week") : later}</span>
       <button data-open="${wk ? "week" : "day"}" class="fx" style="gap:6px;flex:none;height:44px;min-height:0;padding:0 18px;border-radius:999px;border:0;background:#101828;color:#fff;font-size:16px;font-weight:650">Open calendar${CHEV}</button>
@@ -434,7 +430,6 @@ function drawToday() {
   el.querySelectorAll("[data-wday]").forEach(b => b.onclick = () => openCal("day", addDays(mon, +b.dataset.wday)));
   const wc = el.querySelector(".wcols"), td = el.querySelector(".wcol.today");
   if (wc && td && DIM.phone) wc.scrollLeft = Math.max(0, td.offsetLeft - 8);
-  bindJobs(el);
   el.querySelectorAll("[data-ovmode]").forEach(b => b.onclick = () => { view.ovMode = b.dataset.ovmode; drawToday(); });
 }
 
@@ -458,7 +453,7 @@ const PANELS = {
   calendar: {card: "calcard", inner: "calin", from: () => boxIn($("today")), draw: () => drawCal(), load: () => loadCal()},
   menu: {card: "menucard", inner: "menuin", from: () => boxIn($("dinner")), draw: () => drawMenu(), load: () => loadMenu()},
   shopping: {card: "shopcard", inner: "shopin", from: () => dockBox(), draw: () => drawShop(), load: () => loadShop()},
-  chores: {card: "chorecard", inner: "chorein", from: () => dockBox(), draw: () => drawChoresPanel(), load: () => loadChoresPanel()},
+  chores: {card: "chorecard", inner: "chorein", from: () => ($("chorescard") && !$("chorescard").hidden ? boxIn($("chorescard")) : dockBox()), draw: () => drawChoresPanel(), load: () => loadChoresPanel()},
 };
 const dockBox = () => ({l: DIM.phone ? 16 : 28, t: DIM.H - (DIM.phone ? 16 : 28) - DIM.sb - 76, w: 76, h: 76});   // the round menu button
 function openPanel(name) {
@@ -514,11 +509,7 @@ function calStep(n) {
   view.date = view.mode === "day" ? addDays(d, n) : view.mode === "week" ? addDays(d, 7 * n) : new Date(d.getFullYear(), d.getMonth() + n, 1);
   loadCal();
 }
-async function loadCal() {
-  const [a, b] = calRange();
-  await Promise.all([loadRange(a, b), view.mode === "month" ? 0 : loadChores(a, addDays(b, -1))]);
-  drawCal();
-}
+async function loadCal() { await loadRange(...calRange()); drawCal(); }
 function calTitle() {
   const d = view.date;
   const w = DIM.phone ? "short" : "long";
@@ -635,7 +626,7 @@ function agendaHtml() {
       const c = colorsOf(e)[0], who = peopleOf(e).map(p => esc(p.name)).join(" · ") || esc(calOf(e).name);
       return `<button class="evb" data-eid="${esc(e.id)}" style="position:relative;width:100%;background:${esc(tint(c))};padding:8px 12px 8px 16px;margin-bottom:6px"><span style="position:absolute;left:0;top:0;bottom:0;width:6px;background:${esc(c)}"></span><div class="fx" style="justify-content:space-between;gap:10px"><span style="font-size:19px;font-weight:700;letter-spacing:-.02em;min-width:0">${esc(e.title)}</span><span class="num" style="font-size:15px;font-weight:600;color:#3a4358;flex:none">${e.all_day ? "All day" : fmtT(e.s)}</span></div>${who ? `<div style="font-size:14px;font-weight:600;color:#3a4358;margin-top:2px">${who}</div>` : ""}</button>`;
     }).join("") : `<div style="font-size:16px;color:#6b7488;padding:12px 0 14px">Nothing on</div>`;
-    return `<div style="display:grid;grid-template-columns:58px 1fr;gap:10px;padding:10px 0 4px;border-top:1px solid #edf0f5"><button data-day="${+day}" aria-label="${esc(day.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}))}" style="border:0;background:none;padding:0;min-height:0;display:flex;flex-direction:column;align-items:center;align-self:start;gap:2px"><span style="font-size:12px;font-weight:700;letter-spacing:.06em;color:#6b7488">${esc(day.toLocaleDateString([], {weekday: "short"}).toUpperCase())}</span><span class="num" style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;${today ? "background:#101828;color:#fff" : ""}">${day.getDate()}</span></button><div>${list}${kidProgress(day) ? `<div class="fx" style="gap:6px;flex-wrap:wrap;margin-bottom:8px">${kidProgress(day)}</div>` : ""}</div></div>`;
+    return `<div style="display:grid;grid-template-columns:58px 1fr;gap:10px;padding:10px 0 4px;border-top:1px solid #edf0f5"><button data-day="${+day}" aria-label="${esc(day.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}))}" style="border:0;background:none;padding:0;min-height:0;display:flex;flex-direction:column;align-items:center;align-self:start;gap:2px"><span style="font-size:12px;font-weight:700;letter-spacing:.06em;color:#6b7488">${esc(day.toLocaleDateString([], {weekday: "short"}).toUpperCase())}</span><span class="num" style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;${today ? "background:#101828;color:#fff" : ""}">${day.getDate()}</span></button><div>${list}</div></div>`;
   }).join("");
   return `<div class="scroll" style="flex:1;min-height:0">${rows}</div>`;
 }
@@ -655,10 +646,10 @@ function drawCal() {
   const now = new Date(), d = startOfDay(view.date);
   let body;
   if (view.mode === "day") {
-    body = dayHead(Array.from({length: 7}, (_, i) => addDays(weekStart(d), i)), 0, DIM.phone ? 40 : 44) + alldayHtml([d], DIM.phone ? 48 : 60) + `<div class="cband">${jobRows(d, {big: false})}</div>` + (DIM.phone ? `<div class="scroll gscroll" style="flex:1;min-height:0">${gridHtml([d], 48, true)}</div>` : gridHtml([d], 60, true));
+    body = dayHead(Array.from({length: 7}, (_, i) => addDays(weekStart(d), i)), 0, DIM.phone ? 40 : 44) + alldayHtml([d], DIM.phone ? 48 : 60) + (DIM.phone ? `<div class="scroll gscroll" style="flex:1;min-height:0">${gridHtml([d], 48, true)}</div>` : gridHtml([d], 60, true));
   } else if (view.mode === "week") {
     const w = weekStart(d), days = Array.from({length: 7}, (_, i) => addDays(w, i));
-    body = DIM.phone ? agendaHtml() : dayHead(days, 52, 44) + alldayHtml(days, 52) + choresWeekRow(days, 52) + gridHtml(days, 52, false);
+    body = DIM.phone ? agendaHtml() : dayHead(days, 52, 44) + alldayHtml(days, 52) + gridHtml(days, 52, false);
   } else body = monthHtml();
   const chip = (id, label, color) => `<button class="pill${(view.who || "") === id ? " on" : ""}" data-who="${esc(id)}" style="height:40px;font-size:15px;padding:0 16px">${color ? `<i style="width:10px;height:10px;border-radius:50%;background:${esc(color)}"></i>` : ""}${esc(label)}</button>`;
   el.innerHTML = `<div style="display:flex;flex-direction:column;width:100%;height:100%;padding:${DIM.phone ? "14px 14px" : "18px 18px"} 0">
@@ -696,7 +687,6 @@ function drawCal() {
     if (b.classList.contains("gcol")) return;
     b.onclick = () => { view.date = new Date(+b.dataset.day); view.mode = "day"; loadCal(); };
   });
-  bindJobs(el);
   el.querySelectorAll("[data-eid]").forEach(b => b.onclick = ev => { ev.stopPropagation(); const e = EV.list.find(x => x.id === b.dataset.eid); if (e) openEvent(e); });
   el.querySelectorAll(".gcol").forEach(c => c.onclick = ev => {
     if (DEMO) return;
@@ -917,34 +907,47 @@ function bindJobs(root) {
   root.querySelectorAll("[data-steps]").forEach(b => b.onclick = ev => { ev.stopPropagation(); openSteps(b); });
 }
 function repaintChores() {
-  drawToday();
-  if (view.page === "calendar") drawCal();
+  drawChoresCard();
   if (view.page === "chores") drawChoresPanel();
 }
 async function refreshChores() {
   if (!ppOn()) return;
   const today = startOfDay(new Date());
-  if (view.page === "calendar") { if (view.mode !== "month") { const [a, b] = calRange(); await loadChores(a, addDays(b, -1)); drawCal(); } }
-  else if (view.page === "chores") loadChoresPanel();
+  if (view.page === "chores") loadChoresPanel();
   else if (view.page === "overview") { await loadChores(today, today); drawToday(); }
 }
-/* One day's jobs, a row for each child. */
+/* One day's jobs, a row for each child: what's left to do. Done and waiting ones hide until asked for. */
+view.showDone = false;
+const jobCounts = day => { let left = 0, done = 0; for (const g of jobsByKid(day)) for (const j of g.jobs) jobDone(j) ? done++ : left++; return {left, done}; };
 function jobRows(day, opts) {
-  const P = DIM.phone, groups = jobsByKid(day);
-  if (!groups.length) return "";
+  const P = DIM.phone, groups = jobsByKid(day), big = opts && opts.big;
   return groups.map(g => {
-    const c = kidColor(g.kid), [n, t] = jobTally(g.jobs), todo = g.jobs.filter(j => !jobDone(j)), more = opts && opts.max && todo.length > opts.max;
-    const list = g.away ? `<span style="font-size:17px;font-weight:600;color:#6b7488;line-height:44px">Away today</span>`
-      : (opts && opts.max ? [...todo.slice(0, opts.max), ...(todo.length ? [] : g.jobs.slice(0, 1))] : g.jobs).map(j => jobChip(j, day, c, opts && opts.big)).join("")
-        + (more ? `<span style="font-size:16px;font-weight:700;color:#5a6478;line-height:44px">+${todo.length - opts.max} more</span>` : "");
+    const c = kidColor(g.kid), [n, t] = jobTally(g.jobs), todo = g.jobs.filter(j => !jobDone(j)), got = g.jobs.filter(jobDone);
+    const shown = view.showDone ? g.jobs : todo;
+    const list = g.away ? `<span class="jnote">Away today</span>`
+      : shown.map(j => jobChip(j, day, c, big)).join("") || `<span class="jnote ok">${CHECK} All done${got.length ? ` · ${got.length}` : ""}</span>`;
     return `<div class="jrow"><span class="jkid" style="--kc:${esc(c)}"><i></i><b>${esc(g.kid.name)}</b>${g.away ? "" : `<small class="num">${n}/${t}</small>`}</span><div class="fx" style="gap:8px;flex-wrap:wrap;flex:1;min-width:${P ? "100%" : "0"}">${list}</div></div>`;
   }).join("");
 }
-const kidProgress = day => jobsByKid(day).filter(g => g.jobs.length).map(g => { const [n, t] = jobTally(g.jobs); return `<span class="kpill" style="background:${esc(tint(kidColor(g.kid)))}"><i style="background:${esc(kidColor(g.kid))}"></i>${esc(g.kid.name)} <span class="num">${n}/${t}</span></span>`; }).join("");
-function choresWeekRow(days, gutter) {
-  if (!ppOn() || !days.some(d => jobsByKid(d).length)) return "";
-  const cells = days.map(d => `<button data-day="${+d}" class="kcell">${jobsByKid(d).filter(g => g.jobs.length).map(g => { const [n, t] = jobTally(g.jobs); return `<span class="kpill sm" style="background:${esc(tint(kidColor(g.kid)))}"><i style="background:${esc(kidColor(g.kid))}"></i>${esc(g.kid.name.slice(0, 2))} <span class="num">${n}/${t}</span></span>`; }).join("")}</button>`).join("");
-  return `<div class="fx" style="align-items:flex-start;padding:0 0 8px"><span style="width:${gutter - 10}px;text-align:right;font-size:12px;font-weight:700;letter-spacing:.04em;color:#6b7488;flex:none;line-height:26px">CHORES</span><div style="flex:1;margin-left:10px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr))">${cells}</div></div>`;
+const doneToggle = (day, id) => { const {done} = jobCounts(day); return done ? `<button class="dtoggle" id="${id}" aria-pressed="${view.showDone}">${view.showDone ? "Hide done" : `Show done · ${done}`}</button>` : ""; };
+
+/* The Overview's Chores card: today's jobs for each child. */
+function drawChoresCard() {
+  const el = $("chorescard");
+  if (!el) return;
+  if (!ppOn()) { el.hidden = true; return; }
+  const today = startOfDay(new Date()), {left, done} = jobCounts(today), groups = jobsByKid(today);
+  el.hidden = false;
+  const body = groups.length ? jobRows(today, {})
+    : `<div style="padding:14px 0 6px;font-size:19px;font-weight:600;color:#6b7488">${CH.error ? "Can't reach PocketPals" : "No jobs today"}</div>`;
+  el.innerHTML = `<div class="fx" style="justify-content:space-between;gap:12px;margin-bottom:4px">
+      <div class="fx" style="gap:12px;align-items:baseline"><span style="font-size:32px;font-weight:700;letter-spacing:-.04em">Chores</span><span class="num" style="font-size:16px;font-weight:700;color:${left ? "#1d4ed8" : "#14a06c"}">${groups.length ? (left ? `${left} to do` : "All done") : ""}</span></div>
+      <button class="cbtn" id="ch-open" style="background:#fff;color:#101828;border:1.5px solid #d5dbe6;padding:0 18px">All chores${CHEV}</button>
+    </div>${body}
+    ${done ? `<div class="fx" style="margin-top:8px">${doneToggle(today, "ch-done")}</div>` : ""}`;
+  $("ch-open").onclick = () => openPanel("chores");
+  const t = $("ch-done"); if (t) t.onclick = () => { view.showDone = !view.showDone; repaintChores(); };
+  bindJobs(el);
 }
 
 /* ---------- Chores screen ---------- */
@@ -958,7 +961,8 @@ function drawChoresPanel() {
   const label = day.toLocaleDateString([], {weekday: P ? "short" : "long", day: "numeric", month: P ? "short" : "long"});
   const kids = groups.length ? groups.map(g => {
     const c = kidColor(g.kid), [n, t] = jobTally(g.jobs), slots = {};
-    const body = g.away ? `<div style="font-size:19px;color:#6b7488;padding:6px 0 4px">Away today, so no jobs.</div>` : g.jobs.map(j => jobChip(j, day, c, true)).join("");
+    const todo = g.jobs.filter(j => !jobDone(j)), shown = view.showDone ? g.jobs : todo;
+    const body = g.away ? `<div style="font-size:19px;color:#6b7488;padding:6px 0 4px">Away today, so no jobs.</div>` : shown.map(j => jobChip(j, day, c, true)).join("") || `<span class="jnote ok" style="font-size:19px">${CHECK} All done</span>`;
     return `<section class="kcard"><div class="fx" style="gap:12px;margin-bottom:10px"><i style="width:14px;height:14px;border-radius:50%;background:${esc(c)};flex:none"></i><span style="font-size:${P ? 24 : 30}px;font-weight:700;letter-spacing:-.03em">${esc(g.kid.name)}</span>${g.away ? "" : `<span class="num" style="margin-left:auto;font-size:18px;font-weight:700;color:#5a6478">${n} of ${t}</span>`}</div>${g.away ? "" : `<div style="height:8px;border-radius:4px;background:#e7ebf2;margin-bottom:12px"><div style="width:${t ? Math.round(n / t * 100) : 0}%;height:100%;border-radius:4px;background:${esc(c)};transition:width .3s"></div></div>`}<div class="fx" style="gap:8px;flex-wrap:wrap">${body}</div></section>`;
   }).join("") : `<div style="padding:50px 0;text-align:center"><div style="font-size:26px;font-weight:700;letter-spacing:-.02em">${CH.error ? "Can't reach PocketPals" : "No jobs this day"}</div><div style="font-size:18px;color:#6b7488;margin-top:6px">${esc(CH.error || "Nothing is set for anyone.")}</div></div>`;
   el.innerHTML = `<div style="display:flex;flex-direction:column;width:100%;height:100%;padding:${P ? "14px 14px" : "18px 18px"} 0">
@@ -968,7 +972,7 @@ function drawChoresPanel() {
     </div>
     <div class="fx" style="justify-content:space-between;padding:0 0 12px;gap:10px">
       <div class="fx" style="gap:10px;min-width:0"><button class="cnav" id="h-prev" aria-label="Back">${CHEV_L}</button><span style="font-size:${P ? 21 : 28}px;font-weight:700;letter-spacing:-.04em;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(label)}</span><button class="cnav" id="h-next" aria-label="Forward">${CHEV_R}</button></div>
-      ${isToday ? "" : `<button class="cbtn" id="h-today" style="background:#fff;color:#101828;border:1.5px solid #d5dbe6">Today</button>`}
+      <div class="fx" style="gap:8px">${doneToggle(day, "h-done")}${isToday ? "" : `<button class="cbtn" id="h-today" style="background:#fff;color:#101828;border:1.5px solid #d5dbe6">Today</button>`}</div>
     </div>
     <div class="scroll" style="flex:1;min-height:0">${kids}</div>
     <div class="fx" style="flex:none;height:84px;padding:0 4px 0 82px"><span style="font-size:16px;font-weight:600;color:#6b7488">Ticks wait for a grown-up to check them in PocketPals.</span></div>
@@ -976,6 +980,7 @@ function drawChoresPanel() {
   const step = n => { view.choreDay = addDays(day, n); loadChoresPanel(); };
   $("h-prev").onclick = () => step(-1); $("h-next").onclick = () => step(1);
   const t = $("h-today"); if (t) t.onclick = () => { view.choreDay = new Date(); loadChoresPanel(); };
+  const d = $("h-done"); if (d) d.onclick = () => { view.showDone = !view.showDone; drawChoresPanel(); };
   bindJobs(el);
 }
 
@@ -1177,10 +1182,13 @@ const DOCK_ICONS = {
   calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
   menu: '<path d="M7 3v8M5 3v5a2 2 0 004 0V3M7 11v10M17 3c-2 2-3 4-3 7 0 2 1 3 3 3v8"/>',
   shopping: '<path d="M3 4h2l2.4 11h10.2L20 7H6.2"/><circle cx="9" cy="19.5" r="1.4"/><circle cx="17" cy="19.5" r="1.4"/>',
-  chores: '<circle cx="12" cy="12" r="9"/><path d="M7.5 12.5l3 3 6-6.5"/>',
-  energy: '<path d="M13 3L5 14h6l-1 7 8-11h-6l1-7z"/>',
 };
-const dkIcon = (n, s = 24) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${DOCK_ICONS[n]}</svg>`;
+/* The PocketPals and WattsMyPower dock buttons wear each app's own favicon. */
+const FAV = {
+  chores: z => `<svg width="${z}" height="${z}" viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="27" fill="#5b3bf0"/><circle cx="76" cy="31" r="16" fill="#ffc21a"/><circle cx="30" cy="43" r="13.5" fill="#fff" stroke="#2a1590" stroke-width="5"/><circle cx="90" cy="43" r="13.5" fill="#fff" stroke="#2a1590" stroke-width="5"/><circle cx="30" cy="43" r="6" fill="#ffb3c6"/><circle cx="90" cy="43" r="6" fill="#ffb3c6"/><path d="M27 45 H93 Q103 45 103 55 V81 Q103 87.5 97 90.5 L66 105 Q60 107.8 54 105 L23 90.5 Q17 87.5 17 81 V55 Q17 45 27 45 Z" fill="#fff" stroke="#2a1590" stroke-width="5" stroke-linejoin="round"/><circle cx="45" cy="70" r="6.5" fill="#1c1a33"/><circle cx="75" cy="70" r="6.5" fill="#1c1a33"/><path d="M52 80 Q60 88 68 80" fill="none" stroke="#1c1a33" stroke-width="5" stroke-linecap="round"/></svg>`,
+  energy: z => `<svg width="${z}" height="${z}" viewBox="0 0 30 30" aria-hidden="true"><rect width="30" height="30" rx="9" fill="#141414"/><path d="M16.6 6.8 L9.2 16.2 H14.4 L13.4 23.2 L20.8 13.8 H15.6 Z" fill="#ffb547"/></svg>`,
+};
+const dkIcon = (n, s = 24) => FAV[n] ? FAV[n](s + 6) : `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${DOCK_ICONS[n]}</svg>`;
 const GRID_ICON = `<svg class="i-open" width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="6" cy="6" r="1.8"/><circle cx="12" cy="6" r="1.8"/><circle cx="18" cy="6" r="1.8"/><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/><circle cx="6" cy="18" r="1.8"/><circle cx="12" cy="18" r="1.8"/><circle cx="18" cy="18" r="1.8"/></svg>`;
 function dockItems() {
   const url = id => (S.config.widgets.find(w => w.id === id) || {}).url;
@@ -1252,10 +1260,11 @@ function drawBody() {      // the Overview cards (the calendar has its own layer
   body.innerHTML = `
     <button class="tile-card fx dinner" id="dinner" aria-label="Dinner tonight. Open the dinners" style="gap:18px;padding:18px 26px 18px 18px;background:#ffeadf;border:0;min-height:0;width:100%;text-align:left;color:inherit;border-radius:30px"></button>
     <section id="today" class="tile-card" style="padding:22px 26px 16px"></section>
+    <section id="chorescard" class="tile-card" style="padding:20px 26px 16px" hidden></section>
     ${cards ? `<div class="wgrid" style="display:grid;grid-template-columns:repeat(${c.widgets.length},minmax(0,1fr));gap:10px">${cards}</div>`
             : `<div class="tile-card" style="padding:22px;display:flex;flex-direction:column;justify-content:center;text-align:center"><div style="font-size:30px;font-weight:700;letter-spacing:-.03em">No apps added yet</div><div style="font-size:19px;color:#6b7488;margin-top:6px">Tap the cog to add PocketPals or WattsMyPower.</div></div>`}
 `;
-  drawToday(); drawDinner(); loadOverview(); poll();
+  drawToday(); drawDinner(); drawChoresCard(); loadOverview(); poll();
 }
 async function poll() {
   try {
