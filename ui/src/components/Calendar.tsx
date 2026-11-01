@@ -87,16 +87,42 @@ function Grid({ days, gutter, big, c }: { days: Date[]; gutter: number; big: boo
   );
 }
 
-/** The hours scroll; a new day starts an hour above now (or at 8 in the morning). */
-function Scroller({ keyed, anchorHour, big, children }: { keyed: string; anchorHour: number; big: boolean; children: React.ReactNode }) {
+/** Eases a scroller to a place, frame by frame (the browser's own smooth scroll is too quick and can't be tuned). */
+function glideTo(box: HTMLElement, to: number, ms: number) {
+  const from = box.scrollTop, t0 = performance.now();
+  const step = (t: number) => {
+    const k = Math.min(1, (t - t0) / ms), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;     // ease in and out
+    box.scrollTop = from + (to - from) * e;
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/** The hours scroll. Opening the calendar (or tapping Today) glides down to an hour above now; another day just starts at 8 in the morning. */
+function Scroller({ keyed, anchorHour, big, opening, children }: { keyed: string; anchorHour: number; big: boolean; opening: { current: boolean }; children: React.ReactNode }) {
   const { dim } = useHub();
   const el = useRef<HTMLDivElement>(null);
-  const last = useRef<{ key: string; top: number }>({ key: "", top: 0 });
+  const last = useRef({ key: "", top: 0, glideUntil: 0, timer: undefined as ReturnType<typeof setTimeout> | undefined });
+  const [day, nonce] = [keyed.split(":")[0], keyed.split(":")[1]];
+  const prev = useRef({ day: "", nonce: "" });
   useLayoutEffect(() => {
-    if (!el.current) return;
-    if (last.current.key !== keyed) last.current = { key: keyed, top: Math.max(0, (anchorHour - 1) * HOUR_PX(big, dim.phone)) };
-    el.current.scrollTop = last.current.top;
+    const box = el.current, l = last.current;
+    if (!box) return;
+    if (l.key !== keyed) {
+      const top = Math.max(0, (anchorHour - 1) * HOUR_PX(big, dim.phone));
+      const first = l.key === "" && opening.current, glide = (first || (prev.current.day === day && prev.current.nonce !== nonce)) && !matchMedia("(prefers-reduced-motion: reduce)").matches && top > 0;
+      opening.current = false;
+      l.key = keyed; l.top = top; prev.current = { day, nonce };
+      clearTimeout(l.timer);
+      if (glide) {
+        const wait = first ? 500 : 0;          // let the calendar finish growing first
+        l.glideUntil = Date.now() + wait + 900;
+        box.scrollTop = first ? 0 : box.scrollTop;
+        l.timer = setTimeout(() => glideTo(box, top, 800), wait);
+      } else box.scrollTop = top;
+    } else if (Date.now() > l.glideUntil) box.scrollTop = l.top;
   });
+  useLayoutEffect(() => () => clearTimeout(last.current.timer), []);
   return <div ref={el} className="scroll gscroll" style={{ flex: 1, minHeight: 0 }} onScroll={e => { last.current.top = e.currentTarget.scrollTop; }}>{children}</div>;
 }
 
@@ -231,6 +257,7 @@ export function CalendarPanel() {
   const [from, to] = calRange(cal);
   const { data = EMPTY_EVENTS } = useEvents(from, to);
   const [nonce, setNonce] = useState(0);
+  const opening = useRef(true);      // true until the first screenful has settled, so only opening the calendar glides
   const list = data.list.filter(e => visibleTo(e, cal.who));
   const c: Ctx = {
     data, list, people, h24,
@@ -279,8 +306,8 @@ export function CalendarPanel() {
       </div>
       {cal.mode === "month" ? <Month c={c} />
         : cal.mode === "week" && P ? <Agenda c={c} />
-        : cal.mode === "week" ? <><DayHead days={weekOf} size={44} gutter={52} /><AllDay days={weekOf} gutter={52} c={c} /><Scroller keyed={key} anchorHour={anchor(weekOf)} big={false}><Grid days={weekOf} gutter={52} big={false} c={c} /></Scroller></>
-        : <><DayHead days={weekOf} size={P ? 40 : 44} gutter={0} /><AllDay days={[d]} gutter={P ? 48 : 60} c={c} /><Scroller keyed={key} anchorHour={anchor([d])} big><Grid days={[d]} gutter={P ? 48 : 60} big c={c} /></Scroller></>}
+        : cal.mode === "week" ? <><DayHead days={weekOf} size={44} gutter={52} /><AllDay days={weekOf} gutter={52} c={c} /><Scroller keyed={key} anchorHour={anchor(weekOf)} big={false} opening={opening}><Grid days={weekOf} gutter={52} big={false} c={c} /></Scroller></>
+        : <><DayHead days={weekOf} size={P ? 40 : 44} gutter={0} /><AllDay days={[d]} gutter={P ? 48 : 60} c={c} /><Scroller keyed={key} anchorHour={anchor([d])} big opening={opening}><Grid days={[d]} gutter={P ? 48 : 60} big c={c} /></Scroller></>}
       <div className="fx" style={{ flex: "none", height: 140, padding: "8px 4px 0", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
         <div style={{ minWidth: 0 }}>
           {nextEv ? (() => { const m = Math.round((+nextEv.s - +now) / 60000); return (
