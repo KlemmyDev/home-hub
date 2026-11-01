@@ -67,6 +67,9 @@ struct Config {
     /// Show times like 15:30 instead of 3:30pm.
     #[serde(default)]
     hour24: bool,
+    /// The family's time zone, like "Australia/Brisbane". Empty: use the screen's own.
+    #[serde(default)]
+    timezone: String,
     /// The key from PocketPals' You page (Developers). A secret: never sent back to the screen. It works with the
     /// PocketPals widget's address.
     #[serde(default)]
@@ -149,6 +152,7 @@ async fn main() {
         .route("/api/setup", post(setup))
         .route("/api/calendars", post(save_calendars))
         .route("/api/clock", post(save_clock))
+        .route("/api/timezone", post(save_timezone))
         .route("/api/events", get(events))
         .route("/api/pocketpals/connect", post(pp_connect))
         .route("/api/pocketpals/disconnect", post(pp_disconnect))
@@ -307,7 +311,7 @@ async fn state(State(app): Shared) -> Json<Value> {
     Json(json!({
         "version": VERSION,
         "people": people,
-        "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars, "hour24": config.hour24, "pocketpals": pocketpals_json(&config), "weather": {"connected": !config.weather_place.is_empty(), "place": config.weather_place, "fahrenheit": config.weather_f}},
+        "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars, "hour24": config.hour24, "timezone": config.timezone, "pocketpals": pocketpals_json(&config), "weather": {"connected": !config.weather_place.is_empty(), "place": config.weather_place, "fahrenheit": config.weather_f}},
         "catalog": catalog_json(),
     }))
 }
@@ -355,6 +359,24 @@ struct ClockBody {
 
 async fn save_clock(State(app): Shared, Json(body): Json<ClockBody>) -> impl IntoResponse {
     let config = Config { hour24: body.hour24, ..app.config.read().await.clone() };
+    if save(&app, config).await.is_err() {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
+    }
+    StatusCode::NO_CONTENT.into_response()
+}
+
+#[derive(Deserialize)]
+struct ZoneBody {
+    timezone: String,
+}
+
+/// Set the family's time zone (a name from the tz database), or clear it to follow the screen's own.
+async fn save_timezone(State(app): Shared, Json(body): Json<ZoneBody>) -> impl IntoResponse {
+    let zone = body.timezone.trim().to_string();
+    if !zone.is_empty() && zone.parse::<chrono_tz::Tz>().is_err() {
+        return (StatusCode::BAD_REQUEST, "That isn't a time zone we know.").into_response();
+    }
+    let config = Config { timezone: zone, ..app.config.read().await.clone() };
     if save(&app, config).await.is_err() {
         return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
     }

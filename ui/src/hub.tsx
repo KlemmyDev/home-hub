@@ -1,13 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, DEMO } from "./lib/api";
-import { addDays, startOfDay, weekStart } from "./lib/dates";
+import { addDays, nowZ, setZone, startOfDay, weekStart } from "./lib/dates";
 import { DEMO_PEOPLE, type Person } from "./lib/events";
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 15000, retry: false, refetchOnWindowFocus: false } } });
 
 export type Config = {
-  name: string; setup_done: boolean; hour24?: boolean; widgets: { id: string; url: string }[];
+  name: string; setup_done: boolean; hour24?: boolean; timezone?: string; widgets: { id: string; url: string }[];
   calendars: { id: string; name: string; color: string; site?: string }[]; pocketpals?: { connected?: boolean; tick?: boolean; url?: string };
   weather?: { connected: boolean; place: string; fahrenheit: boolean };
 };
@@ -50,10 +50,10 @@ export const useHub = () => { const c = useContext(HubCtx); if (!c) throw new Er
 export const useHubState = () => useQuery({ queryKey: ["state"], queryFn: () => api<HubState>("/api/state"), staleTime: Infinity });
 
 export function useNow() {
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(() => nowZ());
   useEffect(() => {
     let t: ReturnType<typeof setTimeout>;
-    const tick = () => { const d = new Date(); setNow(d); t = setTimeout(tick, 60000 - (d.getSeconds() * 1000 + d.getMilliseconds())); };
+    const tick = () => { const d = nowZ(); setNow(d); t = setTimeout(tick, 60000 - (d.getSeconds() * 1000 + d.getMilliseconds())); };
     t = setTimeout(tick, 60000 - (now.getSeconds() * 1000 + now.getMilliseconds()));
     return () => clearTimeout(t);
   }, []);
@@ -90,13 +90,14 @@ function useKeepAwake() {
 }
 
 function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNode; probe: React.RefObject<HTMLDivElement | null>; dim: Dim }) {
+  setZone(S.config.timezone || "");      // before anything reads the time
   const qc = useQueryClient();
   const now = useNow();
   useKeepAwake();
-  const [cal, setCalState] = useState<CalView>({ mode: "day", date: new Date(), who: null });
+  const [cal, setCalState] = useState<CalView>({ mode: "day", date: nowZ(), who: null });
   const [ovMode, setOvMode] = useState<"day" | "week">("day");
-  const [menuWeek, setMenuWeek] = useState(() => new Date());
-  const [choreDay, setChoreDay] = useState(() => new Date());
+  const [menuWeek, setMenuWeek] = useState(() => nowZ());
+  const [choreDay, setChoreDay] = useState(() => nowZ());
   const [showDone, setShowDone] = useState(false);
   const [sheet, openSheet] = useState<Sheet | null>(null);
   const [toast, setToast] = useState("");
@@ -110,7 +111,7 @@ function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNod
     S, people: DEMO && !S.people?.length ? DEMO_PEOPLE : S.people || [], h24: !!S.config.hour24, dim, now, refreshState,
     cal, setCal: f => setCalState(f), ovMode, setOvMode, menuWeek, setMenuWeek, choreDay, setChoreDay, showDone, setShowDone,
     sheet, openSheet, closeSheet: () => openSheet(null), toast, soon,
-    ppOn: !DEMO && !!S.config.pocketpals?.connected,
+    ppOn: DEMO || !!S.config.pocketpals?.connected,
   }), [S, dim, now, refreshState, cal, ovMode, menuWeek, choreDay, showDone, sheet, toast, soon]);
   return <HubCtx.Provider value={value}>{children}</HubCtx.Provider>;
 }
@@ -132,4 +133,4 @@ function Loader({ children }: { children: (S: HubState | null, failed: boolean) 
 }
 
 export const ONE_WEEK = (d: Date) => { const m = weekStart(d); return [m, addDays(m, 7)] as const; };
-export const TODAY = () => startOfDay(new Date());
+export const TODAY = () => startOfDay(nowZ());

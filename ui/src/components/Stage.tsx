@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "rea
 import { useHub, type Dim } from "../hub";
 import { useNav, usePage, type Page } from "../nav";
 import { DockIcon } from "../lib/icons";
+import { nowZ } from "../lib/dates";
 import { CalendarPanel } from "./Calendar";
 import { ChoresPanel } from "./Chores";
 import { Overview } from "./Overview";
@@ -60,7 +61,7 @@ function Dock() {
           const on = to === "page" && id === page;
           const inner = on ? <><DockIcon name={id} size={22} /><span className="lb">{name}</span></> : <DockIcon name={id} />;
           return to === "page"
-            ? <button key={id} id={"dk-" + id} className={"dk" + (on ? " on" : "")} aria-label={name} aria-current={on ? "page" : undefined} onClick={() => id === "calendar" ? (page === "calendar" ? undefined : openCal(cal.mode, new Date())) : go(id as Page | "settings")}>{inner}</button>
+            ? <button key={id} id={"dk-" + id} className={"dk" + (on ? " on" : "")} aria-label={name} aria-current={on ? "page" : undefined} onClick={() => id === "calendar" ? (page === "calendar" ? undefined : openCal(cal.mode, nowZ())) : go(id as Page | "settings")}>{inner}</button>
             : <a key={id} className="dk" href={to} aria-label={name}>{inner}</a>;
         })}
       </div>

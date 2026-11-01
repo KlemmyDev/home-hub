@@ -326,3 +326,60 @@ button:disabled{opacity:.55;pointer-events:none}
 .planned{display:flex;align-items:center;gap:16px;margin-top:14px;padding:14px;border-radius:26px;background:var(--hub-soft)}
 .medit{margin-top:14px;padding:14px;border-radius:26px;background:#f6f8fb}
 .phone .mgrid{grid-template-columns:1fr}
+
+/* Chores, in PocketPals' own spirit: springy, chunky, a little sparkly */
+@keyframes ppRise{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes ppPop{0%{transform:scale(.3)}55%{transform:scale(1.3)}100%{transform:scale(1)}}
+@keyframes ppFlowR{from{opacity:0;transform:translateX(70px)}to{opacity:1;transform:none}}
+@keyframes ppFlowL{from{opacity:0;transform:translateX(-70px)}to{opacity:1;transform:none}}
+@keyframes ppBob{0%,100%{transform:translateY(0) rotate(-1.5deg)}50%{transform:translateY(-6px) rotate(1.5deg)}}
+@keyframes ppFill{from{width:0}}
+@keyframes ppArc{from{stroke-dashoffset:var(--C)}}
+@keyframes ppStar{0%{opacity:1;transform:rotate(var(--a)) translateY(-6px) scale(.4)}100%{opacity:0;transform:rotate(var(--a)) translateY(-44px) scale(1.15)}}
+@keyframes ppTwinkle{0%,100%{opacity:.18}50%{opacity:.5}}
+.pprise{animation:ppRise .6s cubic-bezier(.3,1.35,.5,1) calc(var(--i,0) * 90ms) backwards}
+.ppflowr{animation:ppFlowR .45s cubic-bezier(.2,.9,.3,1) backwards}
+.ppflowl{animation:ppFlowL .45s cubic-bezier(.2,.9,.3,1) backwards}
+.ppbob{animation:ppBob 4.6s ease-in-out infinite}
+.ppbadge-pop{display:inline-flex;align-items:center;gap:6px;animation:ppPop .5s cubic-bezier(.3,1.5,.5,1)}
+.ppcheck{display:flex;animation:ppPop .45s cubic-bezier(.3,1.5,.5,1)}
+.ppstar{display:inline-flex;animation:ppPop .6s cubic-bezier(.3,1.5,.5,1),ppBob 3s ease-in-out .6s infinite}
+.ppsparkle{position:absolute;inset:0;pointer-events:none;border-radius:inherit;background-image:radial-gradient(circle,rgba(255,255,255,.9) 1.4px,transparent 2px),radial-gradient(circle,rgba(255,255,255,.8) 1px,transparent 1.6px);background-size:140px 120px,90px 100px;background-position:20px 30px,60px 70px;animation:ppTwinkle 4.2s ease-in-out infinite}
+.ppcard>*:not(.ppsparkle){position:relative}
+.ppring{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.ppring svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.ppring-arc{transition:stroke-dashoffset .9s cubic-bezier(.3,1.3,.5,1);animation:ppArc 1s cubic-bezier(.3,1.2,.5,1) .25s backwards}
+.ppring-in{display:flex}
+.ppini{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:30px}
+.ppav{width:68px;height:68px}
+.ppk{padding:10px 14px 10px 6px}
+.ptrack{height:14px;box-shadow:inset 0 2px 3px rgba(60,40,140,.12)}
+.ppfill{transition:width .8s cubic-bezier(.3,1.3,.5,1);animation:ppFill 1s cubic-bezier(.3,1.2,.5,1) .2s backwards}
+.ppsum{margin:0 4px;padding:14px 18px 16px;border-radius:26px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);box-shadow:0 5px 0 rgba(20,14,70,.22);position:relative}
+.ppsumtrack{height:14px;border-radius:7px;background:rgba(20,14,70,.28);margin-top:10px;overflow:hidden}
+.ppsumtrack>div{height:100%;border-radius:7px;background:linear-gradient(90deg,#ffe98a,#ffc21a);transition:width .8s cubic-bezier(.3,1.3,.5,1);animation:ppFill 1.1s cubic-bezier(.3,1.2,.5,1) .3s backwards}
+.ppnav{background:rgba(255,255,255,.18)!important;border:1px solid rgba(255,255,255,.35)!important;color:#fff!important}
+.ppbtn{background:#fff;color:#4e2fe0;border:0;font-weight:800;box-shadow:0 4px 0 rgba(20,14,70,.28);transition:transform .35s cubic-bezier(.3,1.5,.5,1),box-shadow .2s}
+.ppbtn:active{transform:translateY(3px) scale(.97);box-shadow:0 1px 0 rgba(20,14,70,.28)}
+.jchip{position:relative;box-shadow:0 3px 0 rgba(23,19,58,.14);transition:transform .35s cubic-bezier(.3,1.5,.5,1),background-color .25s ease,box-shadow .2s}
+.jchip:active{transform:translateY(3px) scale(.97);box-shadow:0 0 0 rgba(23,19,58,.14)}
+.jchip .jc{transition:background-color .25s ease,border-color .25s ease}
+.ppburst{position:absolute;left:30px;top:50%;width:0;height:0;pointer-events:none;z-index:3}
+.ppburst i{position:absolute;left:-6px;top:-6px;display:block;animation:ppStar .7s cubic-bezier(.2,.8,.3,1) forwards}
+.ppbadge{display:inline-flex;align-items:center;gap:6px}
+#chorecard{position:absolute}
+.phone .ppring{transform:scale(.88)}
+
+/* Settings: time zone picker */
+.zcur{display:flex;align-items:center;gap:16px;padding:14px 18px;border-radius:24px;background:var(--hub-soft)}
+.zt{font-family:"Comfortaa","Onest",sans-serif;font-size:40px;font-weight:700;letter-spacing:-.06em;line-height:1}
+.zn{display:flex;flex-direction:column;min-width:0}.zn b{font-size:21px;letter-spacing:-.02em}.zn small{font-size:16px;font-weight:600;color:#5a6478}
+.zlist{margin-top:8px}
+.settings .zrow{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:64px;padding:0 18px;border-radius:20px;border:0;background:none;text-align:left;transition:background-color .2s ease,transform .15s ease}
+.settings .zrow:active{transform:scale(.99)}
+.settings .zrow.on{background:var(--hub-soft)}
+.zrn{display:flex;flex-direction:column;min-width:0}.zrn b{font-size:20px;letter-spacing:-.02em}.zrn small{font-size:15px;font-weight:600;color:#6b7488}
+.zrt{font-size:20px;font-weight:700;flex:none}
+.settings .zdev{margin-top:10px;background:#fff;border:1.5px solid #d5dbe6;color:#101828;min-height:52px;font-size:17px}
+.kpal .ppini{border-radius:50%;font-size:58px;border:6px solid #fff;box-shadow:0 6px 0 rgba(20,14,70,.28),0 14px 26px rgba(20,14,70,.2)}
+.phone .kpal .ppini{font-size:42px;border-width:5px}

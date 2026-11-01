@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DEMO, post } from "../lib/api";
-import { addDays, clockT, longDay, sameDay, shortDate, startOfDay, weekStart, ymd } from "../lib/dates";
+import { addDays, clockT, longDay, nowZ, sameDay, shortDate, startOfDay, weekStart, ymd } from "../lib/dates";
 import { Check, Chev, ChevL, ChevR, XIcon } from "../lib/icons";
 import { dinnerFor, useDinners, useShopping } from "../data";
 import { useHub } from "../hub";
@@ -63,7 +63,7 @@ export function MenuPanel() {
           <button className="cnav" aria-label="Forward" onClick={() => setMenuWeek(addDays(w, 7))}><ChevR /></button>
         </div>
         <div className="fx" style={{ gap: 8, flex: "none" }}>
-          {thisWeek ? null : <button className="cbtn" style={{ background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={() => setMenuWeek(new Date())}>This week</button>}
+          {thisWeek ? null : <button className="cbtn" style={{ background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={() => setMenuWeek(nowZ())}>This week</button>}
           <button className="cbtn accent" hidden={DEMO} style={{ padding: "0 20px" }} onClick={() => openSheet({ mode: "meals" })}>{P ? "Ideas" : "Dinner ideas"}{din?.meals.length ? " · " + din.meals.length : ""}</button>
         </div>
       </div>

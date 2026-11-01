@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, post } from "../lib/api";
 import { PALETTE } from "../lib/events";
+import { clockIn, deviceZone } from "../lib/dates";
 import { FamilyEditor } from "../components/Family";
 import { useHub } from "../hub";
 import { useNav } from "../nav";
@@ -17,13 +18,58 @@ const Seg = ({ items, value, onPick }: { items: [string, string][]; value: strin
   <div className="seg">{items.map(([v, label]) => <button key={v} className={"sg big" + (v === value ? " on" : "")} onClick={() => onPick(v)}>{label}</button>)}</div>
 );
 
+const COMMON_ZONES = ["Australia/Brisbane", "Australia/Sydney", "Australia/Melbourne", "Australia/Adelaide", "Australia/Perth", "Australia/Darwin", "Australia/Hobart", "Pacific/Auckland", "Europe/London", "America/New_York", "America/Los_Angeles"];
+const allZones = (): string[] => { try { return (Intl as any).supportedValuesOf("timeZone") as string[]; } catch { return COMMON_ZONES; } };
+const zoneName = (z: string) => { const [region, ...rest] = z.split("/"), city = (rest.pop() || region).replace(/_/g, " "); return rest.length || region !== city ? { city, region: region.replace(/_/g, " ") } : { city, region: "" }; };
+
+/** Pick the family's time zone by searching for a city, and see what time it is there before choosing. */
+function Zone() {
+  const { S, h24 } = useHub();
+  const [q, setQ] = useState(""), [err, setErr] = useState(""), [busy, setBusy] = useState(false);
+  const current = S.config.timezone || "", device = deviceZone();
+  const shown = (() => {
+    const t = q.trim().toLowerCase().replace(/\s+/g, "_");
+    if (!t) return COMMON_ZONES;
+    return allZones().filter(z => z.toLowerCase().includes(t)).slice(0, 8);
+  })();
+  const choose = async (z: string) => {
+    setBusy(true); setErr("");
+    try { await post("/api/timezone", { timezone: z }); location.reload(); }      // reload so every screen reads the new zone from the start
+    catch (e: any) { setErr(e.message || "Couldn't save that."); setBusy(false); }
+  };
+  const label = (z: string) => { const n = zoneName(z); return n.region ? `${n.city}, ${n.region}` : n.city; };
+  return (
+    <Box title="Time zone" icon="clock">
+      <p>Every time on the hub follows this, whatever the tablet's own clock says. Pick it if event times look wrong.</p>
+      <div className="zcur">
+        <span className="zt num">{clockIn(current || device, h24)}</span>
+        <span className="zn"><b>{current ? label(current) : "The tablet's own zone"}</b><small>{current ? "Set for the whole hub" : device ? `Following ${label(device)}` : "Following the tablet"}</small></span>
+      </div>
+      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search for your city, like Brisbane or London" autoComplete="off" aria-label="Search time zones" style={{ marginTop: 14 }} />
+      <div className="zlist">
+        {shown.length ? shown.map(z => (
+          <button key={z} className={"zrow" + (z === current ? " on" : "")} disabled={busy} onClick={() => choose(z)}>
+            <span className="zrn"><b>{zoneName(z).city}</b><small>{zoneName(z).region}</small></span>
+            <span className="num zrt">{clockIn(z, h24)}</span>
+          </button>
+        )) : <p style={{ margin: "10px 0 0" }}>Nothing matches that. Try the name of a big city nearby.</p>}
+      </div>
+      {current ? <button className="zdev" disabled={busy} onClick={() => choose("")}>Follow the tablet's own zone{device ? ` (${label(device)})` : ""}</button> : null}
+      {err ? <div className="err" role="alert">{err}</div> : null}
+    </Box>
+  );
+}
+
 function Time() {
   const { h24, refreshState } = useHub();
   return (
-    <Box title="Time" icon="clock">
-      <p>How should the clock and event times look?</p>
-      <Seg items={[["12", "12-hour (3:30pm)"], ["24", "24-hour (15:30)"]]} value={h24 ? "24" : "12"} onPick={async v => { try { await post("/api/clock", { hour24: v === "24" }); await refreshState(); } catch { /* keep the old choice */ } }} />
-    </Box>
+    <>
+      <Box title="Time" icon="clock">
+        <p>How should the clock and event times look?</p>
+        <Seg items={[["12", "12-hour (3:30pm)"], ["24", "24-hour (15:30)"]]} value={h24 ? "24" : "12"} onPick={async v => { try { await post("/api/clock", { hour24: v === "24" }); await refreshState(); } catch { /* keep the old choice */ } }} />
+      </Box>
+      <Zone />
+    </>
   );
 }
 

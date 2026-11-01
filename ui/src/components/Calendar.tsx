@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { flushSync } from "react-dom";
-import { addDays, clockT, dayDiff, fmtT, hourLabel, longDay, sameDay, shortDate, startOfDay, weekStart, ymd } from "../lib/dates";
+import { addDays, clockT, dayDiff, fmtT, hourLabel, longDay, nowZ, sameDay, shortDate, startOfDay, weekStart, ymd } from "../lib/dates";
 import { calOf, colorsOf, onDay, peopleOf, timedOn, visibleTo, type Ev, type EvData, type Person } from "../lib/events";
 import { ChevL, ChevR } from "../lib/icons";
 import { DEMO } from "../lib/api";
@@ -337,7 +337,7 @@ function calTitle(cal: CalView, phone: boolean) {
     const a = weekStart(d), b = addDays(a, 6), m = (x: Date) => x.toLocaleDateString([], { month: w });
     return a.getMonth() === b.getMonth() ? `${a.getDate()} to ${b.getDate()} ${m(b)}` : `${a.getDate()} ${m(a)} to ${b.getDate()} ${m(b)}`;
   }
-  return d.toLocaleDateString([], { month: "long", year: phone && d.getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
+  return d.toLocaleDateString([], { month: "long", year: phone && d.getFullYear() === nowZ().getFullYear() ? undefined : "numeric" });
 }
 
 const MODES = ["day", "week", "month"] as const;
@@ -438,8 +438,8 @@ export function CalendarPanel() {
           <button className="cnav" aria-label="Forward" onClick={() => slide.current(1)}><ChevR /></button>
         </div>
         <div className="fx" style={{ gap: 8, flex: "none" }}>
-          {DEMO ? null : <button className="cbtn accent" id="c-new" aria-label="New event" style={{ padding: "0 22px" }} onClick={() => openSheet({ mode: "event", draft: newEventDraft(startOfDay(cal.mode === "month" ? new Date() : cal.date), undefined, now, cal.who) })}>{P ? "+" : "+ New"}</button>}
-          <button className="cbtn" style={{ background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={() => { morph(x => ({ ...x, date: new Date() }), false); setNonce(n => n + 1); }}>Today</button>
+          {DEMO ? null : <button className="cbtn accent" id="c-new" aria-label="New event" style={{ padding: "0 22px" }} onClick={() => openSheet({ mode: "event", draft: newEventDraft(startOfDay(cal.mode === "month" ? nowZ() : cal.date), undefined, now, cal.who) })}>{P ? "+" : "+ New"}</button>}
+          <button className="cbtn" style={{ background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={() => { morph(x => ({ ...x, date: nowZ() }), false); setNonce(n => n + 1); }}>Today</button>
         </div>
       </div>
       <div className="fx" style={{ gap: 8, padding: "0 0 10px", overflowX: "auto", scrollbarWidth: "none" }}>

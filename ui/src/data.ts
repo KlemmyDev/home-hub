@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, DEMO, post } from "./lib/api";
-import { addDays, startOfDay, weekStart, ymd } from "./lib/dates";
+import { addDays, nowZ, startOfDay, weekStart, ymd } from "./lib/dates";
 import { fetchEvents, type EvData } from "./lib/events";
 import { useHub } from "./hub";
 
@@ -28,7 +28,7 @@ function demoDinners(): Dinners {
   const names = ["Spaghetti Bolognese", "Fish and chips", "Chicken curry", "Tacos", "Homemade pizza", "Roast chicken", ""];
   const extra = ["Sausages and mash", "Beef stir fry", "Mac and cheese", "Pumpkin soup", "Pancakes", "Burgers", "Lasagne", "Sushi night"];
   const meals = [...names.filter(Boolean), ...extra].map((name, i) => ({ id: "m" + i, name }));
-  const w = weekStart(startOfDay(new Date())), plan: Dinners["plan"] = {};
+  const w = weekStart(startOfDay(nowZ())), plan: Dinners["plan"] = {};
   names.forEach((n, i) => { if (n) plan[ymd(addDays(w, i))] = { meal: "m" + i, cook: ["d", "m", "a", "d", "m", "d", ""][i] || undefined }; });
   return { meals, plan };
 }
@@ -50,11 +50,25 @@ export type ChoreDay = { date: string; jobs: Job[]; away?: number[] };
 export type Chores = { kids: Kid[]; tick: boolean; error: string; days: Record<string, ChoreDay> };
 export const NO_CHORES: Chores = { kids: [], tick: false, error: "", days: {} };
 
+/** Sample jobs for ?demo, so the chores screens can be seen without PocketPals. */
+function demoChores(from: Date, to: Date): Chores {
+  const kids: Kid[] = [{ id: 1, name: "Kid one", species: "fox" }, { id: 2, name: "Kid two", species: "owl" }, { id: 3, name: "Kid three", species: "frog" }];
+  const plan: [number, string, string | null][][] = [
+    [[1, "Make your bed", "pending"], [1, "Brush teeth", "pending"], [1, "Feed the dog", null], [1, "Set the table", null], [2, "Homework", "approved"], [2, "Pack school bag", "pending"], [2, "Empty the dishwasher", null], [3, "Water the plants", null], [3, "Tidy your room", null]],
+  ];
+  const days: ChoreDay[] = [];
+  for (let d = startOfDay(from); d <= startOfDay(to); d = addDays(d, 1)) {
+    const jobs: Job[] = plan[0].map(([kid_id, title, status], i) => ({ kid_id, chore_id: i + 1, title, status, tickable: true, ...(title === "Tidy your room" ? { steps: [{ id: 1, title: "Toys in the box", done: true }, { id: 2, title: "Books on the shelf", done: false }, { id: 3, title: "Clothes in the basket", done: false }], steps_left: 2, steps_tickable: true } : {}) }));
+    days.push({ date: ymd(d), jobs, away: [] });
+  }
+  return { kids, tick: true, error: "", days: Object.fromEntries(days.map(d => [d.date, d])) };
+}
 export function useChores(from: Date, to: Date) {
   const { ppOn } = useHub();
   return useQuery<Chores>({
     queryKey: ["chores", ymd(from), ymd(to)], enabled: ppOn, refetchInterval: 60000,     // jobs ticked elsewhere show up within a minute
     queryFn: async () => {
+      if (DEMO) return demoChores(from, to);
       const r = await api(`/api/chores?from=${ymd(from)}&to=${ymd(to)}`);
       if (!r.connected) return NO_CHORES;
       if (r.error) return { ...NO_CHORES, error: r.error };

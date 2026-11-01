@@ -1,5 +1,5 @@
 import { api, DEMO } from "./api";
-import { addDays, startOfDay } from "./dates";
+import { addDays, fromZoned, startOfDay, toZoned } from "./dates";
 
 export const PALETTE = ["#2f6fe0", "#e2523f", "#14a06c", "#e5487f", "#7b5cf0", "#f59e0b", "#0ea5b7"];
 export const tint = (c: string) => c + "2b";
@@ -12,7 +12,7 @@ export type Ev = {
 };
 export type EvData = { list: Ev[]; cals: Record<string, CalInfo> };
 
-const dateOf = (s: string, allDay: boolean) => { if (allDay) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); } return new Date(s); };
+const dateOf = (s: string, allDay: boolean) => { if (allDay) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); } return s.endsWith("Z") ? toZoned(new Date(s)) : new Date(s); };      // an instant reads in the family's zone; a wall-clock time already does
 const prep = (e: any): Ev => ({ ...e, s: dateOf(e.start, e.all_day), e: dateOf(e.end, e.all_day) });
 
 export function onDay(e: Ev, day: Date) {
@@ -54,7 +54,7 @@ function demoData(from: Date, to: Date): EvData {
 
 export async function fetchEvents(from: Date, to: Date): Promise<EvData> {
   if (DEMO) return demoData(from, to);
-  const r = await api(`/api/events?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`);
+  const r = await api(`/api/events?from=${encodeURIComponent(fromZoned(from).toISOString())}&to=${encodeURIComponent(fromZoned(to).toISOString())}`);
   return { list: r.events.map(prep), cals: Object.fromEntries(r.calendars.map((c: CalInfo) => [c.id, c])) };
 }
 
