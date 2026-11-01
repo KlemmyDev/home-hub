@@ -1,5 +1,7 @@
 //! Home Hub: one small service that serves the dashboard and keeps its settings in data/config.json.
 
+mod calendar;
+
 use axum::{
     extract::{Query, State},
     http::{header, StatusCode},
@@ -10,6 +12,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
+    collections::HashMap,
     path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
@@ -37,18 +40,42 @@ struct Widget {
     url: String,
 }
 
+/// A calendar the family follows, by the private iCal address its owner copied from Google, Apple or Outlook.
+/// The address is a secret, so it lives only in data/config.json and is never sent back to the screen.
+#[derive(Serialize, Deserialize, Clone, Default)]
+struct Cal {
+    id: String,
+    name: String,
+    url: String,
+    color: String,
+}
+
 #[derive(Serialize, Deserialize, Clone, Default)]
 struct Config {
     setup_done: bool,
     name: String,
     widgets: Vec<Widget>,
+    #[serde(default)]
+    calendars: Vec<Cal>,
+}
+
+/// What the last fetch of one calendar found.
+#[derive(Default)]
+struct CalState {
+    events: Vec<calendar::Event>,
+    error: Option<String>,
+    loaded: bool,
 }
 
 struct App {
     data: PathBuf,
     config: RwLock<Config>,
     latest: Mutex<Option<(Instant, Option<String>)>>,
+    cals: RwLock<HashMap<String, CalState>>,
 }
+
+const MAX_CALENDARS: usize = 8;
+const CAL_REFRESH: Duration = Duration::from_secs(600);
 
 type Shared = State<Arc<App>>;
 
@@ -60,12 +87,23 @@ async fn main() {
         Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
         Err(_) => Config::default(),
     };
-    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None) });
+    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()) });
+
+    // Keep the calendars fresh: once now, then every ten minutes.
+    let background = app.clone();
+    tokio::spawn(async move {
+        loop {
+            refresh_calendars(&background).await;
+            tokio::time::sleep(CAL_REFRESH).await;
+        }
+    });
 
     let router = Router::new()
         .route("/", get(|| async { ([(header::CACHE_CONTROL, "no-cache")], Html(INDEX)) }))
         .route("/api/state", get(state))
         .route("/api/setup", post(setup))
+        .route("/api/calendars", post(save_calendars))
+        .route("/api/events", get(events))
         .route("/api/status", get(status))
         .route("/api/update", get(update_info))
         .route("/api/update/request", post(update_request))
@@ -83,7 +121,17 @@ fn catalog_json() -> Value {
 
 async fn state(State(app): Shared) -> Json<Value> {
     let config = app.config.read().await.clone();
-    Json(json!({"version": VERSION, "config": config, "catalog": catalog_json()}))
+    // The calendar addresses are secrets: send only a name, a colour and the site they come from.
+    let calendars: Vec<Value> = config
+        .calendars
+        .iter()
+        .map(|c| json!({"id": c.id, "name": c.name, "color": c.color, "site": host_port(&c.url.replacen("webcal://", "https://", 1)).map(|h| h.0)}))
+        .collect();
+    Json(json!({
+        "version": VERSION,
+        "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars},
+        "catalog": catalog_json(),
+    }))
 }
 
 #[derive(Deserialize)]
@@ -108,12 +156,127 @@ async fn setup(State(app): Shared, Json(body): Json<SetupBody>) -> impl IntoResp
         }
         widgets.push(Widget { id: w.id, url });
     }
-    let config = Config { setup_done: true, name, widgets };
-    if write_atomic(&app.data.join("config.json"), &serde_json::to_vec_pretty(&config).unwrap()).await.is_err() {
+    let calendars = app.config.read().await.calendars.clone();
+    let config = Config { setup_done: true, name, widgets, calendars };
+    if save(&app, config).await.is_err() {
         return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
     }
-    *app.config.write().await = config;
     StatusCode::NO_CONTENT.into_response()
+}
+
+async fn save(app: &App, config: Config) -> std::io::Result<()> {
+    write_atomic(&app.data.join("config.json"), &serde_json::to_vec_pretty(&config).unwrap()).await?;
+    *app.config.write().await = config;
+    Ok(())
+}
+
+#[derive(Deserialize)]
+struct CalBody {
+    id: Option<String>,
+    name: String,
+    /// Left empty when keeping an existing calendar's address.
+    url: Option<String>,
+    color: String,
+}
+
+/// Replace the list of calendars. An entry with an id and no address keeps the address it had.
+async fn save_calendars(State(app): Shared, Json(body): Json<Vec<CalBody>>) -> impl IntoResponse {
+    if body.len() > MAX_CALENDARS {
+        return (StatusCode::BAD_REQUEST, format!("Up to {MAX_CALENDARS} calendars, please.")).into_response();
+    }
+    let old = app.config.read().await.clone();
+    let mut calendars: Vec<Cal> = Vec::new();
+    for (i, b) in body.into_iter().enumerate() {
+        let name = b.name.trim().to_string();
+        if name.is_empty() || name.chars().count() > 30 {
+            return (StatusCode::BAD_REQUEST, "Give each calendar a name (up to 30 letters).").into_response();
+        }
+        let ok_color = b.color.len() == 7 && b.color.starts_with('#') && b.color[1..].chars().all(|c| c.is_ascii_hexdigit());
+        if !ok_color {
+            return (StatusCode::BAD_REQUEST, "That colour isn't one we know.").into_response();
+        }
+        let kept = b.id.as_ref().and_then(|id| old.calendars.iter().find(|c| &c.id == id));
+        let url = match b.url.as_deref().map(str::trim).filter(|u| !u.is_empty()) {
+            Some(u) => u.to_string(),
+            None => match kept {
+                Some(c) => c.url.clone(),
+                None => return (StatusCode::BAD_REQUEST, "Paste the calendar's iCal address.").into_response(),
+            },
+        };
+        let web = url.replacen("webcal://", "https://", 1);
+        if url.len() > 600 || url.contains(char::is_whitespace) || host_port(&web).is_none() {
+            return (StatusCode::BAD_REQUEST, "That doesn't look like a calendar address. It should start with https:// or webcal://").into_response();
+        }
+        let id = kept.map(|c| c.id.clone()).unwrap_or_else(|| {
+            let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+            format!("c{t}x{i}")
+        });
+        calendars.push(Cal { id, name, url, color: b.color });
+    }
+    let config = Config { calendars, ..old };
+    if save(&app, config).await.is_err() {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your calendars.").into_response();
+    }
+    let background = app.clone();
+    tokio::spawn(async move { refresh_calendars(&background).await });
+    StatusCode::NO_CONTENT.into_response()
+}
+
+/// Fetch every calendar at once and remember what each said.
+async fn refresh_calendars(app: &Arc<App>) {
+    let cals = app.config.read().await.calendars.clone();
+    let fetched = futures_join(cals.iter().cloned().map(|c| async move {
+        let result = calendar::fetch(&c.url).await.map(|text| calendar::parse(&text));
+        (c.id, result)
+    }))
+    .await;
+    let mut map = app.cals.write().await;
+    map.retain(|id, _| cals.iter().any(|c| &c.id == id));
+    for (id, result) in fetched {
+        let entry = map.entry(id).or_default();
+        match result {
+            Ok(events) => *entry = CalState { events, error: None, loaded: true },
+            // Keep the last good events if a fetch fails.
+            Err(why) => {
+                entry.error = Some(why);
+                entry.loaded = true;
+            }
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct EventsQuery {
+    from: String,
+    to: String,
+}
+
+/// Events between two moments (RFC 3339), from every calendar, in time order, tagged with their calendar.
+async fn events(State(app): Shared, Query(q): Query<EventsQuery>) -> impl IntoResponse {
+    let parse = |s: &str| chrono::DateTime::parse_from_rfc3339(s).ok().map(|d| d.with_timezone(&chrono::Utc));
+    let (Some(from), Some(to)) = (parse(&q.from), parse(&q.to)) else {
+        return (StatusCode::BAD_REQUEST, "from and to should be like 2026-11-02T00:00:00Z").into_response();
+    };
+    if to <= from || to - from > chrono::Duration::days(100) {
+        return (StatusCode::BAD_REQUEST, "Ask for up to about three months at a time.").into_response();
+    }
+    let cals = app.config.read().await.calendars.clone();
+    let states = app.cals.read().await;
+    let mut all: Vec<(String, Value)> = Vec::new();
+    let mut info: Vec<Value> = Vec::new();
+    for c in &cals {
+        let st = states.get(&c.id);
+        info.push(json!({"id": c.id, "name": c.name, "color": c.color, "ok": st.is_some_and(|s| s.loaded && s.error.is_none()), "error": st.and_then(|s| s.error.clone())}));
+        if let Some(st) = st {
+            for e in calendar::between(&st.events, from, to, &c.id) {
+                let mut v = serde_json::to_value(&e).unwrap_or(Value::Null);
+                v["cal"] = json!(c.id);
+                all.push((e.start.clone(), v));
+            }
+        }
+    }
+    all.sort_by(|a, b| a.0.cmp(&b.0));
+    Json(json!({"events": all.into_iter().map(|(_, v)| v).collect::<Vec<_>>(), "calendars": info})).into_response()
 }
 
 /// Is each widget's app answering? A quick connection to its address; nothing is fetched.
