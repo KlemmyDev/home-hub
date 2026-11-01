@@ -109,7 +109,6 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 .phone .dinner{padding:14px 16px!important;gap:12px}
 .phone .dn{font-size:26px!important}
 .phone .legend{display:none}
-.phone .gscroll .gwrap{flex:none;height:820px;min-height:0}
 .phone #calin,.phone #menuin,.phone #shopin,.phone #chorein{overflow-y:auto;scrollbar-width:none}
 .phone .sg.big{height:36px;padding:0 12px;font-size:15px}
 .phone .cnav{width:44px;height:44px}
@@ -572,17 +571,12 @@ function timedOn(day) {
   });
   return laneUp(list.sort((x, y) => x.s - y.s));
 }
+const hourPx = big => DIM.phone ? 64 : big ? 76 : 64;
 const hourLabel = h => h24() ? pad(h) : (h % 12 || 12) + (h < 12 ? "am" : "pm");
 function gridHtml(days, gutter, big) {
   const per = days.map(timedOn);
-  let lo = 7, hi = 20;
-  for (const c of per) for (const x of c) {
-    lo = Math.min(lo, x.s.getHours());
-    const eh = (x.e - startOfDay(x.s)) / 3600000;
-    hi = Math.max(hi, Math.min(24, Math.ceil(eh)));
-  }
-  const tot = hi - lo, top = h => (h - lo) / tot * 100, now = new Date();
-  let html = `<div class="gwrap" style="flex:1;min-height:0;position:relative">`;
+  const lo = 0, hi = 24, tot = 24, top = h => (h - lo) / tot * 100, now = new Date();   // midnight to midnight, a fixed height per hour
+  let html = `<div class="gwrap" style="flex:none;height:${tot * hourPx(big)}px;position:relative">`;
   for (let h = lo; h < hi; h++) html += `<div style="position:absolute;left:0;right:0;top:${top(h)}%;border-top:1px solid #edf0f5"><span class="num" style="position:absolute;left:0;top:4px;width:${gutter - 10}px;text-align:right;font-size:${big ? 14 : 13}px;font-weight:600;color:#6b7488">${hourLabel(h)}</span></div>`;
   html += `<div style="position:absolute;left:${gutter}px;right:0;top:0;bottom:0">`;
   days.forEach((day, i) => {
@@ -673,10 +667,10 @@ function drawCal() {
   const now = new Date(), d = startOfDay(view.date);
   let body;
   if (view.mode === "day") {
-    body = dayHead(Array.from({length: 7}, (_, i) => addDays(weekStart(d), i)), 0, DIM.phone ? 40 : 44) + alldayHtml([d], DIM.phone ? 48 : 60) + (DIM.phone ? `<div class="scroll gscroll" style="flex:1;min-height:0">${gridHtml([d], 48, true)}</div>` : gridHtml([d], 60, true));
+    body = dayHead(Array.from({length: 7}, (_, i) => addDays(weekStart(d), i)), 0, DIM.phone ? 40 : 44) + alldayHtml([d], DIM.phone ? 48 : 60) + `<div class="scroll gscroll" style="flex:1;min-height:0">${gridHtml([d], DIM.phone ? 48 : 60, true)}</div>`;
   } else if (view.mode === "week") {
     const w = weekStart(d), days = Array.from({length: 7}, (_, i) => addDays(w, i));
-    body = DIM.phone ? agendaHtml() : dayHead(days, 52, 44) + alldayHtml(days, 52) + gridHtml(days, 52, false);
+    body = DIM.phone ? agendaHtml() : dayHead(days, 52, 44) + alldayHtml(days, 52) + `<div class="scroll gscroll" style="flex:1;min-height:0">${gridHtml(days, 52, false)}</div>`;
   } else body = monthHtml();
   const chip = (id, label, color) => `<button class="pill${(view.who || "") === id ? " on" : ""}" data-who="${esc(id)}" style="height:40px;font-size:15px;padding:0 16px">${color ? `<i style="width:10px;height:10px;border-radius:50%;background:${esc(color)}"></i>` : ""}${esc(label)}</button>`;
   el.innerHTML = `<div style="display:flex;flex-direction:column;width:100%;height:100%;padding:${DIM.phone ? "14px 14px" : "18px 18px"} 0">
@@ -693,19 +687,20 @@ function drawCal() {
     ${stripHtml()}
   </div>`;
   const gs = el.querySelector(".gscroll");
-  if (gs) {                                   // phone: the hours scroll; start near now (or the morning)
+  if (gs) {                                   // the hours scroll; a new day starts an hour above now (or at 8 in the morning)
     const key = view.mode + ymd(view.date), c = gs.querySelector(".gcol");
     if (drawCal.key !== key && c) {
       drawCal.key = key;
-      const hr = sameDay(d, now) ? now.getHours() + now.getMinutes() / 60 : 8;
-      drawCal.gs = Math.max(0, (hr - +c.dataset.lo - 1) / +c.dataset.tot * gs.scrollHeight);
+      const today = view.mode === "day" ? sameDay(d, now) : weekStart(d).getTime() === weekStart(startOfDay(now)).getTime();
+      const hr = today ? now.getHours() + now.getMinutes() / 60 : 8;
+      drawCal.gs = Math.max(0, (hr - 1) * hourPx(view.mode === "day"));
     }
     gs.scrollTop = drawCal.gs || 0;
     gs.onscroll = () => { drawCal.gs = gs.scrollTop; };
   }
   $("c-prev").onclick = () => calStep(-1);
   $("c-next").onclick = () => calStep(1);
-  $("c-today").onclick = () => { view.date = new Date(); loadCal(); };
+  $("c-today").onclick = () => { view.date = new Date(); drawCal.key = null; loadCal(); };
   const nw = $("c-new"); if (nw) nw.onclick = () => newEvent(startOfDay(view.mode === "month" ? new Date() : view.date));
   const fam = $("c-fam"); if (fam) fam.onclick = () => openSheet({mode: "family"});
   el.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { view.mode = b.dataset.mode; loadCal(); });
