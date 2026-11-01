@@ -360,7 +360,7 @@ function drawToday() {
   el.innerHTML = `
     <div class="fx" style="justify-content:space-between">
       <div class="fx" style="gap:12px;align-items:baseline"><span style="font-size:32px;font-weight:700;letter-spacing:-.04em">${wk ? "This week" : "Today"}</span>${nextTxt && !wk ? `<span class="fx" style="gap:7px;font-size:15px;font-weight:600;color:#1d4ed8"><span class="live" style="width:7px;height:7px;border-radius:50%;background:#1d4ed8"></span>${nextTxt}</span>` : ""}</div>
-      <div class="fx" style="gap:3px;background:#f1f4f9;border-radius:999px;padding:3px"><button class="sg${wk ? "" : " on"}" data-ovmode="day">Day</button><button class="sg${wk ? " on" : ""}" data-ovmode="week">Week</button><button class="sg" data-open="month">Month</button></div>
+      <div class="fx" style="gap:3px;background:#f1f4f9;border-radius:999px;padding:3px"><button class="sg${wk ? "" : " on"}" data-ovmode="day">Day</button><button class="sg${wk ? " on" : ""}" data-ovmode="week">Week</button></div>
     </div>
     ${wk ? `<div style="margin-top:8px">${weekRows(mon, now)}</div>`
          : `<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;margin-top:14px;padding-bottom:12px;border-bottom:1px solid #edf0f5">${strip}</div>
