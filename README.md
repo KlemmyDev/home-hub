@@ -12,7 +12,7 @@ A self-hosted family dashboard for a fridge-mounted Samsung Galaxy Tab S10 FE+.
 
 ## Status
 
-Early version: first-run setup, a tablet dashboard with PocketPals and WattsMyPower tiles, and updating from the hub's own Settings page.
+Early version: first-run setup, a portrait tablet dashboard (greeting and clock, today's calendar card, PocketPals and WattsMyPower cards that open the apps, tonight's dinner), and updating from the hub's own Settings page. The calendar, menu and shopping list are next. Add `?demo` to the address to preview the dashboard with sample events and dinner.
 
 ## Install
 

@@ -1,6 +1,6 @@
 # Home Hub
 
-A private, self-hosted family dashboard for a Samsung Galaxy Tab S10 FE+ mounted on the fridge. The tablet is a wall display: landscape, always on, glanceable from a metre away, touch-friendly for quick edits.
+A private, self-hosted family dashboard for a Samsung Galaxy Tab S10 FE+ mounted on the fridge. The tablet is a wall display: portrait (landscape later), always on, glanceable from a metre away, touch-friendly for quick edits.
 
 ## What it shows
 
@@ -17,6 +17,9 @@ A private, self-hosted family dashboard for a Samsung Galaxy Tab S10 FE+ mounted
 - Widgets are listed in `CATALOG` in `src/main.rs` (PocketPals and WattsMyPower so far); each is a name plus the web address of the app on the home network.
 - The owner self-hosts this. Prefer simple, low-maintenance choices (one small service, file or SQLite storage, no external accounts unless needed).
 - Design for the tablet first: large type, high contrast, no hover-only interactions, screen stays awake.
+- The dashboard is a fixed 800 x 1280 portrait stage (the S10 FE+ in portrait, about 800 x 1280 CSS px: an estimate, check `innerWidth` on the tablet) scaled to fit the screen, so landscape just letterboxes for now. Light theme, Comfortaa for the greeting and clock, Onest for everything else; the widget cards borrow each app's own look (PocketPals violet sky and pals, WattsMyPower dark card and house). Fonts load from Google Fonts and fall back to system fonts.
+- Only show real data. The calendar and dinner cards show an empty state until they're connected; open the hub with `?demo` to see them filled with sample content. Don't put the family's real names in the repo (it is public); the pals and logo are PocketPals brand art, embedded as data in `web/index.html`.
+- The Calendar, Menu and Shopping list tabs and the Week/Month buttons only say "Coming soon" so far.
 - Keep secrets (API keys, calendar tokens) in `.env`, never in the repo. Keep `.env.example` current.
 - Use plain, calm words in the interface; no jargon.
 - Commit small and often. Ask before pushing, creating PRs or changing the repo's settings.
