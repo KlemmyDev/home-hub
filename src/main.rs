@@ -1,6 +1,7 @@
 //! Home Hub: one small service that serves the dashboard and keeps its settings in data/config.json.
 
 mod calendar;
+mod dinners;
 mod family;
 
 use axum::{
@@ -84,6 +85,7 @@ struct App {
     latest: Mutex<Option<(Instant, Option<String>)>>,
     cals: RwLock<HashMap<String, CalState>>,
     family: RwLock<family::Family>,
+    dinners: RwLock<dinners::Dinners>,
 }
 
 const MAX_CALENDARS: usize = 8;
@@ -103,7 +105,11 @@ async fn main() {
         Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
         Err(_) => family::Family::default(),
     };
-    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family) });
+    let dinners = match tokio::fs::read(data.join("dinners.json")).await {
+        Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
+        Err(_) => dinners::Dinners::default(),
+    };
+    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners) });
 
     // Keep the calendars fresh: once now, then every ten minutes.
     let background = app.clone();
@@ -128,6 +134,10 @@ async fn main() {
         .route("/api/calendars", post(save_calendars))
         .route("/api/clock", post(save_clock))
         .route("/api/events", get(events))
+        .route("/api/dinners", get(get_dinners))
+        .route("/api/meal", post(save_meal))
+        .route("/api/meal/delete", post(delete_meal))
+        .route("/api/dinner-plan", post(plan_dinner))
         .route("/api/people", post(save_people))
         .route("/api/hub-event", get(hub_event).post(save_hub_event))
         .route("/api/hub-event/delete", post(delete_hub_event))
@@ -349,6 +359,66 @@ async fn edit_family<T>(app: &App, change: impl FnOnce(&mut family::Family) -> R
     write_atomic(&app.data.join("family.json"), &bytes).await.map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save that.".to_string()))?;
     *current = next;
     Ok(out)
+}
+
+/// Change the dinners and save them whole, or say why not.
+async fn edit_dinners<T>(app: &App, change: impl FnOnce(&mut dinners::Dinners) -> Result<T, &'static str>) -> Result<T, (StatusCode, String)> {
+    let mut current = app.dinners.write().await;
+    let mut next = current.clone();
+    let out = change(&mut next).map_err(|why| (StatusCode::BAD_REQUEST, why.to_string()))?;
+    let bytes = serde_json::to_vec_pretty(&next).unwrap();
+    write_atomic(&app.data.join("dinners.json"), &bytes).await.map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save that.".to_string()))?;
+    *current = next;
+    Ok(out)
+}
+
+/// Every dinner the family knows, and what's planned on which day.
+async fn get_dinners(State(app): Shared) -> Json<dinners::Dinners> {
+    Json(app.dinners.read().await.clone())
+}
+
+#[derive(Deserialize)]
+struct MealBody {
+    id: Option<String>,
+    name: String,
+}
+
+/// Add a dinner, or rename one.
+async fn save_meal(State(app): Shared, Json(body): Json<MealBody>) -> impl IntoResponse {
+    match edit_dinners(&app, |d| d.save_meal(body.id.as_deref(), &body.name)).await {
+        Ok(id) => Json(json!({"id": id})).into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct IdBody {
+    id: String,
+}
+
+async fn delete_meal(State(app): Shared, Json(body): Json<IdBody>) -> impl IntoResponse {
+    match edit_dinners(&app, |d| d.remove_meal(&body.id)).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct PlanBody {
+    date: String,
+    meal_id: Option<String>,
+    /// A dinner by name; if it's new it's added to the list.
+    name: Option<String>,
+    cook: Option<String>,
+}
+
+/// Plan a dinner for a day (or clear the day when no dinner is given).
+async fn plan_dinner(State(app): Shared, Json(body): Json<PlanBody>) -> impl IntoResponse {
+    let people = app.family.read().await.people.clone();
+    match edit_dinners(&app, |d| d.set_plan(&body.date, body.meal_id.as_deref(), body.name.as_deref(), body.cook.as_deref(), &people)).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
 }
 
 /// Replace the list of family members.
