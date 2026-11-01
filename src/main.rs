@@ -64,6 +64,9 @@ struct Config {
     widgets: Vec<Widget>,
     #[serde(default)]
     calendars: Vec<Cal>,
+    /// Show times like 15:30 instead of 3:30pm.
+    #[serde(default)]
+    hour24: bool,
 }
 
 /// What the last fetch of one calendar found.
@@ -117,6 +120,7 @@ async fn main() {
         .route("/api/state", get(state))
         .route("/api/setup", post(setup))
         .route("/api/calendars", post(save_calendars))
+        .route("/api/clock", post(save_clock))
         .route("/api/events", get(events))
         .route("/api/status", get(status))
         .route("/api/update", get(update_info))
@@ -147,7 +151,7 @@ async fn state(State(app): Shared) -> Json<Value> {
         .collect();
     Json(json!({
         "version": VERSION,
-        "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars},
+        "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars, "hour24": config.hour24},
         "catalog": catalog_json(),
     }))
 }
@@ -174,8 +178,8 @@ async fn setup(State(app): Shared, Json(body): Json<SetupBody>) -> impl IntoResp
         }
         widgets.push(Widget { id: w.id, url });
     }
-    let calendars = app.config.read().await.calendars.clone();
-    let config = Config { setup_done: true, name, widgets, calendars };
+    let old = app.config.read().await.clone();
+    let config = Config { setup_done: true, name, widgets, ..old };
     if save(&app, config).await.is_err() {
         return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
     }
@@ -186,6 +190,19 @@ async fn save(app: &App, config: Config) -> std::io::Result<()> {
     write_atomic(&app.data.join("config.json"), &serde_json::to_vec_pretty(&config).unwrap()).await?;
     *app.config.write().await = config;
     Ok(())
+}
+
+#[derive(Deserialize)]
+struct ClockBody {
+    hour24: bool,
+}
+
+async fn save_clock(State(app): Shared, Json(body): Json<ClockBody>) -> impl IntoResponse {
+    let config = Config { hour24: body.hour24, ..app.config.read().await.clone() };
+    if save(&app, config).await.is_err() {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
+    }
+    StatusCode::NO_CONTENT.into_response()
 }
 
 #[derive(Deserialize)]

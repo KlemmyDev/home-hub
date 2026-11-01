@@ -143,7 +143,7 @@ function tick() {
   if (el) {
     el.innerHTML = `${a}<br>${b}`;
     el.style.fontSize = b.length > 8 ? "56px" : "66px";
-    $("clock").textContent = d.toLocaleTimeString([], {hour: "numeric", minute: "2-digit"}).replace(/\s?[ap]\.?m\.?/i, "");
+    $("clock").textContent = clockT(d);
     $("date").textContent = d.toLocaleDateString([], {weekday: "long"}) + " · " + d.toLocaleDateString([], {day: "numeric", month: "long"});
   }
   if (new Date().toDateString() !== tick.day) { tick.day = new Date().toDateString(); if (view.page === "overview") loadOverview(); }
@@ -172,7 +172,10 @@ const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 const weekStart = d => addDays(d, -((d.getDay() + 6) % 7));       // weeks start on Monday
 const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-const fmtT = d => d.toLocaleTimeString([], {hour: "numeric", minute: "2-digit"}).replace(/\s?([ap])\.?m\.?/i, (_, x) => x.toLowerCase() + "m");
+const h24 = () => !!(S && S.config.hour24);
+const timeOpts = () => ({hour: h24() ? "2-digit" : "numeric", minute: "2-digit", hourCycle: h24() ? "h23" : "h12"});
+const clockT = d => d.toLocaleTimeString([], timeOpts()).replace(/\s?[ap]\.?m\.?/i, "");    // the big clock has no am or pm
+const fmtT = d => d.toLocaleTimeString([], timeOpts()).replace(/\s?([ap])\.?m\.?/i, (_, x) => x.toLowerCase() + "m");
 const PALETTE = ["#2f6fe0", "#e2523f", "#14a06c", "#e5487f", "#7b5cf0", "#f59e0b", "#0ea5b7"];
 const CHEV_L = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>`;
 const CHEV_R = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>`;
@@ -406,7 +409,7 @@ function drawBody() {
     <section class="tile-card fx" style="gap:18px;padding:18px 26px 18px 18px;background:#ffeadf">
       <div style="width:64px;height:64px;border-radius:20px;background:#fff;display:flex;align-items:center;justify-content:center;flex:none"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v8M5 3v5a2 2 0 004 0V3M7 11v10M17 3c-2 2-3 4-3 7 0 2 1 3 3 3v8"/></svg></div>
       <div style="flex:1;min-width:0"><div class="cap" style="color:#9a4a1e">Dinner tonight</div><div style="font-size:34px;font-weight:700;letter-spacing:-.04em;line-height:1.08;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${DEMO ? "Spaghetti bolognese" : "Nothing planned yet"}</div></div>
-      ${DEMO ? '<div style="text-align:right"><div class="num" style="font-size:26px;font-weight:700;letter-spacing:-.03em">6:30pm</div><div style="font-size:15px;font-weight:600;color:#9a4a1e;margin-top:2px">Dad cooking</div></div>' : ""}
+      ${DEMO ? '<div style="text-align:right"><div class="num" style="font-size:26px;font-weight:700;letter-spacing:-.03em">' + fmtT(new Date(2000, 0, 1, 18, 30)) + '</div><div style="font-size:15px;font-weight:600;color:#9a4a1e;margin-top:2px">Dad cooking</div></div>' : ""}
     </section>`;
   drawToday(); loadOverview(); poll();
 }
@@ -536,11 +539,20 @@ async function showSettings() {
   show("settings");
   const el = $("settings");
   el.innerHTML = `<h1>Settings</h1>
+    <div class="box"><h3>Time</h3><p>How should the clock and event times look?</p>
+      <div class="fx" id="hours" style="gap:12px;margin-top:12px"><button data-h="0">12-hour (3:30pm)</button><button data-h="1">24-hour (15:30)</button></div></div>
     <div class="box"><h3>Calendars</h3><div id="cals"><p>Checking…</p></div></div>
     <div class="box"><h3>Updates</h3><div id="upd"><p>Checking…</p></div></div>
     <div class="row"><button id="chg">Change widgets</button><button class="primary" id="done">Done</button></div>`;
   $("done").onclick = showDash;
   $("chg").onclick = () => { show("setup"); drawSetup($("setup"), false); };
+  const paintHours = () => el.querySelectorAll("[data-h]").forEach(b => b.classList.toggle("primary", (b.dataset.h === "1") === h24()));
+  paintHours();
+  el.querySelectorAll("[data-h]").forEach(b => b.onclick = async () => {
+    const want = b.dataset.h === "1";
+    try { await api("/api/clock", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({hour24: want})}); S = await api("/api/state"); paintHours(); }
+    catch (_) {}
+  });
   drawCalSettings();
   await drawUpdate(true);
 }
