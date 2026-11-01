@@ -518,3 +518,26 @@ button:disabled{opacity:.55;pointer-events:none}
 /* Nothing in the stage may be scrolled by focus or scrollIntoView: only the lists inside it scroll. */
 #stage,#sheet,#calcard,#menucard,#shopcard,#chorecard{overflow:clip}
 #sheet .shb,#sheet .scroll{overflow-y:auto}
+
+/* pantry */
+.ptabs{gap:8px;padding:0 0 12px;flex:none}.ptabs .pill{height:52px;font-size:18px;gap:8px}
+.ptbadge{min-width:26px;height:26px;padding:0 7px;border-radius:13px;background:#e2523f;color:#fff;font-size:14px;display:inline-flex;align-items:center;justify-content:center}
+.pill.on .ptbadge{background:#fff;color:#101828}
+.ptdot{display:inline-block;width:14px;height:14px;border-radius:50%;flex:none}
+.pthead{display:flex;align-items:center;gap:10px;margin:14px 4px 2px;font-size:24px;letter-spacing:-.03em}.pthead b{font-weight:700}.pthead small{font-size:16px;font-weight:600;color:#6b7488;margin-left:auto}
+.ptgroup{margin-bottom:6px}
+.ptshop{flex:none;display:flex;align-items:center;gap:8px;min-height:48px;padding:0 14px;border-radius:999px;border:1.5px solid #dde1e7;background:#fff;font-size:16px;font-weight:650;color:#3a4358}
+.ptauto{font-style:normal;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#b45309;background:#fff1d6;border-radius:6px;padding:2px 6px;margin-left:8px;vertical-align:middle}
+.ptrow{display:flex;align-items:center;gap:10px;min-height:92px;padding:8px 8px 8px 14px;margin-bottom:8px;border-radius:22px;background:#f6f8fb}
+.ptrow.low{background:#fff6e4}.ptrow.out{background:#fdeceb}
+.ptmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;min-height:0;padding:6px 0;border:0;background:none;text-align:left;color:var(--text)}
+.ptmain b{font-size:22px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}.ptmain small{font-size:15px;font-weight:600;color:#5a6478;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ptflag{font-style:normal;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;border-radius:6px;padding:2px 7px}.ptflag.low{background:#f59e0b;color:#fff}.ptflag.out{background:#e2523f;color:#fff}
+.ptbar{position:relative;display:block;height:10px;border-radius:5px;background:#e1e6ef;overflow:visible}.ptbar i{display:block;height:100%;border-radius:5px;background:#14a06c}
+.ptrow.low .ptbar i{background:#f59e0b}.ptrow.out .ptbar i{background:#e2523f}.ptbar u{position:absolute;top:-4px;width:3px;height:18px;border-radius:2px;background:#101828;text-decoration:none}
+.ptstep{flex:none;display:flex;align-items:center;gap:4px;background:#fff;border-radius:999px;padding:4px}
+.ptstep button{width:56px;height:56px;min-height:0;padding:0;border-radius:50%;border:0;background:#f1f4f9;font-size:30px;font-weight:600;line-height:1}
+.ptstep span{min-width:88px;text-align:center;font-size:20px;font-weight:700}
+.ptstate{margin:8px 2px 0;font-size:17px;font-weight:700}.ptstate.low{color:#b45309}.ptstate.out{color:#c2331f}.ptstate.ok{color:#14a06c}
+.ptuse{padding:14px;margin-bottom:10px;border-radius:22px;background:#f6f8fb}
+.phone .ptstep span{min-width:64px;font-size:17px}.phone .ptstep button{width:48px;height:48px}

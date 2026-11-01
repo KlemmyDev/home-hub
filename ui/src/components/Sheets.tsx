@@ -15,6 +15,7 @@ import { FoodIcon } from "../lib/foodicons";
 import { FindSheet } from "./Find";
 import { IngredientSheet, PlanMealSheet } from "./Dinners";
 import { RuleSheet } from "./DinnerTools";
+import { PantryItemSheet, ShopItemSheet, UsePantrySheet } from "./PantrySheets";
 
 const DAYCODES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
 const DAYNAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -391,6 +392,9 @@ function SheetBody({ sheet }: { sheet: Sheet }) {
     case "ingredient": return <IngredientSheet meal={sheet.meal} ing={sheet.ing} />;
     case "planmeal": return <PlanMealSheet meal={sheet.meal} />;
     case "rule": return <RuleSheet weekday={sheet.weekday} />;
+    case "pitem": return <PantryItemSheet id={sheet.id} name={sheet.name} />;
+    case "shopitem": return <ShopItemSheet id={sheet.id} />;
+    case "usepantry": return <UsePantrySheet meal={sheet.meal} factor={sheet.factor} />;
     case "find": return <FindSheet />;
   }
 }

@@ -147,7 +147,8 @@ pub struct Dinners {
     /// By day, like "2026-11-02".
     #[serde(default)]
     pub plan: BTreeMap<String, Plan>,
-    #[serde(default)]
+    /// The old simple pantry list, kept only so it can move into the new pantry (see pantry.rs). Never written again.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pantry: Vec<PantryItem>,
     /// By weekday, "0" for Monday to "6" for Sunday.
     #[serde(default)]
@@ -320,25 +321,6 @@ impl Dinners {
         Ok(added)
     }
 
-    /// Replace what the family has at home.
-    pub fn set_pantry(&mut self, items: Vec<PantryItem>) -> Result<(), &'static str> {
-        if items.len() > 300 {
-            return Err("That's a lot of things in the pantry.");
-        }
-        let mut out: Vec<PantryItem> = Vec::new();
-        for i in items {
-            let name = i.name.split_whitespace().collect::<Vec<_>>().join(" ");
-            if name.is_empty() || name.chars().count() > 50 {
-                return Err("Each thing needs a name (up to 50 letters).");
-            }
-            if !out.iter().any(|x| x.name.to_lowercase() == name.to_lowercase()) {
-                out.push(PantryItem { name, low: i.low });
-            }
-        }
-        self.pantry = out;
-        Ok(())
-    }
-
     /// Say what a weekday usually is ("Friday is pizza"), or clear it. `weekday` is 0 for Monday to 6 for Sunday.
     pub fn set_rule(&mut self, weekday: u8, rule: Option<Rule>) -> Result<(), &'static str> {
         if weekday > 6 {
@@ -434,8 +416,6 @@ mod tests {
         assert!(d.set_rule(7, None).is_err());
         d.remove_meal(&a).unwrap();
         assert!(d.rules.is_empty(), "a removed dinner comes off the fixed nights");
-        d.set_pantry(vec![PantryItem { name: " Flour ".into(), low: false }, PantryItem { name: "flour".into(), low: true }]).unwrap();
-        assert_eq!(d.pantry.len(), 1);
     }
 
     #[test]

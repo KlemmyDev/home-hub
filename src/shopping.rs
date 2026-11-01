@@ -18,6 +18,22 @@ pub struct Item {
     /// Which part of the shop it's in, worked out from its name.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub aisle: String,
+    /// Which shop to buy it at (a store id), or empty for anywhere.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub store: String,
+    /// The pantry item it tops up, and how much of it (in the pantry item's unit).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub pantry: String,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub qty: f64,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub unit: String,
+    /// Put here by the pantry (it fell below its minimum), so it comes off again if the stock is put right.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub auto: bool,
+    /// Ticking it off has already added its amount to the pantry.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub restocked: bool,
     /// The dinner it's for, if it came from one.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub from: String,
@@ -28,6 +44,23 @@ pub struct Shopping {
     /// In the order they were added.
     #[serde(default)]
     pub items: Vec<Item>,
+}
+
+fn is_zero(n: &f64) -> bool {
+    *n == 0.0
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
+/// Where an item on the list comes from in the pantry.
+#[derive(Default, Clone)]
+pub struct Link {
+    pub pantry: String,
+    pub store: String,
+    pub qty: f64,
+    pub unit: String,
 }
 
 fn new_id(taken: impl Fn(&str) -> bool) -> String {
@@ -86,6 +119,94 @@ impl Shopping {
         Ok(id)
     }
 
+    /// Add something that tops up a pantry item. Its shop and amount come along; asking for it twice adds the amounts.
+    pub fn add_linked(&mut self, name: &str, note: &str, barcode: &str, from: &str, link: &Link) -> Result<String, &'static str> {
+        let id = self.add_for(name, note, barcode, from)?;
+        let item = self.items.iter_mut().find(|x| x.id == id).unwrap();
+        if item.pantry.is_empty() || item.pantry == link.pantry {
+            item.pantry = link.pantry.clone();
+            if item.store.is_empty() {
+                item.store = link.store.clone();
+            }
+            item.qty = ((item.qty + link.qty) * 1000.0).round() / 1000.0;
+            item.unit = link.unit.clone();
+        }
+        Ok(id)
+    }
+
+    /// Change which shop an item is for, or how much of it.
+    pub fn set_extra(&mut self, id: &str, store: Option<&str>, qty: Option<f64>) -> Result<(), &'static str> {
+        let item = self.items.iter_mut().find(|x| x.id == id).ok_or("That's gone from the list already.")?;
+        if let Some(s) = store {
+            item.store = s.to_string();
+        }
+        if let Some(q) = qty {
+            if !q.is_finite() || !(0.0..=100000.0).contains(&q) {
+                return Err("That amount doesn't look right.");
+            }
+            item.qty = q;
+            item.auto = false;
+        }
+        Ok(())
+    }
+
+    /// Tick an item off or put it back. For something that tops up a pantry item, returns the pantry item and how much its stock should change by.
+    pub fn tick(&mut self, id: &str, done: bool) -> Option<(String, f64)> {
+        let item = self.items.iter_mut().find(|x| x.id == id)?;
+        let was = item.done;
+        item.done = done;
+        if item.pantry.is_empty() || item.qty <= 0.0 {
+            return None;
+        }
+        if done && !was && !item.restocked {
+            item.restocked = true;
+            return Some((item.pantry.clone(), item.qty));
+        }
+        if !done && was && item.restocked {
+            item.restocked = false;
+            return Some((item.pantry.clone(), -item.qty));
+        }
+        None
+    }
+
+    /// Put things on the list that have fallen below their minimum in the pantry, and take them off again when the stock is put right.
+    pub fn sync_restock(&mut self, p: &crate::pantry::Pantry) {
+        // Things added by hand that are in the pantry take on its shop.
+        for x in self.items.iter_mut().filter(|x| !x.done && x.pantry.is_empty()) {
+            if let Some(it) = p.items.iter().find(|i| i.name.to_lowercase() == x.name.trim().to_lowercase()) {
+                x.pantry = it.id.clone();
+                if x.store.is_empty() {
+                    x.store = it.store.clone();
+                }
+                if x.unit.is_empty() {
+                    x.unit = it.unit.clone();
+                }
+            }
+        }
+        let short = if p.settings.auto_restock { p.shortfalls() } else { Vec::new() };
+        for (it, buy) in &short {
+            if let Some(x) = self.items.iter_mut().find(|x| x.pantry == it.id && !x.done) {
+                if x.auto {
+                    x.qty = *buy;
+                    x.store = it.store.clone();
+                    x.unit = it.unit.clone();
+                } else if x.qty == 0.0 {
+                    x.qty = *buy;      // added by hand with no amount: say how much tops it up
+                    x.unit = it.unit.clone();
+                }
+            } else if let Some(x) = self.items.iter_mut().find(|x| !x.done && x.pantry.is_empty() && x.name.to_lowercase() == it.name.to_lowercase()) {
+                x.pantry = it.id.clone();      // already on the list by hand: tie it to the pantry
+                if x.store.is_empty() {
+                    x.store = it.store.clone();
+                }
+            } else if self.items.len() < MAX_ITEMS {
+                let id = new_id(|id| self.items.iter().any(|x| x.id == id));
+                self.items.push(Item { id, name: it.name.clone(), aisle: aisle_of(&it.name).to_string(), store: it.store.clone(), pantry: it.id.clone(), qty: *buy, unit: it.unit.clone(), auto: true, ..Default::default() });
+            }
+        }
+        self.items.retain(|x| !(x.auto && !x.done && !short.iter().any(|(it, _)| it.id == x.pantry)));
+    }
+
     /// Add something from a dinner, with what exactly to get. If it's already on the list, what's wanted is added to its note.
     pub fn add_for(&mut self, name: &str, note: &str, barcode: &str, from: &str) -> Result<String, &'static str> {
         let id = self.add(name)?;
@@ -132,6 +253,33 @@ impl Shopping {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn low_stock_goes_on_the_list_by_itself_and_ticking_it_off_restocks() {
+        use crate::pantry::{Item as P, Pantry};
+        let mut p = Pantry::default();
+        let id = p.save_item(P { name: "Flour".into(), qty: 0.2, unit: "kg".into(), min: 0.5, want: 2.0, ..Default::default() }).unwrap();
+        let mut l = Shopping::default();
+        l.sync_restock(&p);
+        assert_eq!((l.items.len(), l.items[0].qty, l.items[0].auto, l.items[0].pantry.as_str()), (1, 1.8, true, id.as_str()));
+        l.sync_restock(&p);
+        assert_eq!(l.items.len(), 1, "once is enough");
+        let item = l.items[0].id.clone();
+        let effect = l.tick(&item, true).unwrap();
+        assert_eq!(effect, (id.clone(), 1.8));
+        assert!(l.tick(&item, true).is_none(), "ticked twice adds nothing more");
+        p.adjust(&id, Some(1.8), None).unwrap();
+        l.sync_restock(&p);
+        assert_eq!(l.items.len(), 1, "a ticked item stays until it is cleared");
+        assert_eq!(l.tick(&item, false).unwrap(), (id.clone(), -1.8), "un-ticking takes it back off");
+        p.adjust(&id, None, Some(5.0)).unwrap();
+        l.sync_restock(&p);
+        assert!(l.items.is_empty(), "an automatic item goes when the stock is topped up another way");
+        p.settings.auto_restock = false;
+        p.adjust(&id, None, Some(0.0)).unwrap();
+        l.sync_restock(&p);
+        assert!(l.items.is_empty(), "nothing is added when it's switched off");
+    }
 
     #[test]
     fn things_are_sorted_into_the_parts_of_the_shop() {

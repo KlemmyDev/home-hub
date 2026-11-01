@@ -23,6 +23,7 @@ const DOCK: Record<string, ReactNode> = {
   family: <><circle cx="9" cy="8" r="3.2" /><path d="M3 20c0-3.5 2.6-6 6-6s6 2.5 6 6" /><circle cx="17" cy="9" r="2.4" /><path d="M16.5 14.2c2.7.2 4.5 2.2 4.5 5" /></>,
   weather: <><circle cx="12" cy="12" r="4" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" /></>,
   update: <path d="M20 12a8 8 0 11-2.4-5.7M20 4v5h-5" />,
+  pantry: <><path d="M9 3h6M9.5 3v2.2M14.5 3v2.2" /><path d="M7.5 8.4a2.2 2.2 0 0 1 2.2-2.2h4.6a2.2 2.2 0 0 1 2.2 2.2V18.8a2.2 2.2 0 0 1-2.2 2.2H9.7a2.2 2.2 0 0 1-2.2-2.2z" /><path d="M7.5 11.6h9M7.5 16h9" /></>,
   shopping: <><path d="M3 4h2l2.4 11h10.2L20 7H6.2" /><circle cx="9" cy="19.5" r="1.4" /><circle cx="17" cy="19.5" r="1.4" /></>,
 };
 /* The PocketPals and WattsMyPower dock buttons wear each app's own favicon. */

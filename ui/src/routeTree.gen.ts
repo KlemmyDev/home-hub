@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as ChoresRouteImport } from './routes/chores'
 import { Route as DinnersRouteImport } from './routes/dinners'
+import { Route as PantryRouteImport } from './routes/pantry'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as ShoppingRouteImport } from './routes/shopping'
@@ -37,6 +38,11 @@ const DinnersRoute = DinnersRouteImport.update({
   path: '/dinners',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PantryRoute = PantryRouteImport.update({
+  id: '/pantry',
+  path: '/pantry',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -58,6 +64,7 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof CalendarRoute
   '/chores': typeof ChoresRoute
   '/dinners': typeof DinnersRoute
+  '/pantry': typeof PantryRoute
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
   '/shopping': typeof ShoppingRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/calendar': typeof CalendarRoute
   '/chores': typeof ChoresRoute
   '/dinners': typeof DinnersRoute
+  '/pantry': typeof PantryRoute
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
   '/shopping': typeof ShoppingRoute
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/calendar': typeof CalendarRoute
   '/chores': typeof ChoresRoute
   '/dinners': typeof DinnersRoute
+  '/pantry': typeof PantryRoute
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
   '/shopping': typeof ShoppingRoute
@@ -88,6 +97,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/chores'
     | '/dinners'
+    | '/pantry'
     | '/settings'
     | '/setup'
     | '/shopping'
@@ -97,6 +107,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/chores'
     | '/dinners'
+    | '/pantry'
     | '/settings'
     | '/setup'
     | '/shopping'
@@ -106,6 +117,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/chores'
     | '/dinners'
+    | '/pantry'
     | '/settings'
     | '/setup'
     | '/shopping'
@@ -116,6 +128,7 @@ export interface RootRouteChildren {
   CalendarRoute: typeof CalendarRoute
   ChoresRoute: typeof ChoresRoute
   DinnersRoute: typeof DinnersRoute
+  PantryRoute: typeof PantryRoute
   SettingsRoute: typeof SettingsRoute
   SetupRoute: typeof SetupRoute
   ShoppingRoute: typeof ShoppingRoute
@@ -151,6 +164,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DinnersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pantry': {
+      id: '/pantry'
+      path: '/pantry'
+      fullPath: '/pantry'
+      preLoaderRoute: typeof PantryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -180,6 +200,7 @@ const rootRouteChildren: RootRouteChildren = {
   CalendarRoute: CalendarRoute,
   ChoresRoute: ChoresRoute,
   DinnersRoute: DinnersRoute,
+  PantryRoute: PantryRoute,
   SettingsRoute: SettingsRoute,
   SetupRoute: SetupRoute,
   ShoppingRoute: ShoppingRoute,

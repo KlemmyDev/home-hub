@@ -4,6 +4,7 @@ mod calendar;
 mod dinners;
 mod family;
 mod holidays;
+mod pantry;
 mod pocketpals;
 mod products;
 mod shopping;
@@ -122,6 +123,7 @@ struct App {
     family: RwLock<family::Family>,
     dinners: RwLock<dinners::Dinners>,
     shopping: RwLock<shopping::Shopping>,
+    pantry: RwLock<pantry::Pantry>,
     /// The last jobs PocketPals sent, for a few seconds, so a screen asking twice doesn't ask PocketPals twice.
     jobs: Mutex<HashMap<String, (Instant, Value)>>,
     /// The last weather Open-Meteo sent, for ten minutes.
@@ -158,7 +160,25 @@ async fn main() {
         Err(_) => shopping::Shopping::default(),
     };
     let boot = format!("{}-{}", git(&["rev-parse", "HEAD"]).await.map(|s| short(&s)).unwrap_or_default(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0));
-    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), jobs: Mutex::new(HashMap::new()), weather: Mutex::new(None), holidays: Mutex::new(HashMap::new()), boot });
+    let mut dinners = dinners;
+    let pantry = match tokio::fs::read(data.join("pantry.json")).await {
+        Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
+        Err(_) => {
+            // First time with the pantry: bring across the simple list the Dinners page used to keep.
+            let mut p = pantry::Pantry::default();
+            for old in std::mem::take(&mut dinners.pantry) {
+                let _ = p.save_item(pantry::Item { name: old.name, qty: if old.low { 0.5 } else { 2.0 }, min: 1.0, auto: false, ..Default::default() });
+            }
+            if !p.items.is_empty() {
+                let _ = write_atomic(&data.join("pantry.json"), &serde_json::to_vec_pretty(&p).unwrap()).await;
+                let _ = write_atomic(&data.join("dinners.json"), &serde_json::to_vec_pretty(&dinners).unwrap()).await;
+            }
+            p
+        }
+    };
+    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), pantry: RwLock::new(pantry), jobs: Mutex::new(HashMap::new()), weather: Mutex::new(None), holidays: Mutex::new(HashMap::new()), boot });
+
+    sync_restock(&app).await;
 
     // Keep the calendars fresh: once now, then every ten minutes.
     let background = app.clone();
@@ -200,7 +220,13 @@ async fn main() {
         .route("/api/dinner-plan", post(plan_dinner))
         .route("/api/dinner-plan/many", post(plan_many))
         .route("/api/dinner-rule", post(save_rule))
-        .route("/api/pantry", post(save_pantry))
+        .route("/api/pantry", get(get_pantry))
+        .route("/api/pantry/item", post(pantry_save_item))
+        .route("/api/pantry/item/delete", post(pantry_delete_item))
+        .route("/api/pantry/adjust", post(pantry_adjust))
+        .route("/api/pantry/use", post(pantry_use))
+        .route("/api/pantry/stores", post(pantry_stores))
+        .route("/api/pantry/settings", post(pantry_settings))
         .route("/api/people", post(save_people))
         .route("/api/hub-event", get(hub_event).post(save_hub_event))
         .route("/api/hub-event/delete", post(delete_hub_event))
@@ -648,6 +674,16 @@ async fn edit_dinners<T>(app: &App, change: impl FnOnce(&mut dinners::Dinners) -
     edit_json(&app.dinners, app.data.join("dinners.json"), change).await
 }
 
+async fn edit_pantry<T>(app: &App, change: impl FnOnce(&mut pantry::Pantry) -> Result<T, &'static str>) -> Result<T, (StatusCode, String)> {
+    edit_json(&app.pantry, app.data.join("pantry.json"), change).await
+}
+
+/// Put things on the shopping list that have fallen below their minimum in the pantry (and take them off when they're topped up).
+async fn sync_restock(app: &App) {
+    let p = app.pantry.read().await.clone();
+    let _ = edit_shopping(app, |l| { l.sync_restock(&p); Ok(()) }).await;
+}
+
 async fn edit_shopping<T>(app: &App, change: impl FnOnce(&mut shopping::Shopping) -> Result<T, &'static str>) -> Result<T, (StatusCode, String)> {
     edit_json(&app.shopping, app.data.join("shopping.json"), change).await
 }
@@ -807,10 +843,21 @@ async fn get_shopping(State(app): Shared) -> Json<shopping::Shopping> {
 #[derive(Deserialize)]
 struct ItemBody {
     name: String,
+    #[serde(default)]
+    store: String,
+    #[serde(default)]
+    qty: f64,
 }
 
+/// Add something by hand. If the pantry keeps it, it's tied to that pantry item and bought where that item is usually bought.
 async fn shopping_add(State(app): Shared, Json(body): Json<ItemBody>) -> impl IntoResponse {
-    match edit_shopping(&app, |l| l.add(&body.name)).await {
+    let p = app.pantry.read().await.clone();
+    let hit = p.find("", &body.name);
+    let link = shopping::Link { pantry: hit.map(|i| i.id.clone()).unwrap_or_default(), store: if body.store.is_empty() { hit.map(|i| i.store.clone()).unwrap_or_default() } else { body.store.clone() }, qty: if body.qty > 0.0 { body.qty } else { hit.map(|i| i.to_buy().max(0.0)).unwrap_or(0.0) }, unit: hit.map(|i| i.unit.clone()).unwrap_or_default() };
+    if !body.store.is_empty() && !p.stores.iter().any(|s| s.id == body.store) {
+        return (StatusCode::BAD_REQUEST, "That shop has gone.").into_response();
+    }
+    match edit_shopping(&app, |l| l.add_linked(&body.name, "", "", "", &link)).await {
         Ok(id) => Json(json!({"id": id})).into_response(),
         Err(e) => e.into_response(),
     }
@@ -821,14 +868,28 @@ struct ItemUpdate {
     id: String,
     done: Option<bool>,
     name: Option<String>,
+    store: Option<String>,
+    qty: Option<f64>,
 }
 
-/// Tick something off (or back on), or rename it.
+/// Tick something off (or back on), rename it, or change its shop or amount. Ticking off something that tops up a pantry item adds it to the stock.
 async fn shopping_update(State(app): Shared, Json(body): Json<ItemUpdate>) -> impl IntoResponse {
-    match edit_shopping(&app, |l| l.set(&body.id, body.done, body.name.as_deref())).await {
-        Ok(()) => StatusCode::NO_CONTENT.into_response(),
-        Err(e) => e.into_response(),
+    if body.store.as_deref().is_some_and(|s| !s.is_empty() && !app.pantry.try_read().map(|p| p.stores.iter().any(|x| x.id == s)).unwrap_or(true)) {
+        return (StatusCode::BAD_REQUEST, "That shop has gone.").into_response();
     }
+    let effect = match edit_shopping(&app, |l| {
+        l.set(&body.id, None, body.name.as_deref())?;
+        l.set_extra(&body.id, body.store.as_deref(), body.qty)?;
+        Ok(body.done.and_then(|d| l.tick(&body.id, d)))
+    }).await {
+        Ok(e) => e,
+        Err(e) => return e.into_response(),
+    };
+    if let Some((id, delta)) = effect {
+        let _ = edit_pantry(&app, |p| p.adjust(&id, Some(delta), None).map(|_| ())).await;
+        sync_restock(&app).await;
+    }
+    StatusCode::NO_CONTENT.into_response()
 }
 
 async fn shopping_remove(State(app): Shared, Json(body): Json<IdBody>) -> impl IntoResponse {
@@ -892,6 +953,9 @@ struct ManyItem {
     note: String,
     #[serde(default)]
     barcode: String,
+    /// How much of the pantry item is needed, in the pantry item's unit (worked out on the screen).
+    #[serde(default)]
+    qty: f64,
 }
 
 #[derive(Deserialize)]
@@ -906,13 +970,106 @@ async fn shopping_add_many(State(app): Shared, Json(body): Json<ManyBody>) -> im
     if body.items.len() > 80 {
         return (StatusCode::BAD_REQUEST, "That's a lot to add at once.").into_response();
     }
+    let p = app.pantry.read().await.clone();
     match edit_shopping(&app, |l| {
         for i in &body.items {
-            l.add_for(&i.name, &i.note, &i.barcode, &body.from)?;
+            match p.find(&i.barcode, &i.name) {
+                Some(hit) => l.add_linked(&i.name, &i.note, &i.barcode, &body.from, &shopping::Link { pantry: hit.id.clone(), store: hit.store.clone(), qty: i.qty.max(0.0), unit: hit.unit.clone() })?,
+                None => l.add_for(&i.name, &i.note, &i.barcode, &body.from)?,
+            };
         }
         Ok(body.items.len())
     }).await {
         Ok(n) => Json(json!({"added": n})).into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+/// The pantry: stock, shops and settings.
+async fn get_pantry(State(app): Shared) -> Json<pantry::Pantry> {
+    let mut p = app.pantry.read().await.clone();
+    for i in &mut p.items {
+        i.aisle = shopping::aisle_of(&i.name).to_string();
+    }
+    Json(p)
+}
+
+async fn pantry_save_item(State(app): Shared, Json(body): Json<pantry::Item>) -> impl IntoResponse {
+    let r = edit_pantry(&app, |p| p.save_item(body)).await;
+    sync_restock(&app).await;
+    match r {
+        Ok(id) => Json(json!({"id": id})).into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+async fn pantry_delete_item(State(app): Shared, Json(body): Json<IdBody>) -> impl IntoResponse {
+    let r = edit_pantry(&app, |p| p.remove_item(&body.id)).await;
+    sync_restock(&app).await;
+    match r {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct AdjustBody {
+    id: String,
+    delta: Option<f64>,
+    set: Option<f64>,
+}
+
+/// Change how much of something there is: add or take away an amount, or set it.
+async fn pantry_adjust(State(app): Shared, Json(body): Json<AdjustBody>) -> impl IntoResponse {
+    let r = edit_pantry(&app, |p| p.adjust(&body.id, body.delta, body.set)).await;
+    sync_restock(&app).await;
+    match r {
+        Ok(q) => Json(json!({"qty": q})).into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct UseOne {
+    id: String,
+    delta: f64,
+}
+
+#[derive(Deserialize)]
+struct UseBody {
+    uses: Vec<UseOne>,
+}
+
+/// Take what a dinner used off the stock (or put it back, with positive amounts).
+async fn pantry_use(State(app): Shared, Json(body): Json<UseBody>) -> impl IntoResponse {
+    let uses: Vec<(String, f64)> = body.uses.into_iter().map(|u| (u.id, u.delta)).collect();
+    let r = edit_pantry(&app, |p| p.use_many(&uses)).await;
+    sync_restock(&app).await;
+    match r {
+        Ok(n) => Json(json!({"changed": n})).into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+/// Replace the list of shops. Items and shopping list entries for a shop that's gone fall back to "anywhere".
+async fn pantry_stores(State(app): Shared, Json(body): Json<Vec<pantry::Store>>) -> impl IntoResponse {
+    let r = edit_pantry(&app, |p| p.set_stores(body)).await;
+    if r.is_ok() {
+        let ids: Vec<String> = app.pantry.read().await.stores.iter().map(|s| s.id.clone()).collect();
+        let _ = edit_shopping(&app, |l| { l.items.iter_mut().filter(|i| !ids.contains(&i.store)).for_each(|i| i.store.clear()); Ok(()) }).await;
+    }
+    sync_restock(&app).await;
+    match r {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+async fn pantry_settings(State(app): Shared, Json(body): Json<pantry::Settings>) -> impl IntoResponse {
+    let r = edit_pantry(&app, |p| { p.settings = body; Ok(()) }).await;
+    sync_restock(&app).await;
+    match r {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => e.into_response(),
     }
 }
@@ -986,14 +1143,6 @@ struct RuleBody {
 async fn save_rule(State(app): Shared, Json(body): Json<RuleBody>) -> impl IntoResponse {
     let rule = dinners::Rule { meal: body.meal.unwrap_or_default(), kind: body.kind.unwrap_or_default() };
     match edit_dinners(&app, |d| d.set_rule(body.weekday, Some(rule))).await {
-        Ok(()) => StatusCode::NO_CONTENT.into_response(),
-        Err(e) => e.into_response(),
-    }
-}
-
-/// Replace what the family has at home.
-async fn save_pantry(State(app): Shared, Json(body): Json<Vec<dinners::PantryItem>>) -> impl IntoResponse {
-    match edit_dinners(&app, |d| d.set_pantry(body)).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => e.into_response(),
     }

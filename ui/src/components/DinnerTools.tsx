@@ -4,7 +4,8 @@ import { post } from "../lib/api";
 import { addDays, fromYmd, startOfDay, weekStart, ymd } from "../lib/dates";
 import { Check, Chev, ChevL, ChevR, XIcon } from "../lib/icons";
 import { KINDS, type Dinners, type Meal } from "../data";
-import { EMPTY_EVENTS, useDinners as useDinners2, useEvents } from "../data";
+import { EMPTY_EVENTS, NO_PANTRY, useDinners as useDinners2, useEvents, usePantry } from "../data";
+import { planUse } from "../lib/pantrylib";
 import { useHub } from "../hub";
 import { FoodIcon } from "../lib/foodicons";
 import { ago, busyAt, cookingFor, dayName, scaleAmount, stepsOf, suggestWeek, useStats, type Pick } from "../lib/dinnerlib";
@@ -121,45 +122,6 @@ export function RuleSheet({ weekday }: { weekday: number }) {
   } />;
 }
 
-/* ---------- the pantry ---------- */
-export function Pantry({ din }: { din: Dinners | undefined }) {
-  const { dim, soon } = useHub();
-  const qc = useQueryClient();
-  const P = dim.phone, items = din?.pantry || [];
-  const [text, setText] = useState("");
-  const save = async (list: { name: string; low: boolean }[]) => {
-    qc.setQueryData<Dinners>(["dinners"], old => old && { ...old, pantry: list });
-    try { await post("/api/pantry", list); } catch (e: any) { soon(e.message); } finally { qc.invalidateQueries({ queryKey: ["dinners"] }); }
-  };
-  const have = new Set(items.map(i => i.name.toLowerCase()));
-  const ideas = useMemo(() => {
-    const c: Record<string, number> = {};
-    (din?.meals || []).forEach(m => (m.ingredients || []).forEach(i => { if (!have.has(i.name.toLowerCase())) c[i.name] = (c[i.name] || 0) + (i.staple ? 3 : 1); }));
-    return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([n]) => n);
-  }, [din]);
-  const add = (name: string) => { const n = name.trim(); if (n && !have.has(n.toLowerCase())) save([...items, { name: n, low: false }]); setText(""); };
-  return (
-    <div style={wrap(P)}>
-      <Top back="Dinners" to={{ v: "home" }} title="The pantry" />
-      <div className="scroll dvbody" style={{ flex: 1, minHeight: 0, paddingBottom: 130 }}>
-        <p style={{ fontSize: 18, color: "var(--soft)", margin: "0 4px 10px" }}>What you usually have at home. Shopping for the week leaves these off, unless you mark one as running low.</p>
-        <form className="qadd" onSubmit={e => { e.preventDefault(); add(text); }}>
-          <input value={text} onChange={e => setText(e.target.value)} maxLength={50} placeholder="Flour, olive oil, rice…" aria-label="Add to the pantry" autoComplete="off" enterKeyHint="done" /><button className="primary" type="submit" disabled={!text.trim()}>Add</button>
-        </form>
-        {ideas.length ? <div className="fx" style={{ gap: 8, flexWrap: "wrap", margin: "12px 0 6px" }}>{ideas.map(n => <Pill key={n} onClick={() => add(n)}>+ {n}</Pill>)}</div> : null}
-        <h3 className="dvh">At home{items.length ? <small>{items.length}</small> : null}</h3>
-        {items.length ? [...items].sort((a, b) => +b.low - +a.low || a.name.localeCompare(b.name)).map(i => (
-          <div key={i.name} className="dving" style={{ cursor: "default" }}>
-            <span className="dvit"><b>{i.name}</b><small>{i.low ? "Running low: it goes on the list" : "In the cupboard"}</small></span>
-            <button className={"pill" + (i.low ? " on" : "")} aria-pressed={i.low} onClick={() => save(items.map(x => x.name === i.name ? { ...x, low: !x.low } : x))}>Running low</button>
-            <button className="cnav" aria-label={"Remove " + i.name} onClick={() => save(items.filter(x => x.name !== i.name))}><XIcon /></button>
-          </div>
-        )) : <p className="dvnone">Nothing here yet. Add things you always have, or tap the ideas above.</p>}
-      </div>
-    </div>
-  );
-}
-
 /* ---------- what we've eaten ---------- */
 export function History({ din }: { din: Dinners | undefined }) {
   const { dim, now, setDview } = useHub();
@@ -217,7 +179,9 @@ function useTimers() {
 const mmss = (ms: number) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 
 export function Cook({ din, id }: { din: Dinners | undefined; id: string }) {
-  const { dim, now, setDview } = useHub();
+  const { dim, now, setDview, openSheet, soon } = useHub();
+  const qc = useQueryClient();
+  const { data: pan = NO_PANTRY } = usePantry();
   const P = dim.phone, m = din?.meals.find(x => x.id === id), list = useTimers();
   const steps = useMemo(() => stepsOf(m?.notes || ""), [m?.notes]);
   const [i, setI] = useState(0), [tab, setTab] = useState<"steps" | "food">("steps"), [done, setDone] = useState<number[]>([]);
@@ -225,11 +189,25 @@ export function Cook({ din, id }: { din: Dinners | undefined; id: string }) {
   const [n, setN] = useState(() => planned ? cookingFor(din, [], today, m) : m?.serves || 4);
   if (!m) return <div style={wrap(P)}><Top back="Dinners" to={{ v: "home" }} title="Cooking" /></div>;
   const factor = m.serves ? n / m.serves : 1;
+  /** Done cooking: take what the dinner used off the pantry (after a look, or at once with an Undo, as set on the Pantry page's Shops tab). */
+  const finish = async () => {
+    const rows = planUse(m, pan, factor);
+    setDview({ v: "home" });
+    if (!rows.length) return;
+    if (pan.settings.ask_before_use) { openSheet({ mode: "usepantry", meal: m.id, factor }); return; }
+    const uses = rows.filter(r => r.used > 0).map(r => ({ id: r.item.id, delta: -r.used }));
+    if (!uses.length) return;
+    try {
+      await post("/api/pantry/use", { uses });
+      qc.invalidateQueries({ queryKey: ["pantry"] }); qc.invalidateQueries({ queryKey: ["shopping"] });
+      soon(`Pantry updated: ${uses.length} ${uses.length === 1 ? "thing" : "things"} used.`, async () => { try { await post("/api/pantry/use", { uses: uses.map(u => ({ id: u.id, delta: -u.delta })) }); qc.invalidateQueries({ queryKey: ["pantry"] }); qc.invalidateQueries({ queryKey: ["shopping"] }); } catch (e: any) { soon(e.message); } });
+    } catch (e: any) { soon(e.message); }
+  };
   const start = (mins: number) => { timers = [...timers, { id: ++tid, label: `${mins} min`, end: Date.now() + mins * 60000, done: false, alerted: false }]; poke(); };
   const alarming = list.filter(t => t.done);
   return (
     <div style={wrap(P)}>
-      <Top back={m.name} to={{ v: "meal", id }} title="Cooking" right={<button className="cbtn" style={{ padding: "0 18px", background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={() => setDview({ v: "home" })}>Finish</button>} />
+      <Top back={m.name} to={{ v: "meal", id }} title="Cooking" right={<button className="cbtn" style={{ padding: "0 18px", background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={finish}>Finish</button>} />
       {alarming.map(t => <button key={t.id} className="cktimer alarm" onClick={() => { timers = timers.filter(x => x.id !== t.id); poke(); }}>⏰ {t.label} timer is done. Tap to stop.</button>)}
       <div className="fx" style={{ gap: 8, margin: "0 0 12px" }}><Pill on={tab === "steps"} onClick={() => setTab("steps")}>Steps</Pill><Pill on={tab === "food"} onClick={() => setTab("food")}>Ingredients</Pill></div>
       <div className="scroll dvbody" style={{ flex: 1, minHeight: 0, paddingBottom: 150 }}>

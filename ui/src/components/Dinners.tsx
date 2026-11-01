@@ -10,7 +10,10 @@ import { FoodIcon } from "../lib/foodicons";
 import { PanelTop, Top, wrap } from "./Panels";
 import { Pill, SheetFrame } from "./SheetFrame";
 import { ago, busyAt, clashText, cookingFor, dayName, dietClash, homeFor, metaLine, productLine, scaleAmount, useStats } from "../lib/dinnerlib";
-import { Cook, copyLastWeek, History, Pantry, Rules, Suggest } from "./DinnerTools";
+import { Cook, copyLastWeek, History, Rules, Suggest } from "./DinnerTools";
+import { NO_PANTRY, usePantry } from "../data";
+import { amountIn } from "../lib/units";
+import { findItem, haveEnough } from "../lib/pantrylib";
 import { Scanner, scanProblem } from "./Scanner";
 import { SHEET_MS, focusRef, useAutoFocus } from "../lib/focus";
 
@@ -31,8 +34,11 @@ export function useMealSave() {
 }
 
 /** Puts ingredients on the shopping list with what exactly to get. */
-export async function addToList(items: Ingredient[], from: string, factor = 1) {
-  await post("/api/shopping/add-many", { from, items: items.map(i => ({ name: i.name, note: [scaleAmount(i.amount, factor), i.product ? productLine(i.product) : "", i.alt ? "or " + productLine(i.alt) : ""].filter(Boolean).join(" · "), barcode: i.product?.code || "" })) });
+export async function addToList(items: Ingredient[], from: string, factor = 1, pan?: import("../data").PantryData) {
+  await post("/api/shopping/add-many", { from, items: items.map(i => {
+    const hit = pan ? findItem(pan, i) : undefined, need = hit ? amountIn(scaleAmount(i.amount, factor), hit.unit) : null;
+    return { name: i.name, note: [scaleAmount(i.amount, factor), i.product ? productLine(i.product) : "", i.alt ? "or " + productLine(i.alt) : ""].filter(Boolean).join(" · "), barcode: i.product?.code || "", qty: hit && need !== null ? Math.max(0, Math.round((need - Math.max(0, hit.qty)) * 1000) / 1000) || need : 0 };
+  }) });
 }
 
 /** A product's picture, or its first letter when there isn't one (or it doesn't load). */
@@ -48,7 +54,7 @@ export function MenuPanel() {
   const { data: din } = useDinners();
   return (
     <div className="dvpage" key={dview.v === "meal" ? "m" + dview.id : dview.v} style={{ width: "100%", height: "100%" }}>
-      {dview.v === "suggest" ? <Suggest din={din} /> : dview.v === "rules" ? <Rules din={din} /> : dview.v === "pantry" ? <Pantry din={din} /> : dview.v === "history" ? <History din={din} /> : dview.v === "cook" ? <Cook din={din} id={dview.id} /> : dview.v === "ideas" ? <Ideas din={din} /> : dview.v === "meal" ? <MealPage din={din} id={dview.id} /> : dview.v === "shop" ? <ShopWeek din={din} /> : <Week din={din} />}
+      {dview.v === "suggest" ? <Suggest din={din} /> : dview.v === "rules" ? <Rules din={din} /> : dview.v === "history" ? <History din={din} /> : dview.v === "cook" ? <Cook din={din} id={dview.id} /> : dview.v === "ideas" ? <Ideas din={din} /> : dview.v === "meal" ? <MealPage din={din} id={dview.id} /> : dview.v === "shop" ? <ShopWeek din={din} /> : <Week din={din} />}
     </div>
   );
 }
@@ -56,6 +62,7 @@ export function MenuPanel() {
 /* ----- the week, as before: the simple page you land on ----- */
 function Week({ din }: { din: Dinners | undefined }) {
   const { dim, now, people, menuWeek, setMenuWeek, openSheet, setDview, soon } = useHub();
+  const { go } = useNav();
   const qc = useQueryClient();
   const P = dim.phone;
   const w = weekStart(startOfDay(menuWeek)), b = addDays(w, 6), m = (x: Date) => x.toLocaleDateString([], { month: P ? "short" : "long" });
@@ -109,7 +116,7 @@ function Week({ din }: { din: Dinners | undefined }) {
         <Pill onClick={() => setDview({ v: "suggest" })}>✨ Fill the week</Pill>
         <Pill onClick={async () => { try { const n = await copyLastWeek(din, w); await qc.invalidateQueries({ queryKey: ["dinners"] }); soon(n ? `${n} dinner${n === 1 ? "" : "s"} copied from last week.` : "Those nights were already planned."); } catch (e: any) { soon(e.message); } }}>Copy last week</Pill>
         <Pill onClick={() => setDview({ v: "rules" })}>Fixed nights</Pill>
-        <Pill onClick={() => setDview({ v: "pantry" })}>Pantry</Pill>
+        <Pill onClick={() => go("pantry")}>Pantry</Pill>
         <Pill onClick={() => setDview({ v: "history" })}>What we've eaten</Pill>
       </div>
       <div className="drows">{rows}</div>
@@ -189,18 +196,19 @@ function MealPage({ din, id }: { din: Dinners | undefined; id: string }) {
   const P = dim.phone, stats = useStats(din, now);
   const m = din?.meals.find(x => x.id === id);
   const [cookFor, setCookFor] = useState(() => cookingFor(din, people, ymd(now), m) || m?.serves || 4);
+  const { data: pan = NO_PANTRY } = usePantry();
   const [notes, setNotes] = useState(m?.notes || ""), [link, setLink] = useState(m?.link || ""), [tag, setTag] = useState(""), [sure, setSure] = useState(false), [name, setName] = useState(m?.name || ""), [renaming, setRenaming] = useState(false), [msg, setMsg] = useState("");
   useEffect(() => { if (m) { setNotes(m.notes || ""); setLink(m.link || ""); setName(m.name); } }, [m?.id]);
   if (!m) return (
     <div style={wrap(P)}><Top back="Dinner ideas" to={{ v: "ideas" }} title="Dinner" /><p style={{ fontSize: 20, color: "#6b7488", padding: 8 }}>That dinner has gone. Go back to the list to pick another.</p></div>
   );
-  const s = stats[m.id], ings = m.ingredients || [], pantry = din?.pantry || [];
-  const stocked = (i: Ingredient) => pantry.some(p => p.name.toLowerCase() === i.name.toLowerCase() && !p.low);
+  const s = stats[m.id], ings = m.ingredients || [];
+  const stocked = (i: Ingredient) => haveEnough(pan, i, m.serves ? cookFor / m.serves : 1);
   const buy = ings.filter(i => !i.staple && !stocked(i));
   const factor = m.serves ? cookFor / m.serves : 1;
   const clash = clashText(dietClash(m, people.filter(p => (p.diet || []).length)));
   const run = async (f: () => Promise<unknown>) => { try { await f(); await qc.invalidateQueries({ queryKey: ["dinners"] }); } catch (e: any) { soon(e.message); } };
-  const shop = async () => { try { await addToList(buy, m.name, factor); setMsg(`${buy.length} on the shopping list${ings.length > buy.length ? `. ${ings.length - buy.length} you already have ${ings.length - buy.length === 1 ? "was" : "were"} left off.` : "."}`); } catch (e: any) { soon(e.message); } };
+  const shop = async () => { try { await addToList(buy, m.name, factor, pan); setMsg(`${buy.length} on the shopping list${ings.length > buy.length ? `. ${ings.length - buy.length} you already have ${ings.length - buy.length === 1 ? "was" : "were"} left off.` : "."}`); } catch (e: any) { soon(e.message); } };
   return (
     <div style={wrap(P)}>
       <Top back="Dinner ideas" to={{ v: "ideas" }} title={m.name} right={<button className={"dvfav" + (m.favourite ? " on" : "")} aria-pressed={!!m.favourite} aria-label="Favourite" onClick={() => save(m, { favourite: !m.favourite })}>★</button>} />
@@ -223,7 +231,7 @@ function MealPage({ din, id }: { din: Dinners | undefined; id: string }) {
           <button className="cbtn accent" style={{ padding: "0 22px" }} onClick={() => openSheet({ mode: "planmeal", meal: m.id })}>Plan it</button>
           {ings.length || m.notes ? <button className="cbtn" style={{ padding: "0 22px", background: "#101828", color: "#fff" }} onClick={() => setDview({ v: "cook", id: m.id })}>Cook it</button> : null}
           {buy.length ? <button className="cbtn" style={{ padding: "0 22px", background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={shop}>Add to shopping list</button> : null}
-          {msg ? <button className="dvlink" onClick={() => go("shopping")}>{msg} Open the list</button> : null}
+          {msg ? <button className="dvlink" onClick={() => go("pantry")}>{msg} Open the list</button> : null}
         </div>
 
         {clash ? <p className="dwarn" style={{ fontSize: 17, margin: "10px 4px 0" }}>⚠ {clash}. Check the ingredients, then mark which diets it suits below.</p> : null}
@@ -307,25 +315,23 @@ function ShopWeek({ din }: { din: Dinners | undefined }) {
   const { go } = useNav();
   const P = dim.phone;
   const w = weekStart(startOfDay(menuWeek));
-  const pantry = din?.pantry || [], low = pantry.filter(p => p.low);
-  const stocked = (i: Ingredient) => pantry.some(p => p.name.toLowerCase() === i.name.toLowerCase() && !p.low);
+  const { data: pan = NO_PANTRY } = usePantry();
+  const stocked = (i: Ingredient, f = 1) => haveEnough(pan, i, f);
   const groups = Array.from({ length: 7 }, (_, i) => addDays(w, i)).filter(d => d >= startOfDay(now)).map(d => ({ d, m: din?.meals.find(x => x.id === din.plan[ymd(d)]?.meal) })).filter(g => g.m && (g.m.ingredients || []).length);
   const [off, setOff] = useState<string[] | null>(null), [done, setDone] = useState<number | null>(null), [forN, setForN] = useState<Record<string, number>>({});
   const key = (d: Date, i: Ingredient) => ymd(d) + i.id;
   const target = (d: Date, m: Meal) => forN[ymd(d)] ?? cookingFor(din, people, ymd(d), m);
   const factor = (d: Date, m: Meal) => m.serves ? target(d, m) / m.serves : 1;
-  const unneeded = useMemo(() => groups.flatMap(g => g.m!.ingredients!.filter(i => i.staple || stocked(i)).map(i => key(g.d, i))), [din, ymd(w)]);
+  const unneeded = useMemo(() => groups.flatMap(g => g.m!.ingredients!.filter(i => i.staple || stocked(i, factor(g.d, g.m!))).map(i => key(g.d, i))), [din, pan, ymd(w)]);
   const skipped = off ?? unneeded;
   const picked = groups.flatMap(g => g.m!.ingredients!.filter(i => !skipped.includes(key(g.d, i))).map(i => ({ i, from: g.m!.name, f: factor(g.d, g.m!) })));
-  const lows = low.filter(l => !skipped.includes("low:" + l.name));
   const toggle = (k: string) => setOff(skipped.includes(k) ? skipped.filter(x => x !== k) : [...skipped, k]);
-  const total = picked.length + lows.length;
+  const total = picked.length;
   const add = async () => {
     try {
       const by: Record<string, { i: Ingredient; f: number }[]> = {};
       picked.forEach(p => (by[p.from] ||= []).push(p));
-      for (const [from, items] of Object.entries(by)) for (const f of [...new Set(items.map(x => x.f))]) await addToList(items.filter(x => x.f === f).map(x => x.i), from, f);
-      if (lows.length) await addToList(lows.map(l => ({ id: "", name: l.name, amount: "", product: null, staple: false })), "Running low");
+      for (const [from, items] of Object.entries(by)) for (const f of [...new Set(items.map(x => x.f))]) await addToList(items.filter(x => x.f === f).map(x => x.i), from, f, pan);
       setDone(total);
     } catch (e: any) { soon(e.message); }
   };
@@ -337,9 +343,9 @@ function ShopWeek({ din }: { din: Dinners | undefined }) {
           <div style={{ padding: "44px 0", textAlign: "center" }}>
             <div className="dvdone"><Check /></div>
             <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-.02em", marginTop: 14 }}>{done} {done === 1 ? "thing" : "things"} on the shopping list</div>
-            <div className="fx" style={{ gap: 10, justifyContent: "center", marginTop: 18 }}><button className="primary" onClick={() => go("shopping")}>Open the list</button><button onClick={() => setDview({ v: "home" })}>Back to dinners</button></div>
+            <div className="fx" style={{ gap: 10, justifyContent: "center", marginTop: 18 }}><button className="primary" onClick={() => go("pantry")}>Open the list</button><button onClick={() => setDview({ v: "home" })}>Back to dinners</button></div>
           </div>
-        ) : groups.length || low.length ? (
+        ) : groups.length ? (
           <>
             <p style={{ fontSize: 18, color: "var(--soft)", margin: "0 4px 6px" }}>Everything the planned dinners need, for the people who are home. Pantry staples and things you already have start unticked.</p>
             {groups.map(g => (
@@ -355,19 +361,11 @@ function ShopWeek({ din }: { din: Dinners | undefined }) {
                 {g.m!.ingredients!.map(i => { const k = key(g.d, i), on = !skipped.includes(k); return (
                   <div className={"srow" + (on ? "" : " off")} key={k}>
                     <button className="stk" aria-pressed={on} onClick={() => toggle(k)}><span className="chk" aria-hidden style={on ? { background: "#101828", borderColor: "#101828" } : undefined}>{on ? <Check /> : null}</span>
-                      <span className="sn" style={{ textDecoration: "none" }}>{i.name}<small className="snote">{[scaleAmount(i.amount, factor(g.d, g.m!)), i.product ? productLine(i.product) : ""].filter(Boolean).join(" · ")}{i.staple ? " · staple" : stocked(i) ? " · in the pantry" : ""}</small></span></button>
+                      <span className="sn" style={{ textDecoration: "none" }}>{i.name}<small className="snote">{[scaleAmount(i.amount, factor(g.d, g.m!)), i.product ? productLine(i.product) : ""].filter(Boolean).join(" · ")}{i.staple ? " · staple" : stocked(i, factor(g.d, g.m!)) ? " · in the pantry" : ""}</small></span></button>
                   </div>
                 ); })}
               </section>
             ))}
-            {low.length ? (
-              <section className="dvshop">
-                <div className="fx" style={{ gap: 12, padding: "12px 4px 6px" }}><b style={{ fontSize: 21 }}>Running low at home</b></div>
-                {low.map(l => { const k = "low:" + l.name, on = !skipped.includes(k); return (
-                  <div className={"srow" + (on ? "" : " off")} key={k}><button className="stk" aria-pressed={on} onClick={() => toggle(k)}><span className="chk" aria-hidden style={on ? { background: "#101828", borderColor: "#101828" } : undefined}>{on ? <Check /> : null}</span><span className="sn" style={{ textDecoration: "none" }}>{l.name}</span></button></div>
-                ); })}
-              </section>
-            ) : null}
           </>
         ) : (
           <div style={{ padding: "44px 0", textAlign: "center" }}>
@@ -376,7 +374,7 @@ function ShopWeek({ din }: { din: Dinners | undefined }) {
           </div>
         )}
       </div>
-      {done === null && (groups.length || low.length) ? <div className="dvbar"><button className="primary" disabled={!total} onClick={add}>Add {total} to the shopping list</button></div> : null}
+      {done === null && groups.length ? <div className="dvbar"><button className="primary" disabled={!total} onClick={add}>Add {total} to the shopping list</button></div> : null}
     </div>
   );
 }

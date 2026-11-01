@@ -49,8 +49,22 @@ export function dinnerFor(din: Dinners | undefined, people: { id: string; name: 
   return { name: m.name, cook: cook ? cook.name : "", cookColor: cook?.color || "" };
 }
 
-export type ShopItem = { id: string; name: string; done: boolean; note?: string; barcode?: string; from?: string; aisle?: string };
-export const useShopping = () => useQuery<{ items: ShopItem[] }>({ queryKey: ["shopping"], queryFn: () => api("/api/shopping") });
+export type ShopItem = { id: string; name: string; done: boolean; note?: string; barcode?: string; from?: string; aisle?: string; store?: string; pantry?: string; qty?: number; unit?: string; auto?: boolean };
+export const useShopping = () => useQuery<{ items: ShopItem[] }>({ queryKey: ["shopping"], queryFn: () => api("/api/shopping"), refetchInterval: 60000 });
+
+/* ---------- the pantry ---------- */
+export type Store = { id: string; name: string; color: string };
+export type PItem = { id: string; name: string; qty: number; unit: string; min: number; want: number; store: string; auto: boolean; product: Product | null; note: string; aisle?: string };
+export type PantryData = { stores: Store[]; items: PItem[]; settings: { auto_restock: boolean; ask_before_use: boolean } };
+export const NO_PANTRY: PantryData = { stores: [], items: [], settings: { auto_restock: true, ask_before_use: true } };
+export const usePantry = () => useQuery<PantryData>({ queryKey: ["pantry"], queryFn: () => DEMO ? Promise.resolve(demoPantry()) : api("/api/pantry"), refetchInterval: 60000 });
+/** Out (none left), low (under its minimum) or fine. */
+export const stockLevel = (i: PItem): "out" | "low" | "ok" => i.qty <= 0 ? "out" : i.min > 0 && i.qty < i.min ? "low" : "ok";
+function demoPantry(): PantryData {
+  const stores: Store[] = [{ id: "t1", name: "Woolworths", color: "#14a06c" }, { id: "t2", name: "Aldi", color: "#2f6fe0" }, { id: "t3", name: "Butcher", color: "#e2523f" }];
+  const it = (id: string, name: string, qty: number, unit: string, min: number, want: number, store: string, auto = true, aisle = "Pantry"): PItem => ({ id, name, qty, unit, min, want, store, auto, product: null, note: "", aisle });
+  return { stores, settings: { auto_restock: true, ask_before_use: true }, items: [it("p1", "Flour", 1.2, "kg", 0.5, 2, "t1"), it("p2", "Rice", 0.3, "kg", 0.5, 2, "t2"), it("p3", "Pasta", 3, "pack", 2, 5, "t2"), it("p4", "Olive oil", 0, "bottle", 1, 2, "t1"), it("p5", "Basil", 1, "bunch", 0, 0, "t1", false, "Fruit and veg"), it("p6", "Beef mince", 0.5, "kg", 0, 0, "t3", true, "Meat and fish")] };
+}
 
 /* ---------- PocketPals jobs ---------- */
 export type Step = { id: number; title: string; done: boolean };

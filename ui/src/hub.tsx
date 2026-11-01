@@ -21,7 +21,7 @@ const DIM0: Dim = { W: 800, H: 1280, s: 1, phone: false, st: 0, sb: 0 };
 
 export type CalView = { mode: "day" | "week" | "month" | "agenda"; date: Date; who: string | null };
 /** Which page of Dinners is open: the week, the list of ideas, one dinner, or shopping for the week. */
-export type DView = { v: "home" } | { v: "ideas" } | { v: "meal"; id: string } | { v: "shop" } | { v: "suggest" } | { v: "rules" } | { v: "pantry" } | { v: "history" } | { v: "cook"; id: string };
+export type DView = { v: "home" } | { v: "ideas" } | { v: "meal"; id: string } | { v: "shop" } | { v: "suggest" } | { v: "rules" } | { v: "history" } | { v: "cook"; id: string };
 export type Sheet =
   | { mode: "event"; draft: EventDraft; occ?: string; back?: boolean }
   | { mode: "view"; e: import("./lib/events").Ev; cal: { name: string; color: string } }
@@ -31,6 +31,9 @@ export type Sheet =
   | { mode: "ingredient"; meal: string; ing: string | null }
   | { mode: "planmeal"; meal: string }
   | { mode: "rule"; weekday: number }
+  | { mode: "pitem"; id: string | null; name?: string }
+  | { mode: "shopitem"; id: string }
+  | { mode: "usepantry"; meal: string; factor: number }
   | { mode: "find" };
 export type EventDraft = {
   id: string; occ?: string; title: string; location: string; allDay: boolean; sd: string; st: string; ned: string; net: string;

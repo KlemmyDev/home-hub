@@ -6,7 +6,7 @@ import { nowZ } from "../lib/dates";
 import { CalendarPanel } from "./Calendar";
 import { ChoresPanel } from "./Chores";
 import { Overview } from "./Overview";
-import { ShoppingPanel } from "./Panels";
+import { PantryPanel } from "./Pantry";
 import { MenuPanel } from "./Dinners";
 import { Settings } from "../screens/Settings";
 import { SheetHost } from "./Sheets";
@@ -52,7 +52,7 @@ function Dock() {
   const page = usePage();
   const { go, openCal } = useNav();
   const url = (id: string) => S.config.widgets.find(w => w.id === id)?.url;
-  const items: [string, string, string][] = [["overview", "Overview", "page"], ["calendar", "Calendar", "page"], ["menu", "Dinners", "page"], ["shopping", "Shopping", "page"]];
+  const items: [string, string, string][] = [["overview", "Overview", "page"], ["calendar", "Calendar", "page"], ["menu", "Dinners", "page"], ["pantry", "Pantry", "page"]];
   if (ppOn) items.push(["chores", "Chores", "page"]); else if (url("pocketpals")) items.push(["chores", "Chores", url("pocketpals")!]);
   if (url("wattsmypower")) items.push(["energy", "Energy", url("wattsmypower")!]);
   items.push(["settings", "Settings", "page"]);
@@ -82,7 +82,7 @@ export function Stage() {
         <Overview away={page !== "overview"} />
         <PanelCard id="calcard" inner="calin" active={page === "calendar"} edge><CalendarPanel /></PanelCard>
         <PanelCard id="menucard" inner="menuin" active={page === "menu"} edge><MenuPanel /></PanelCard>
-        <PanelCard id="shopcard" inner="shopin" active={page === "shopping"}><ShoppingPanel /></PanelCard>
+        <PanelCard id="shopcard" inner="shopin" active={page === "pantry"}><PantryPanel /></PanelCard>
         <PanelCard id="chorecard" inner="chorein" active={page === "chores"} edge><ChoresPanel /></PanelCard>
         {page === "settings" ? <div id="setlayer"><Settings /></div> : null}
         <Reminders />
