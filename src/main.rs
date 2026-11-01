@@ -154,6 +154,7 @@ async fn main() {
         .route("/api/pocketpals/disconnect", post(pp_disconnect))
         .route("/api/chores", get(pp_chores))
         .route("/api/chores/tick", post(pp_tick))
+        .route("/api/chores/step", post(pp_step))
         .route("/api/shopping", get(get_shopping))
         .route("/api/shopping/add", post(shopping_add))
         .route("/api/shopping/update", post(shopping_update))
@@ -505,6 +506,35 @@ async fn pp_tick(State(app): Shared, Json(body): Json<TickBody>) -> impl IntoRes
         return (StatusCode::BAD_REQUEST, "That day doesn't look right.").into_response();
     }
     let done = pocketpals::tick(&url, &config.pocketpals_key, body.kid_id, body.chore_id, &body.day, body.done).await;
+    app.jobs.lock().await.clear();
+    match done {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(why) => (StatusCode::BAD_REQUEST, why).into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct StepBody {
+    kid_id: i64,
+    chore_id: i64,
+    step_id: i64,
+    day: String,
+    done: bool,
+}
+
+/// Tick one step of a job in PocketPals (or take it back). The last step ticked marks the job itself.
+async fn pp_step(State(app): Shared, Json(body): Json<StepBody>) -> impl IntoResponse {
+    let config = app.config.read().await.clone();
+    let (Some(url), false) = (pp_url(&config), config.pocketpals_key.is_empty()) else {
+        return (StatusCode::BAD_REQUEST, "PocketPals isn't connected.").into_response();
+    };
+    if !config.pocketpals_tick {
+        return (StatusCode::FORBIDDEN, "This PocketPals key can only show jobs. Make one that can tick them.").into_response();
+    }
+    if !pocketpals::is_day(&body.day) {
+        return (StatusCode::BAD_REQUEST, "That day doesn't look right.").into_response();
+    }
+    let done = pocketpals::tick_step(&url, &config.pocketpals_key, body.kid_id, body.chore_id, body.step_id, &body.day, body.done).await;
     app.jobs.lock().await.clear();
     match done {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),

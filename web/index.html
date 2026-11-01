@@ -66,12 +66,12 @@ input:focus{outline:3px solid #1d4ed8;outline-offset:2px}
 .toast.on{opacity:1}
 .cnav{width:52px;height:52px;min-height:0;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #e1e6ef;color:#101828}
 .cbtn{height:52px;min-height:0;padding:0 20px;border-radius:999px;background:#101828;color:#fff;border:0;font-size:17px;font-weight:650}
-.ov{position:absolute;inset:0;padding:48px 44px 124px;display:flex;flex-direction:column;gap:18px;transition:opacity .45s ease,transform .55s cubic-bezier(.2,.8,.2,1)}
+.ov{position:absolute;inset:0;padding:48px 44px 124px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;scrollbar-width:none;transition:opacity .45s ease,transform .55s cubic-bezier(.2,.8,.2,1)}
 .ov.away{opacity:0;transform:scale(.97);pointer-events:none}
-#calcard,#menucard,#shopcard{position:absolute;display:none;overflow:hidden;z-index:3}
-#calcard.show,#menucard.show,#shopcard.show{display:block}
-#calcard.anim,#menucard.anim,#shopcard.anim{transition:left .55s cubic-bezier(.2,.8,.2,1),top .55s cubic-bezier(.2,.8,.2,1),width .55s cubic-bezier(.2,.8,.2,1),height .55s cubic-bezier(.2,.8,.2,1)}
-#calin,#menuin,#shopin{position:absolute;left:0;top:0;width:760px;height:1240px;transition:opacity .3s ease}
+#calcard,#menucard,#shopcard,#chorecard{position:absolute;display:none;overflow:hidden;z-index:3}
+#calcard.show,#menucard.show,#shopcard.show,#chorecard.show{display:block}
+#calcard.anim,#menucard.anim,#shopcard.anim,#chorecard.anim{transition:left .55s cubic-bezier(.2,.8,.2,1),top .55s cubic-bezier(.2,.8,.2,1),width .55s cubic-bezier(.2,.8,.2,1),height .55s cubic-bezier(.2,.8,.2,1)}
+#calin,#menuin,#shopin,#chorein{position:absolute;left:0;top:0;width:760px;height:1240px;transition:opacity .3s ease}
 .sg.big{height:40px;font-size:16px;padding:0 17px}
 .evb{position:absolute;box-sizing:border-box;min-height:0;border:0;border-radius:10px;overflow:hidden;text-align:left;color:#101828;display:block;font-family:inherit}
 .mcell{box-sizing:border-box;min-height:0;min-width:0;padding:4px;border:0;border-top:1px solid #edf0f5;border-radius:0;background:none;display:flex;flex-direction:column;gap:3px;align-items:stretch;text-align:left;overflow:hidden;color:#101828}
@@ -99,10 +99,7 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 #stage.phone{--tl:92px}
 .phone .ov{padding:calc(16px + var(--st, 0px)) 14px calc(100px + var(--sb, 0px));gap:14px;overflow-y:auto;scrollbar-width:none}
 .phone .ov::-webkit-scrollbar{display:none}
-.phone .ov>*{flex:none}
-.phone #body{flex:none!important;min-height:0!important}
 .phone .wgrid{display:flex!important;flex-direction:column;flex:none!important;min-height:0!important}
-.phone .pane{min-height:300px}
 .phone #today{padding:16px 16px 12px!important}
 .phone #today>.fx:first-child{flex-wrap:wrap;row-gap:8px}
 .phone #greeting{font-size:40px!important}
@@ -113,7 +110,7 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 .phone .dn{font-size:26px!important}
 .phone .legend{display:none}
 .phone .gscroll .gwrap{flex:none;height:820px;min-height:0}
-.phone #calin,.phone #menuin,.phone #shopin{overflow-y:auto;scrollbar-width:none}
+.phone #calin,.phone #menuin,.phone #shopin,.phone #chorein{overflow-y:auto;scrollbar-width:none}
 .phone .sg.big{height:36px;padding:0 12px;font-size:15px}
 .phone .cnav{width:44px;height:44px}
 .phone .cbtn{height:44px;padding:0 16px!important;font-size:16px}
@@ -153,6 +150,36 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 .sn{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .sx{width:52px;height:52px;min-height:0;padding:0;border:0;border-radius:50%;background:none;color:#8a93a6;display:flex;align-items:center;justify-content:center;flex:none}
 .phone .stk{font-size:20px;min-height:56px}
+.cband:empty{display:none}
+.cband{padding:0 0 6px}
+.jrow{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-top:1px solid #edf0f5}
+.jkid{display:flex;align-items:center;gap:7px;width:112px;flex:none;line-height:44px;font-size:17px}
+.jkid i{width:12px;height:12px;border-radius:50%;background:var(--kc);flex:none}
+.jkid b{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jkid small{font-size:14px;font-weight:700;color:#6b7488}
+.phone .jkid{width:100%;line-height:26px}
+.jchip{display:inline-flex;align-items:center;gap:9px;min-height:44px;padding:0 14px 0 6px;border-radius:999px;border:1.5px solid var(--kc);background:#fff;font-size:17px;font-weight:650;color:#101828;max-width:100%;text-align:left}
+.jchip.big{min-height:56px;font-size:20px;padding:0 18px 0 8px;gap:12px}
+.jchip .jc{width:30px;height:30px;border-radius:50%;border:2.5px solid var(--kc);display:flex;align-items:center;justify-content:center;color:#fff;flex:none}
+.jchip.big .jc{width:36px;height:36px}
+.jchip .jt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jchip.done{background:#f3f6fb;color:#6b7488;border-color:#d5dbe6}
+.jchip.done .jc{background:var(--kc);border-color:var(--kc)}
+.jchip.done .jt{text-decoration:line-through}
+.jchip.ok .jc{background:#14a06c;border-color:#14a06c}
+.jchip.stp .jc small{font-size:11px;font-weight:800;color:var(--kc);letter-spacing:-.02em}
+.jchip .jw{font-size:12px;font-weight:700;color:#8a5200;background:#fdefd3;border-radius:999px;padding:2px 8px;flex:none}
+.jchip[data-locked]:not(.done){opacity:.6}
+.kpill{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;font-size:14px;font-weight:650;color:#101828}
+.kpill i{width:9px;height:9px;border-radius:50%;flex:none}
+.kpill.sm{height:24px;padding:0 7px;font-size:12px;gap:4px;margin-bottom:3px}
+.kcell{min-height:0;padding:0 2px;border:0;border-radius:0;background:none;display:flex;flex-direction:column;align-items:center;color:inherit}
+.kcard{border:1.5px solid #edf0f5;border-radius:22px;padding:14px 16px;margin-bottom:12px}
+.ov::-webkit-scrollbar{display:none}
+.ov>*{flex:none}
+#body{flex:none!important;min-height:0!important}
+.ov .wgrid{flex:none!important}
+.cpane{flex-direction:row;align-items:center;gap:12px;padding:14px 16px;min-height:76px;text-decoration:none}
 .sheet-on #sheetscrim{opacity:1;pointer-events:auto}
 .sheet-on #sheet{transform:none;visibility:visible;transition:transform .4s cubic-bezier(.2,.8,.2,1),visibility 0s}
 .scroll{overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -201,15 +228,7 @@ function show(which) {
 }
 
 /* ---------- Pictures (brand art from PocketPals, kept in this one file) ---------- */
-const PAL_DINO = "data:image/webp;base64,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", PAL_PIG = "data:image/webp;base64,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";
 const PP_LOGO = `<svg width="34" height="34" viewBox="0 0 120 120" aria-hidden="true"><defs><radialGradient id="pc" cx=".36" cy=".3" r=".8"><stop offset="0" stop-color="#ffe68a"/><stop offset=".55" stop-color="#ffc21a"/><stop offset="1" stop-color="#d48d00"/></radialGradient><linearGradient id="pt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a5cff"/><stop offset="1" stop-color="#4c2dd8"/></linearGradient><linearGradient id="pb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#efeaff"/></linearGradient></defs><rect width="120" height="120" rx="27" fill="url(#pt)"/><path d="M20 22 Q21 27.5 26 28.5 Q21 29.5 20 35 Q19 29.5 14 28.5 Q19 27.5 20 22 Z" fill="#ffd84d"/><g transform="translate(2 0) scale(.9667)"><g transform="rotate(14 75 33)"><circle cx="75" cy="35" r="15" fill="#a86f00" opacity=".35"/><circle cx="75" cy="33" r="15" fill="url(#pc)"/><path d="M75 23 Q76.3 31.7 85 33 Q76.3 34.3 75 43 Q73.7 34.3 65 33 Q73.7 31.7 75 23 Z" fill="#fff"/></g><circle cx="31" cy="42" r="12.5" fill="url(#pb)" stroke="#2a1590" stroke-width="3.2"/><circle cx="89" cy="42" r="12.5" fill="url(#pb)" stroke="#2a1590" stroke-width="3.2"/><circle cx="31" cy="42" r="6" fill="#ffb3c6"/><circle cx="89" cy="42" r="6" fill="#ffb3c6"/><path d="M28 44 H92 Q101 44 101 53 V80 Q101 86.5 95 89.5 L65 103 Q60 105.3 55 103 L25 89.5 Q19 86.5 19 80 V53 Q19 44 28 44 Z" fill="url(#pb)" stroke="#2a1590" stroke-width="3.2" stroke-linejoin="round"/><path d="M24 55.5 H96" stroke="#b7a8ff" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="4.5 4"/><path d="M25.5 61 V79 Q25.5 83.5 29.5 85.3 L57 97.6 Q60 99 63 97.6 L90.5 85.3 Q94.5 83.5 94.5 79 V61" fill="none" stroke="#b7a8ff" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="4.5 4"/><ellipse cx="38.5" cy="77" rx="5.6" ry="3.4" fill="#ffb3c6"/><ellipse cx="81.5" cy="77" rx="5.6" ry="3.4" fill="#ffb3c6"/><circle cx="47" cy="69" r="4.6" fill="#1c1a33"/><circle cx="73" cy="69" r="4.6" fill="#1c1a33"/><circle cx="48.4" cy="67.4" r="1.5" fill="#fff"/><circle cx="74.4" cy="67.4" r="1.5" fill="#fff"/><path d="M54.5 76.5 Q60 82 65.5 76.5" fill="none" stroke="#1c1a33" stroke-width="3" stroke-linecap="round"/></g></svg>`;
-const HOUSE = `<svg viewBox="0 0 200 150" width="168" height="126" aria-hidden="true"><defs><linearGradient id="pnl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3F82FF"/><stop offset="1" stop-color="#1F4FD1"/></linearGradient></defs>
-<polygon points="100,148 8,103 100,58 192,103" fill="#DCE9D5"/><polygon points="8,103 100,148 100,153 8,108" fill="#C3D6BB"/><polygon points="100,148 192,103 192,108 100,153" fill="#B2C8AA"/>
-<polygon points="45,96 100,124 100,90 45,62" fill="#F6F8FB"/><polygon points="100,124 155,96 155,62 100,90" fill="#E0E6EE"/>
-<polygon points="45,62 100,90 72,52" fill="#F6F8FB"/>
-<polygon points="45.0,62.0 100.0,34.0 127.5,24.0 72.5,52.0" fill="#3A3F47"/><polygon points="72.5,52.0 127.5,24.0 155.0,62.0 100.0,90.0" fill="#2B2F36"/>
-<polygon points="52.7,89.7 64.8,95.9 64.8,82.3 52.7,76.1" fill="#B9D3F5"/><polygon points="75.8,101.5 87.9,107.6 87.9,94.0 75.8,87.9" fill="#B9D3F5"/><polygon points="108.8,119.5 119.8,113.9 119.8,89.4 108.8,95.0" fill="#8B5E3C"/><polygon points="130.8,98.1 144.0,91.4 144.0,77.8 130.8,84.5" fill="#B9D3F5"/><g class="glint"><polygon points="78.5,54.1 89.5,48.5 99.7,62.6 88.7,68.2" fill="url(#pnl)" stroke="#9DBBFF" stroke-width=".6"/><polygon points="91.3,47.6 102.3,42.0 112.5,56.1 101.5,61.7" fill="url(#pnl)" stroke="#9DBBFF" stroke-width=".6"/><polygon points="104.1,41.1 115.1,35.5 125.3,49.6 114.3,55.2" fill="url(#pnl)" stroke="#9DBBFF" stroke-width=".6"/><polygon points="116.9,34.6 127.9,29.0 138.1,43.0 127.1,48.6" fill="url(#pnl)" stroke="#9DBBFF" stroke-width=".6"/><polygon points="90.9,71.2 101.9,65.6 112.1,79.7 101.1,85.3" fill="url(#pnl)" stroke="#9DBBFF" stroke-width=".6"/><polygon points="103.7,64.7 114.7,59.1 124.9,73.2 113.9,78.8" fill="url(#pnl)" stroke="#9DBBFF" stroke-width=".6"/><polygon points="116.5,58.2 127.5,52.6 137.7,66.7 126.7,72.3" fill="url(#pnl)" stroke="#9DBBFF" stroke-width=".6"/><polygon points="129.3,51.7 140.3,46.1 150.5,60.1 139.5,65.8" fill="url(#pnl)" stroke="#9DBBFF" stroke-width=".6"/></g></svg>`;
-const STAR = (l, t, d, s, c) => `<svg class="tw" style="position:absolute;left:${l}px;top:${t}px;animation-delay:${d}s" width="${s}" height="${s}" viewBox="0 0 24 24" fill="${c}" aria-hidden="true"><path d="M12 1l2.5 8.5L23 12l-8.5 2.5L12 23l-2.5-8.5L1 12l8.5-2.5z"/></svg>`;
 const CHEV = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>`;
 
 /* ---------- Fit the 800 x 1280 stage to the screen ---------- */
@@ -283,7 +302,7 @@ const CHEV_R = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stro
 
 /* ---------- Events (from the hub, or sample ones with ?demo) ---------- */
 let EV = {list: [], cals: {}};
-const view = {page: "overview", mode: "day", date: new Date(), who: null, ovMode: "day", menuWeek: new Date()};
+const view = {page: "overview", mode: "day", date: new Date(), who: null, ovMode: "day", menuWeek: new Date(), choreDay: new Date()};
 const dateOf = (s, allDay) => { if (allDay) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); } return new Date(s); };
 const prep = e => ({...e, s: dateOf(e.start, e.all_day), e: dateOf(e.end, e.all_day)});
 function onDay(e, day) {
@@ -352,7 +371,8 @@ function drawDinner() {
 }
 async function loadOverview() {
   const mon = weekStart(new Date());
-  await Promise.all([loadRange(mon, addDays(mon, 7)), loadDinners()]);
+  const today = startOfDay(new Date());
+  await Promise.all([loadRange(mon, addDays(mon, 7)), loadDinners(), loadChores(today, today)]);
   drawToday(); drawDinner();
 }
 /* The Overview's week view: the days side by side, each with its events stacked underneath. */
@@ -376,6 +396,7 @@ function drawToday() {
     return `<button class="wd" data-day="${i}" style="border:0;background:none;border-radius:0" aria-label="${esc(day.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}))}"><span style="font-size:13px;font-weight:700;letter-spacing:.06em;color:${today ? "#101828" : "#8a93a6"}">${w}</span><span class="num fx" style="width:44px;height:44px;border-radius:50%;justify-content:center;font-size:21px;font-weight:700;${today ? "background:#101828;color:#fff" : "color:" + (i >= 5 ? "#8a93a6" : "#101828")}">${day.getDate()}</span><span class="fx" style="gap:4px;height:6px">${dotHtml(dotsFor(day))}</span></button>`;
   }).join("");
   const todays = EV.list.filter(e => onDay(e, now) && (e.all_day || e.e > now || (+e.e === +e.s && e.s >= now)));
+  const jobsToday = ppOn() ? jobRows(now, {}) : "";
   const shown = todays.slice(0, 3), rest = todays.slice(3);
   const hasCals = true;      // events can be added right on the hub, so the calendar is always there
   const bad = Object.values(EV.cals).find(c => !c.ok);
@@ -403,7 +424,7 @@ function drawToday() {
     </div>
     ${wk ? `<div style="margin-top:8px">${weekRows(mon, now)}</div>`
          : `<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;margin-top:14px;padding-bottom:12px;border-bottom:1px solid #edf0f5">${strip}</div>
-    ${body}`}
+    ${body}${jobsToday ? `<div class="cap" style="margin:6px 0 2px">Chores</div>${jobsToday}` : ""}`}
     <div class="fx" style="justify-content:space-between;gap:14px;border-top:1px solid #edf0f5;padding-top:12px;margin-top:2px">
       <span style="font-size:16px;font-weight:500;color:${bad ? "#b3321f" : "#6b7488"};min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${bad ? "Can't reach " + esc(bad.name) : wk ? (weekCount ? `${weekCount} on this week` : "A quiet week") : later}</span>
       <button data-open="${wk ? "week" : "day"}" class="fx" style="gap:6px;flex:none;height:44px;min-height:0;padding:0 18px;border-radius:999px;border:0;background:#101828;color:#fff;font-size:16px;font-weight:650">Open calendar${CHEV}</button>
@@ -413,6 +434,7 @@ function drawToday() {
   el.querySelectorAll("[data-wday]").forEach(b => b.onclick = () => openCal("day", addDays(mon, +b.dataset.wday)));
   const wc = el.querySelector(".wcols"), td = el.querySelector(".wcol.today");
   if (wc && td && DIM.phone) wc.scrollLeft = Math.max(0, td.offsetLeft - 8);
+  bindJobs(el);
   el.querySelectorAll("[data-ovmode]").forEach(b => b.onclick = () => { view.ovMode = b.dataset.ovmode; drawToday(); });
 }
 
@@ -436,6 +458,7 @@ const PANELS = {
   calendar: {card: "calcard", inner: "calin", from: () => boxIn($("today")), draw: () => drawCal(), load: () => loadCal()},
   menu: {card: "menucard", inner: "menuin", from: () => boxIn($("dinner")), draw: () => drawMenu(), load: () => loadMenu()},
   shopping: {card: "shopcard", inner: "shopin", from: () => dockBox(), draw: () => drawShop(), load: () => loadShop()},
+  chores: {card: "chorecard", inner: "chorein", from: () => dockBox(), draw: () => drawChoresPanel(), load: () => loadChoresPanel()},
 };
 const dockBox = () => ({l: DIM.phone ? 16 : 28, t: DIM.H - (DIM.phone ? 16 : 28) - DIM.sb - 76, w: 76, h: 76});   // the round menu button
 function openPanel(name) {
@@ -491,7 +514,11 @@ function calStep(n) {
   view.date = view.mode === "day" ? addDays(d, n) : view.mode === "week" ? addDays(d, 7 * n) : new Date(d.getFullYear(), d.getMonth() + n, 1);
   loadCal();
 }
-async function loadCal() { await loadRange(...calRange()); drawCal(); }
+async function loadCal() {
+  const [a, b] = calRange();
+  await Promise.all([loadRange(a, b), view.mode === "month" ? 0 : loadChores(a, addDays(b, -1))]);
+  drawCal();
+}
 function calTitle() {
   const d = view.date;
   const w = DIM.phone ? "short" : "long";
@@ -608,7 +635,7 @@ function agendaHtml() {
       const c = colorsOf(e)[0], who = peopleOf(e).map(p => esc(p.name)).join(" · ") || esc(calOf(e).name);
       return `<button class="evb" data-eid="${esc(e.id)}" style="position:relative;width:100%;background:${esc(tint(c))};padding:8px 12px 8px 16px;margin-bottom:6px"><span style="position:absolute;left:0;top:0;bottom:0;width:6px;background:${esc(c)}"></span><div class="fx" style="justify-content:space-between;gap:10px"><span style="font-size:19px;font-weight:700;letter-spacing:-.02em;min-width:0">${esc(e.title)}</span><span class="num" style="font-size:15px;font-weight:600;color:#3a4358;flex:none">${e.all_day ? "All day" : fmtT(e.s)}</span></div>${who ? `<div style="font-size:14px;font-weight:600;color:#3a4358;margin-top:2px">${who}</div>` : ""}</button>`;
     }).join("") : `<div style="font-size:16px;color:#6b7488;padding:12px 0 14px">Nothing on</div>`;
-    return `<div style="display:grid;grid-template-columns:58px 1fr;gap:10px;padding:10px 0 4px;border-top:1px solid #edf0f5"><button data-day="${+day}" aria-label="${esc(day.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}))}" style="border:0;background:none;padding:0;min-height:0;display:flex;flex-direction:column;align-items:center;align-self:start;gap:2px"><span style="font-size:12px;font-weight:700;letter-spacing:.06em;color:#6b7488">${esc(day.toLocaleDateString([], {weekday: "short"}).toUpperCase())}</span><span class="num" style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;${today ? "background:#101828;color:#fff" : ""}">${day.getDate()}</span></button><div>${list}</div></div>`;
+    return `<div style="display:grid;grid-template-columns:58px 1fr;gap:10px;padding:10px 0 4px;border-top:1px solid #edf0f5"><button data-day="${+day}" aria-label="${esc(day.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}))}" style="border:0;background:none;padding:0;min-height:0;display:flex;flex-direction:column;align-items:center;align-self:start;gap:2px"><span style="font-size:12px;font-weight:700;letter-spacing:.06em;color:#6b7488">${esc(day.toLocaleDateString([], {weekday: "short"}).toUpperCase())}</span><span class="num" style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;${today ? "background:#101828;color:#fff" : ""}">${day.getDate()}</span></button><div>${list}${kidProgress(day) ? `<div class="fx" style="gap:6px;flex-wrap:wrap;margin-bottom:8px">${kidProgress(day)}</div>` : ""}</div></div>`;
   }).join("");
   return `<div class="scroll" style="flex:1;min-height:0">${rows}</div>`;
 }
@@ -628,10 +655,10 @@ function drawCal() {
   const now = new Date(), d = startOfDay(view.date);
   let body;
   if (view.mode === "day") {
-    body = dayHead(Array.from({length: 7}, (_, i) => addDays(weekStart(d), i)), 0, DIM.phone ? 40 : 44) + alldayHtml([d], DIM.phone ? 48 : 60) + (DIM.phone ? `<div class="scroll gscroll" style="flex:1;min-height:0">${gridHtml([d], 48, true)}</div>` : gridHtml([d], 60, true));
+    body = dayHead(Array.from({length: 7}, (_, i) => addDays(weekStart(d), i)), 0, DIM.phone ? 40 : 44) + alldayHtml([d], DIM.phone ? 48 : 60) + `<div class="cband">${jobRows(d, {big: false})}</div>` + (DIM.phone ? `<div class="scroll gscroll" style="flex:1;min-height:0">${gridHtml([d], 48, true)}</div>` : gridHtml([d], 60, true));
   } else if (view.mode === "week") {
     const w = weekStart(d), days = Array.from({length: 7}, (_, i) => addDays(w, i));
-    body = DIM.phone ? agendaHtml() : dayHead(days, 52, 44) + alldayHtml(days, 52) + gridHtml(days, 52, false);
+    body = DIM.phone ? agendaHtml() : dayHead(days, 52, 44) + alldayHtml(days, 52) + choresWeekRow(days, 52) + gridHtml(days, 52, false);
   } else body = monthHtml();
   const chip = (id, label, color) => `<button class="pill${(view.who || "") === id ? " on" : ""}" data-who="${esc(id)}" style="height:40px;font-size:15px;padding:0 16px">${color ? `<i style="width:10px;height:10px;border-radius:50%;background:${esc(color)}"></i>` : ""}${esc(label)}</button>`;
   el.innerHTML = `<div style="display:flex;flex-direction:column;width:100%;height:100%;padding:${DIM.phone ? "14px 14px" : "18px 18px"} 0">
@@ -669,6 +696,7 @@ function drawCal() {
     if (b.classList.contains("gcol")) return;
     b.onclick = () => { view.date = new Date(+b.dataset.day); view.mode = "day"; loadCal(); };
   });
+  bindJobs(el);
   el.querySelectorAll("[data-eid]").forEach(b => b.onclick = ev => { ev.stopPropagation(); const e = EV.list.find(x => x.id === b.dataset.eid); if (e) openEvent(e); });
   el.querySelectorAll(".gcol").forEach(c => c.onclick = ev => {
     if (DEMO) return;
@@ -728,6 +756,7 @@ function drawSheet() {
   if (!ed) return;
   if (ed.mode === "family") return drawFamilySheet();
   if (ed.mode === "view") return drawViewSheet();
+  if (ed.mode === "steps") return drawStepsSheet();
   if (ed.mode === "dinner") return drawDinnerSheet();
   if (ed.mode === "meals") return drawMealsSheet();
   const t = ed, editing = !!t.id, rep = t.freq !== "none";
@@ -793,6 +822,161 @@ function drawFamilySheet() {
   sheetFrame("Family", `<div id="fam" style="margin-top:8px"></div>`, `<button class="primary" id="f-ok" style="margin-left:auto;min-width:200px">Done</button>`);
   drawFamily($("fam"), () => { drawCal(); });
   $("f-ok").onclick = () => { if (ed.back) { ed = ed.back; ed.people = ed.people.filter(id => people().some(p => p.id === id)); drawSheet(); } else closeSheet(); };
+}
+
+/* ---------- PocketPals jobs (shown with the calendar, tickable here) ---------- */
+const KIDCOL = ["#14a06c", "#e5487f", "#7b5cf0", "#0ea5b7", "#f59e0b", "#2f6fe0"];
+let CH = {kids: [], days: {}, tick: false, error: ""};     // the kids' jobs by day, as PocketPals sent them
+const ppOn = () => !DEMO && !!(S.config.pocketpals && S.config.pocketpals.connected);
+async function loadChores(from, to) {                        // both days inclusive
+  if (!ppOn()) return;
+  try {
+    const r = await api(`/api/chores?from=${ymd(from)}&to=${ymd(to)}`);
+    if (!r.connected) return;
+    if (r.error) { CH.error = r.error; return; }
+    CH.error = ""; CH.kids = r.kids; CH.tick = !!r.tick;
+    for (const d of r.days) CH.days[d.date] = d;
+  } catch (_) {}
+}
+const kidColor = k => {
+  const p = people().find(x => x.name.toLowerCase() === String(k.name).toLowerCase());
+  return p ? p.color : KIDCOL[Math.max(0, CH.kids.findIndex(x => x.id === k.id)) % KIDCOL.length];
+};
+const jobDone = j => j.status === "pending" || j.status === "approved";
+const jobTally = jobs => [jobs.filter(jobDone).length, jobs.length];
+function jobsByKid(day) {
+  const d = CH.days[ymd(day)] || {jobs: [], away: []};
+  return CH.kids.map(k => ({kid: k, away: (d.away || []).includes(k.id), jobs: d.jobs.filter(j => j.kid_id === k.id)})).filter(g => g.jobs.length || g.away);
+}
+const CHECK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+function jobChip(j, day, color, big) {
+  if (j.steps && j.steps.length) {                           // a job with steps opens its checklist
+    const n = j.steps.filter(x => x.done).length, done = jobDone(j);
+    return `<button class="jchip stp${done ? " done" : ""}${j.status === "approved" ? " ok" : ""}${big ? " big" : ""}" data-steps="${j.kid_id}|${j.chore_id}|${ymd(day)}" style="--kc:${esc(color)}"><span class="jc">${done ? CHECK : `<small class="num">${n}/${j.steps.length}</small>`}</span><span class="jt">${esc(j.title)}</span>${j.status === "pending" ? '<span class="jw">waiting</span>' : ""}</button>`;
+  }
+  const done = jobDone(j), locked = j.status === "approved" || (!done && !j.tickable) || !CH.tick;
+  return `<button class="jchip${done ? " done" : ""}${j.status === "approved" ? " ok" : ""}${big ? " big" : ""}" data-job="${j.kid_id}|${j.chore_id}|${ymd(day)}" aria-pressed="${done}" ${locked ? 'data-locked="1"' : ""} style="--kc:${esc(color)}"><span class="jc">${done ? CHECK : ""}</span><span class="jt">${esc(j.title)}</span>${j.status === "pending" ? '<span class="jw">waiting</span>' : ""}</button>`;
+}
+async function tickJob(btn) {
+  const [kid, chore, day] = btn.dataset.job.split("|");
+  const j = ((CH.days[day] || {}).jobs || []).find(x => x.kid_id == kid && x.chore_id == chore);
+  if (!j) return;
+  if (j.status === "approved") { soon("A grown-up has already checked this one."); return; }
+  if (!CH.tick) { soon("This key can only show jobs. Make one that can tick them."); return; }
+  if (!jobDone(j) && !j.tickable) { soon(j.steps_left ? "This one has steps. Do it in PocketPals." : "Not yet. It can be ticked on its day."); return; }
+  const was = j.status;
+  j.status = jobDone(j) ? null : "pending";
+  repaintChores();                                           // show it at once, then tell PocketPals
+  try { await api("/api/chores/tick", json({kid_id: +kid, chore_id: +chore, day, done: j.status !== null})); }
+  catch (err) { j.status = was; repaintChores(); soon(err.message); }
+}
+function findJob(key) {
+  const [kid, chore, day] = key.split("|");
+  return {j: ((CH.days[day] || {}).jobs || []).find(x => x.kid_id == kid && x.chore_id == chore), kid: +kid, chore: +chore, day};
+}
+function openSteps(btn) {
+  const {j} = findJob(btn.dataset.steps);
+  if (!j) return;
+  if (!CH.tick) { soon("This key can only show jobs. Make one that can tick them."); return; }
+  if (!jobDone(j) && !j.steps_tickable) { soon("Not yet. It can be ticked on its day."); return; }
+  openSheet({mode: "steps", key: btn.dataset.steps});
+}
+function drawStepsSheet() {
+  const {j} = findJob(ed.key);
+  if (!j) return closeSheet();
+  const kid = CH.kids.find(k => k.id === j.kid_id) || {name: ""}, c = kidColor(kid), locked = j.status === "approved", done = jobDone(j);
+  const rows = j.steps.map(st => `<div class="srow${st.done ? " done" : ""}"><button class="stk" data-step="${st.id}" aria-pressed="${st.done}" ${locked ? "disabled" : ""}><span class="chk" aria-hidden="true" style="border-color:${esc(c)};${st.done ? `background:${esc(c)}` : ""}">${st.done ? CHECK : ""}</span><span class="sn">${esc(st.title)}</span></button></div>`).join("");
+  sheetFrame(j.title, `<div class="fx" style="gap:10px;margin:12px 0 8px"><i style="width:14px;height:14px;border-radius:50%;background:${esc(c)}"></i><span style="font-size:20px;font-weight:700">${esc(kid.name)}</span></div>${rows}
+    ${done ? `<p style="font-size:18px;font-weight:600;color:#14a06c;margin:16px 0 0">${locked ? "A grown-up has checked this." : "All done. It's waiting for a grown-up to check."}</p>` : ""}`,
+    `<button class="primary" id="st-ok" style="margin-left:auto;min-width:200px">Done</button>`);
+  $("st-ok").onclick = closeSheet;
+  $("sheet").querySelectorAll("[data-step]").forEach(b => b.onclick = () => tickStep(+b.dataset.step));
+}
+async function tickStep(id) {
+  const {j, kid, chore, day} = findJob(ed.key), st = j && j.steps.find(x => x.id === id);
+  if (!st) return;
+  const was = {status: j.status, left: j.steps_left, done: st.done};
+  st.done = !st.done;
+  j.steps_left = j.steps.filter(x => !x.done).length;
+  if (j.steps_left === 0 && st.done) j.status = "pending"; else if (!st.done && j.status === "pending") j.status = null;
+  drawSheet(); repaintChores();                              // show it at once, then tell PocketPals
+  try {
+    await api("/api/chores/step", json({kid_id: kid, chore_id: chore, step_id: id, day, done: st.done}));
+    const d = new Date(day + "T00:00");
+    await loadChores(d, d);                                  // PocketPals has the last word
+    if (ed && ed.mode === "steps") drawSheet();
+    repaintChores();
+  } catch (err) {
+    st.done = was.done; j.status = was.status; j.steps_left = was.left;
+    if (ed && ed.mode === "steps") drawSheet();
+    repaintChores(); soon(err.message);
+  }
+}
+function bindJobs(root) {
+  root.querySelectorAll("[data-job]").forEach(b => b.onclick = ev => { ev.stopPropagation(); tickJob(b); });
+  root.querySelectorAll("[data-steps]").forEach(b => b.onclick = ev => { ev.stopPropagation(); openSteps(b); });
+}
+function repaintChores() {
+  drawToday();
+  if (view.page === "calendar") drawCal();
+  if (view.page === "chores") drawChoresPanel();
+}
+async function refreshChores() {
+  if (!ppOn()) return;
+  const today = startOfDay(new Date());
+  if (view.page === "calendar") { if (view.mode !== "month") { const [a, b] = calRange(); await loadChores(a, addDays(b, -1)); drawCal(); } }
+  else if (view.page === "chores") loadChoresPanel();
+  else if (view.page === "overview") { await loadChores(today, today); drawToday(); }
+}
+/* One day's jobs, a row for each child. */
+function jobRows(day, opts) {
+  const P = DIM.phone, groups = jobsByKid(day);
+  if (!groups.length) return "";
+  return groups.map(g => {
+    const c = kidColor(g.kid), [n, t] = jobTally(g.jobs), todo = g.jobs.filter(j => !jobDone(j)), more = opts && opts.max && todo.length > opts.max;
+    const list = g.away ? `<span style="font-size:17px;font-weight:600;color:#6b7488;line-height:44px">Away today</span>`
+      : (opts && opts.max ? [...todo.slice(0, opts.max), ...(todo.length ? [] : g.jobs.slice(0, 1))] : g.jobs).map(j => jobChip(j, day, c, opts && opts.big)).join("")
+        + (more ? `<span style="font-size:16px;font-weight:700;color:#5a6478;line-height:44px">+${todo.length - opts.max} more</span>` : "");
+    return `<div class="jrow"><span class="jkid" style="--kc:${esc(c)}"><i></i><b>${esc(g.kid.name)}</b>${g.away ? "" : `<small class="num">${n}/${t}</small>`}</span><div class="fx" style="gap:8px;flex-wrap:wrap;flex:1;min-width:${P ? "100%" : "0"}">${list}</div></div>`;
+  }).join("");
+}
+const kidProgress = day => jobsByKid(day).filter(g => g.jobs.length).map(g => { const [n, t] = jobTally(g.jobs); return `<span class="kpill" style="background:${esc(tint(kidColor(g.kid)))}"><i style="background:${esc(kidColor(g.kid))}"></i>${esc(g.kid.name)} <span class="num">${n}/${t}</span></span>`; }).join("");
+function choresWeekRow(days, gutter) {
+  if (!ppOn() || !days.some(d => jobsByKid(d).length)) return "";
+  const cells = days.map(d => `<button data-day="${+d}" class="kcell">${jobsByKid(d).filter(g => g.jobs.length).map(g => { const [n, t] = jobTally(g.jobs); return `<span class="kpill sm" style="background:${esc(tint(kidColor(g.kid)))}"><i style="background:${esc(kidColor(g.kid))}"></i>${esc(g.kid.name.slice(0, 2))} <span class="num">${n}/${t}</span></span>`; }).join("")}</button>`).join("");
+  return `<div class="fx" style="align-items:flex-start;padding:0 0 8px"><span style="width:${gutter - 10}px;text-align:right;font-size:12px;font-weight:700;letter-spacing:.04em;color:#6b7488;flex:none;line-height:26px">CHORES</span><div style="flex:1;margin-left:10px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr))">${cells}</div></div>`;
+}
+
+/* ---------- Chores screen ---------- */
+async function loadChoresPanel() { await loadChores(view.choreDay, view.choreDay); drawChoresPanel(); }
+function drawChoresPanel() {
+  const el = $("chorein");
+  if (!el) return;
+  const fb = fullBox(), P = DIM.phone, now = new Date(), day = startOfDay(view.choreDay), isToday = sameDay(day, now);
+  el.style.width = fb.w + "px"; el.style.height = fb.h + "px";
+  const groups = jobsByKid(day);
+  const label = day.toLocaleDateString([], {weekday: P ? "short" : "long", day: "numeric", month: P ? "short" : "long"});
+  const kids = groups.length ? groups.map(g => {
+    const c = kidColor(g.kid), [n, t] = jobTally(g.jobs), slots = {};
+    const body = g.away ? `<div style="font-size:19px;color:#6b7488;padding:6px 0 4px">Away today, so no jobs.</div>` : g.jobs.map(j => jobChip(j, day, c, true)).join("");
+    return `<section class="kcard"><div class="fx" style="gap:12px;margin-bottom:10px"><i style="width:14px;height:14px;border-radius:50%;background:${esc(c)};flex:none"></i><span style="font-size:${P ? 24 : 30}px;font-weight:700;letter-spacing:-.03em">${esc(g.kid.name)}</span>${g.away ? "" : `<span class="num" style="margin-left:auto;font-size:18px;font-weight:700;color:#5a6478">${n} of ${t}</span>`}</div>${g.away ? "" : `<div style="height:8px;border-radius:4px;background:#e7ebf2;margin-bottom:12px"><div style="width:${t ? Math.round(n / t * 100) : 0}%;height:100%;border-radius:4px;background:${esc(c)};transition:width .3s"></div></div>`}<div class="fx" style="gap:8px;flex-wrap:wrap">${body}</div></section>`;
+  }).join("") : `<div style="padding:50px 0;text-align:center"><div style="font-size:26px;font-weight:700;letter-spacing:-.02em">${CH.error ? "Can't reach PocketPals" : "No jobs this day"}</div><div style="font-size:18px;color:#6b7488;margin-top:6px">${esc(CH.error || "Nothing is set for anyone.")}</div></div>`;
+  el.innerHTML = `<div style="display:flex;flex-direction:column;width:100%;height:100%;padding:${P ? "14px 14px" : "18px 18px"} 0">
+    <div class="fx" style="justify-content:space-between;padding:0 4px 12px;gap:12px">
+      <div class="fx" style="gap:14px"><span class="clk num" style="font-family:'Comfortaa','Onest',sans-serif;font-size:${P ? 44 : 54}px;font-weight:700;letter-spacing:-.07em;line-height:.9;-webkit-text-stroke:1.8px #101828;paint-order:stroke fill">${esc(clockT(now))}</span><span class="cdt" style="font-size:${P ? 16 : 20}px;font-weight:700;letter-spacing:-.03em;line-height:1.1">${esc(now.toLocaleDateString([], {weekday: "short", day: "numeric", month: "short"}))}</span></div>
+      <span style="font-size:${P ? 26 : 32}px;font-weight:700;letter-spacing:-.04em">Chores</span>
+    </div>
+    <div class="fx" style="justify-content:space-between;padding:0 0 12px;gap:10px">
+      <div class="fx" style="gap:10px;min-width:0"><button class="cnav" id="h-prev" aria-label="Back">${CHEV_L}</button><span style="font-size:${P ? 21 : 28}px;font-weight:700;letter-spacing:-.04em;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(label)}</span><button class="cnav" id="h-next" aria-label="Forward">${CHEV_R}</button></div>
+      ${isToday ? "" : `<button class="cbtn" id="h-today" style="background:#fff;color:#101828;border:1.5px solid #d5dbe6">Today</button>`}
+    </div>
+    <div class="scroll" style="flex:1;min-height:0">${kids}</div>
+    <div class="fx" style="flex:none;height:84px;padding:0 4px 0 82px"><span style="font-size:16px;font-weight:600;color:#6b7488">Ticks wait for a grown-up to check them in PocketPals.</span></div>
+  </div>`;
+  const step = n => { view.choreDay = addDays(day, n); loadChoresPanel(); };
+  $("h-prev").onclick = () => step(-1); $("h-next").onclick = () => step(1);
+  const t = $("h-today"); if (t) t.onclick = () => { view.choreDay = new Date(); loadChoresPanel(); };
+  bindJobs(el);
 }
 
 /* ---------- Shopping list ---------- */
@@ -973,33 +1157,16 @@ function drawFamily(box, changed) {
   });
 }
 
+/* The two app cards are slim: the app's mark, its name and whether it answers. Tap to open it. */
 function ppCard(w) {
-  const tile = (img, bg, label) => `<div style="background:#fff;border-radius:20px;padding:14px 8px;text-align:center;box-shadow:0 5px 0 rgba(20,14,70,.38);color:#17133a"><div style="width:64px;height:64px;border-radius:50%;background:${bg};margin:0 auto;display:flex;align-items:center;justify-content:center"><img class="pal" src="${img}" alt="" width="54" height="54" style="object-fit:contain"></div><div style="font-size:19px;font-weight:800;margin-top:8px;letter-spacing:-.01em">${label}</div></div>`;
-  return `<a href="${esc(w.url)}" aria-label="Open PocketPals" class="pane" style="background:linear-gradient(165deg,#7a5cff 0%,#5a3be8 42%,#4326c9 100%);color:#fff;font-family:'Figtree',sans-serif">
-    <div style="position:absolute;inset:0;background:radial-gradient(ellipse 85% 48% at 28% 0%,rgba(196,182,255,.85),rgba(196,182,255,0) 72%)"></div>
-    <div class="cld" style="position:absolute;left:-26px;top:92px;width:120px;height:38px;border-radius:40px;background:rgba(255,255,255,.13)"></div>
-    <div class="cld2" style="position:absolute;right:-18px;top:52px;width:96px;height:30px;border-radius:30px;background:rgba(255,255,255,.12)"></div>
-    ${STAR(178, 10, 0, 14, "#ffd84d")}${STAR(300, 150, 1.4, 10, "#fff")}${STAR(36, 40, 2.2, 10, "#fff")}
-    <svg viewBox="0 0 400 60" preserveAspectRatio="none" style="position:absolute;left:0;right:0;bottom:0;width:100%;height:58px" aria-hidden="true"><path d="M0 34 C70 8 150 6 215 24 C275 40 340 22 400 12 V60 H0Z" fill="#15103b"/></svg>
-    <div style="position:relative;display:flex;flex-direction:column;height:100%">
-      <div class="fx" style="justify-content:space-between"><div class="fx" style="gap:10px">${PP_LOGO}<span style="font-size:21px;font-weight:800;letter-spacing:-.02em">PocketPals</span></div><span class="stat" data-state="pocketpals" style="background:rgba(255,255,255,.16);border-radius:999px;padding:5px 11px"><span class="sd"></span><span class="st-t">Checking…</span></span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">${tile(PAL_DINO, "#ddfbe6", "Jobs")}${tile(PAL_PIG, "#ffe0ea", "Pocket money")}</div>
-      <div class="fx" style="margin-top:auto;justify-content:center"><span class="fx" style="gap:8px;height:38px;padding:0 10px 0 6px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);font-size:14px;font-weight:700"><span style="width:26px;height:26px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5b3bf0" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></span>Open PocketPals${CHEV.replace('width="16" height="16"', 'width="14" height="14"')}</span></div>
-    </div></a>`;
+  return `<a href="${esc(w.url)}" aria-label="Open PocketPals" class="pane cpane" style="background:linear-gradient(165deg,#7a5cff 0%,#4326c9 100%);color:#fff;font-family:'Figtree',sans-serif">
+    ${PP_LOGO}
+    <div style="flex:1;min-width:0"><div style="font-size:20px;font-weight:800;letter-spacing:-.02em;line-height:1.1">PocketPals</div><span class="stat" data-state="pocketpals" style="color:#e3dcff;margin-top:3px"><span class="sd"></span><span class="st-t">Checking…</span></span></div>${CHEV}</a>`;
 }
 function wmpCard(w) {
-  const chip = (c, bg, icon, t) => `<span class="fx" style="gap:7px;height:34px;padding:0 12px 0 7px;border-radius:999px;background:#141414;border:1px solid rgba(255,255,255,.08);font-size:14px;font-weight:500"><span style="width:20px;height:20px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg></span>${t}</span>`;
-  return `<a href="${esc(w.url)}" aria-label="Open WattsMyPower" class="pane" style="background:linear-gradient(180deg,#171717,#0b0b0b);border:1px solid rgba(255,255,255,.1);color:#f5f5f5;font-family:'Geist',sans-serif">
-    <div class="fx" style="justify-content:space-between"><div class="fx" style="gap:10px"><span style="width:34px;height:34px;border-radius:11px;background:linear-gradient(160deg,#262626,#121212);border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center"><svg width="17" height="17" viewBox="0 0 24 24" fill="#ffb547" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg></span><span style="font-family:'Nunito',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.02em">Watts<span style="color:#ffb547">My</span>Power</span></div></div>
-    <div style="position:relative;margin-top:14px;height:124px;border-radius:18px;overflow:hidden;background:linear-gradient(180deg,#d5e4ff,#f2f6ff)">
-      <div class="cld" style="position:absolute;left:150px;top:10px;width:26px;height:9px;border-radius:8px;background:#fff"></div>
-      <div class="cld2" style="position:absolute;right:20px;top:30px;width:22px;height:8px;border-radius:6px;background:#fff"></div>
-      <div style="position:absolute;right:2px;bottom:-2px">${HOUSE}</div>
-      <div style="position:absolute;left:14px;top:14px;width:120px;color:#0b1220;font-size:19px;font-weight:600;line-height:1.2;letter-spacing:-.02em">Your solar, battery and bills, <span style="color:#c77700">live.</span></div>
-    </div>
-    <div class="fx" style="gap:8px;margin-top:12px">${chip("#ffb547", "rgba(255,181,71,.16)", '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/>', "Power flow")}${chip("#8fa6ff", "rgba(111,140,255,.18)", '<rect x="3" y="8" width="16" height="9" rx="2"/><path d="M21 11v3"/>', "Battery")}</div>
-    <div class="fx" style="justify-content:space-between;margin-top:auto"><span class="stat" data-state="wattsmypower" style="color:#c9c9c9"><span class="sd"></span><span class="st-t">Checking…</span></span><span class="fx" style="gap:6px;height:38px;padding:0 8px 0 14px;border-radius:999px;background:#f5f5f5;color:#0a0a0a;font-size:14px;font-weight:600">Open<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
-  </a>`;
+  return `<a href="${esc(w.url)}" aria-label="Open WattsMyPower" class="pane cpane" style="background:linear-gradient(180deg,#171717,#0b0b0b);border:1px solid rgba(255,255,255,.1);color:#f5f5f5;font-family:'Geist',sans-serif">
+    <span style="width:34px;height:34px;border-radius:11px;background:linear-gradient(160deg,#262626,#121212);border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;flex:none"><svg width="17" height="17" viewBox="0 0 24 24" fill="#ffb547" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg></span>
+    <div style="flex:1;min-width:0"><div style="font-family:'Nunito',sans-serif;font-size:19px;font-weight:700;letter-spacing:-.02em;line-height:1.1;white-space:nowrap">Watts<span style="color:#ffb547">My</span>Power</div><span class="stat" data-state="wattsmypower" style="color:#c9c9c9;margin-top:3px"><span class="sd"></span><span class="st-t">Checking…</span></span></div>${CHEV}</a>`;
 }
 
 
@@ -1018,7 +1185,8 @@ const GRID_ICON = `<svg class="i-open" width="30" height="30" viewBox="0 0 24 24
 function dockItems() {
   const url = id => (S.config.widgets.find(w => w.id === id) || {}).url;
   const items = [["overview", "Overview", "page"], ["calendar", "Calendar", "page"], ["menu", "Dinners", "page"], ["shopping", "Shopping", "page"]];
-  if (url("pocketpals")) items.push(["chores", "Chores", url("pocketpals")]);
+  if (ppOn()) items.push(["chores", "Chores", "page"]);
+  else if (url("pocketpals")) items.push(["chores", "Chores", url("pocketpals")]);
   if (url("wattsmypower")) items.push(["energy", "Energy", url("wattsmypower")]);
   return items;
 }
@@ -1045,6 +1213,7 @@ function drawDock() {
     else if (go === "calendar") openCal(view.mode, view.date);
     else if (go === "menu") openMenu();
     else if (go === "shopping") openPanel("shopping");
+    else if (go === "chores") openPanel("chores");
     setDock(false);
   });
 }
@@ -1064,6 +1233,7 @@ function drawDash() {
     <section id="calcard" class="tile-card"><div id="calin"></div></section>
     <section id="menucard" class="tile-card"><div id="menuin"></div></section>
     <section id="shopcard" class="tile-card"><div id="shopin"></div></section>
+    <section id="chorecard" class="tile-card"><div id="chorein"></div></section>
     <button id="scrim" class="hidden" aria-label="Close menu"></button>
     <nav id="dock" aria-label="Main"><button id="dk-t" aria-label="Open menu" aria-expanded="false">${GRID_ICON}<span class="i-close">${X_ICON}</span></button><div id="dk-i"></div></nav>
     <div id="sheetscrim"></div><section id="sheet" role="dialog" aria-label="Event"></section>
@@ -1082,8 +1252,8 @@ function drawBody() {      // the Overview cards (the calendar has its own layer
   body.innerHTML = `
     <button class="tile-card fx dinner" id="dinner" aria-label="Dinner tonight. Open the dinners" style="gap:18px;padding:18px 26px 18px 18px;background:#ffeadf;border:0;min-height:0;width:100%;text-align:left;color:inherit;border-radius:30px"></button>
     <section id="today" class="tile-card" style="padding:22px 26px 16px"></section>
-    ${cards ? `<div class="tile-card wgrid" style="padding:10px;display:grid;grid-template-columns:repeat(${c.widgets.length},minmax(0,1fr));gap:10px;flex:1;min-height:300px">${cards}</div>`
-            : `<div class="tile-card" style="padding:28px;flex:1;min-height:300px;display:flex;flex-direction:column;justify-content:center;text-align:center"><div style="font-size:30px;font-weight:700;letter-spacing:-.03em">No apps added yet</div><div style="font-size:19px;color:#6b7488;margin-top:6px">Tap the cog to add PocketPals or WattsMyPower.</div></div>`}
+    ${cards ? `<div class="wgrid" style="display:grid;grid-template-columns:repeat(${c.widgets.length},minmax(0,1fr));gap:10px">${cards}</div>`
+            : `<div class="tile-card" style="padding:22px;display:flex;flex-direction:column;justify-content:center;text-align:center"><div style="font-size:30px;font-weight:700;letter-spacing:-.03em">No apps added yet</div><div style="font-size:19px;color:#6b7488;margin-top:6px">Tap the cog to add PocketPals or WattsMyPower.</div></div>`}
 `;
   drawToday(); drawDinner(); loadOverview(); poll();
 }
@@ -1104,6 +1274,8 @@ function showDash() {
   pollTimer = setInterval(poll, 30000);
   clearInterval(evTimer);
   evTimer = setInterval(() => { if (!ed) refresh(); }, 300000);
+  clearInterval(showDash.jobs);
+  showDash.jobs = setInterval(() => { if (!ed) refreshChores(); }, 60000);     // jobs ticked elsewhere show up within a minute
 }
 
 /* ---------- Setup (first run, and "change widgets") ---------- */
@@ -1191,6 +1363,28 @@ async function drawCalSettings() {
   };
 }
 
+/* ---------- Settings: PocketPals ---------- */
+function drawPocketPals() {
+  const box = $("pp");
+  if (!box) return;
+  const pp = S.config.pocketpals || {}, url = (S.config.widgets.find(w => w.id === "pocketpals") || {}).url || "";
+  box.innerHTML = `<p style="margin:0 0 12px">${pp.connected ? (pp.tick ? "Connected. Kids can tick their jobs on the hub." : "Connected, but this key can only show jobs.") : "Show the kids' jobs on the calendar and let them tick them off here. In PocketPals, open You, then Developers, make a key and paste it below."}</p>
+    <input id="pp-url" inputmode="url" autocapitalize="off" autocomplete="off" placeholder="PocketPals address, like https://pocketpals.example.com" value="${esc(url)}" style="margin-bottom:12px">
+    <input id="pp-key" autocapitalize="off" autocomplete="off" placeholder="${pp.connected ? "Key saved. Leave blank to keep it" : "Paste the key (starts with pp_)"}" style="margin-bottom:12px">
+    <div class="err" id="pp-err" role="alert" style="margin-top:0"></div>
+    <div class="fx" style="gap:12px"><button class="primary" id="pp-go">${pp.connected ? "Save and test" : "Connect"}</button>${pp.connected ? '<button id="pp-off">Disconnect</button>' : ""}</div>`;
+  $("pp-go").onclick = async () => {
+    try {
+      const r = await api("/api/pocketpals/connect", json({url: $("pp-url").value, key: $("pp-key").value}));
+      S = await api("/api/state"); CH = {kids: [], days: {}, tick: false, error: ""};
+      drawPocketPals();
+      $("pp-err").style.color = "var(--good)"; $("pp-err").textContent = `Working. Found ${r.kids} ${r.kids === 1 ? "child" : "children"}.`;
+    } catch (e) { $("pp-err").textContent = e.message; }
+  };
+  const off = $("pp-off");
+  if (off) off.onclick = async () => { try { await api("/api/pocketpals/disconnect", {method: "POST"}); S = await api("/api/state"); CH = {kids: [], days: {}, tick: false, error: ""}; drawPocketPals(); } catch (e) { $("pp-err").textContent = e.message; } };
+}
+
 /* ---------- Settings + updates ---------- */
 async function showSettings() {
   show("settings");
@@ -1198,6 +1392,7 @@ async function showSettings() {
   el.innerHTML = `<h1>Settings</h1>
     <div class="box"><h3>Time</h3><p>How should the clock and event times look?</p>
       <div class="fx" id="hours" style="gap:12px;margin-top:12px"><button data-h="0">12-hour (3:30pm)</button><button data-h="1">24-hour (15:30)</button></div></div>
+    <div class="box"><h3>PocketPals</h3><div id="pp"></div></div>
     <div class="box"><h3>Family</h3><div id="fam"></div></div>
     <div class="box"><h3>Calendars</h3><div id="cals"><p>Checking…</p></div></div>
     <div class="box"><h3>Updates</h3><div id="upd"><p>Checking…</p></div></div>
@@ -1211,6 +1406,7 @@ async function showSettings() {
     try { await api("/api/clock", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({hour24: want})}); S = await api("/api/state"); paintHours(); }
     catch (_) {}
   });
+  drawPocketPals();
   drawFamily($("fam"), null);
   drawCalSettings();
   await drawUpdate(true);

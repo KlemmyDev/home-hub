@@ -13,10 +13,15 @@ pub struct Reply {
 }
 
 /// Ask PocketPals something. The key goes in through curl's stdin, so it never shows in the machine's process list.
-async fn request(method: &str, base: &str, path: &str, key: &str) -> Result<Reply, String> {
+async fn request(method: &str, base: &str, path: &str, key: &str, body: Option<&str>) -> Result<Reply, String> {
     let url = format!("{}{}", base.trim_end_matches('/'), path);
+    let mut args: Vec<&str> = vec!["-sS", "--max-time", "15", "--max-filesize", "4000000", "--proto", "=http,https", "-X", method, "-w", "\n%{http_code}", "-K", "-"];
+    if let Some(b) = &body {
+        args.extend(["-H", "Content-Type: application/json", "-d", b]);
+    }
+    args.extend(["--", &url]);
     let mut child = Command::new("curl")
-        .args(["-sS", "--max-time", "15", "--max-filesize", "4000000", "--proto", "=http,https", "-X", method, "-w", "\n%{http_code}", "-K", "-", "--", &url])
+        .args(&args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -53,7 +58,7 @@ fn why(r: &Reply) -> String {
 
 /// Is this address and key a PocketPals that will talk to us? Returns what it says about itself.
 pub async fn ping(base: &str, key: &str) -> Result<Value, String> {
-    let r = request("GET", base, "/api/v1/ping", key).await?;
+    let r = request("GET", base, "/api/v1/ping", key, None).await?;
     if r.status != 200 {
         return Err(why(&r));
     }
@@ -62,7 +67,7 @@ pub async fn ping(base: &str, key: &str) -> Result<Value, String> {
 
 /// Every child's jobs from one day to another (YYYY-MM-DD).
 pub async fn chores(base: &str, key: &str, from: &str, to: &str) -> Result<Value, String> {
-    let r = request("GET", base, &format!("/api/v1/chores?from={from}&to={to}"), key).await?;
+    let r = request("GET", base, &format!("/api/v1/chores?from={from}&to={to}"), key, None).await?;
     if r.status != 200 {
         return Err(why(&r));
     }
@@ -71,7 +76,18 @@ pub async fn chores(base: &str, key: &str, from: &str, to: &str) -> Result<Value
 
 /// Tick a job off for a child on a day, or take the tick back.
 pub async fn tick(base: &str, key: &str, kid: i64, chore: i64, day: &str, done: bool) -> Result<(), String> {
-    let r = request(if done { "POST" } else { "DELETE" }, base, &format!("/api/v1/kids/{kid}/chores/{chore}/done?day={day}"), key).await?;
+    let r = request(if done { "POST" } else { "DELETE" }, base, &format!("/api/v1/kids/{kid}/chores/{chore}/done?day={day}"), key, None).await?;
+    if r.status == 204 || r.status == 200 {
+        Ok(())
+    } else {
+        Err(why(&r))
+    }
+}
+
+/// Tick one step of a job for a child on a day (or take it back). The last step ticked marks the job.
+pub async fn tick_step(base: &str, key: &str, kid: i64, chore: i64, step: i64, day: &str, done: bool) -> Result<(), String> {
+    let body = if done { r#"{"done":true}"# } else { r#"{"done":false}"# };
+    let r = request("PUT", base, &format!("/api/v1/kids/{kid}/chores/{chore}/steps/{step}?day={day}"), key, Some(body)).await?;
     if r.status == 204 || r.status == 200 {
         Ok(())
     } else {
@@ -137,6 +153,14 @@ mod tests {
         assert!(log.contains("POST /api/v1/kids/1/chores/5/done?day=2026-11-02") && log.contains("DELETE /api/v1/kids/1/chores/5/done?day=2026-11-02"));
         assert_eq!(tick(&base, "k", 1, 6, "2026-11-02", true).await.unwrap_err(), "Tick off the steps first: 2 to go.");
         assert!(ping(&base, "k").await.unwrap_err().contains("doesn't recognise that key"));
+    }
+
+    #[tokio::test]
+    async fn ticks_a_step_with_its_body() {
+        let (base, seen) = fake(vec![("/api/v1/kids/1/chores/5/steps/9", 204, "")]).await;
+        tick_step(&base, "k", 1, 5, 9, "2026-11-02", true).await.unwrap();
+        let log = seen.lock().unwrap().join("\n");
+        assert!(log.contains("PUT /api/v1/kids/1/chores/5/steps/9?day=2026-11-02"));
     }
 
     #[tokio::test]
