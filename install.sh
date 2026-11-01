@@ -67,6 +67,9 @@ if [ "$UNINSTALL" = 1 ]; then
     systemctl --user disable --now "$SERVICE" 2>/dev/null || true
     rm -f "$HOME/.config/systemd/user/$SERVICE.service"
     systemctl --user daemon-reload 2>/dev/null || true
+    systemctl disable --now "$SERVICE" 2>/dev/null || true
+    rm -f "/etc/systemd/system/$SERVICE.service"
+    systemctl daemon-reload 2>/dev/null || true
   fi
   (crontab -l 2>/dev/null | grep -vF "$CRON_TAG" || true) | crontab - 2>/dev/null || true
   echo "Done. Your data is still in $here/data (delete this folder to remove everything)."
@@ -79,7 +82,18 @@ if [ "$PULL" = 1 ] && [ -d .git ]; then
   git pull --ff-only || die "couldn't update: this folder has changes of its own. Undo them (git status shows what), then run this again."
 fi
 
-# 2. Rust, if it isn't here yet.
+# 2. A C compiler (Rust needs one to link), then Rust itself, if they aren't here yet.
+as_root() { if [ "$(id -u)" = 0 ]; then "$@"; elif have sudo; then sudo "$@"; else return 1; fi; }
+if ! have cc && ! have gcc && ! have clang; then
+  say "Installing a C compiler (Rust needs one)"
+  if [ "$OS" = Darwin ]; then
+    die "the Mac's developer tools are missing. Run: xcode-select --install   then run this again."
+  elif have apt-get; then as_root apt-get update -qq && as_root apt-get install -y build-essential
+  elif have dnf; then as_root dnf install -y gcc make
+  elif have apk; then as_root apk add build-base
+  elif have pacman; then as_root pacman -Sy --noconfirm base-devel
+  else false; fi || die "couldn't install a C compiler. Install gcc (Debian/Ubuntu: sudo apt install build-essential), then run this again."
+fi
 export PATH="$HOME/.cargo/bin:$PATH"
 if ! have cargo; then
   have curl || die "curl isn't installed, and it's needed to fetch Rust."
@@ -100,6 +114,8 @@ PORT_NOW="$(sed -n 's/^PORT=//p' .env | tail -n1)"; PORT_NOW="${PORT_NOW:-8787}"
 restart_service() {
   if [ "$OS" = Darwin ]; then
     launchctl kickstart -k "gui/$(id -u)/$LABEL" 2>/dev/null
+  elif [ "$(id -u)" = 0 ]; then
+    systemctl restart "$SERVICE" 2>/dev/null
   else
     systemctl --user restart "$SERVICE" 2>/dev/null
   fi
@@ -125,7 +141,9 @@ PLIST
     launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
     launchctl bootstrap "gui/$(id -u)" "$plist"
   elif have systemctl; then
-    unit="$HOME/.config/systemd/user/$SERVICE.service"
+    # As root (a server or container) it's a system service; otherwise it's the user's own.
+    if [ "$(id -u)" = 0 ]; then SCTL="systemctl"; unit="/etc/systemd/system/$SERVICE.service"; WANTED=multi-user.target
+    else SCTL="systemctl --user"; unit="$HOME/.config/systemd/user/$SERVICE.service"; WANTED=default.target; fi
     mkdir -p "$(dirname "$unit")"
     cat >"$unit" <<UNIT
 [Unit]
@@ -138,13 +156,15 @@ ExecStart=/bin/bash $here/start.sh
 Restart=always
 
 [Install]
-WantedBy=default.target
+WantedBy=$WANTED
 UNIT
-    systemctl --user daemon-reload
-    systemctl --user enable "$SERVICE" >/dev/null 2>&1
-    # Without this, a user service only runs while that user is logged in.
-    loginctl enable-linger "$USER" 2>/dev/null || echo "(To start at boot without logging in, run once: sudo loginctl enable-linger $USER)"
-    systemctl --user restart "$SERVICE"
+    $SCTL daemon-reload
+    $SCTL enable "$SERVICE" >/dev/null 2>&1
+    if [ "$(id -u)" != 0 ]; then
+      # Without this, a user service only runs while that user is logged in.
+      loginctl enable-linger "$USER" 2>/dev/null || echo "(To start at boot without logging in, run once: sudo loginctl enable-linger $USER)"
+    fi
+    $SCTL restart "$SERVICE"
   else
     echo "No service manager found. Start it with: bash $here/start.sh"
   fi
