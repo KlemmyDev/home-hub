@@ -82,7 +82,7 @@ export function Stage() {
         <Overview away={page !== "overview"} />
         <PanelCard id="calcard" inner="calin" active={page === "calendar"} edge><CalendarPanel /></PanelCard>
         <PanelCard id="menucard" inner="menuin" active={page === "menu"} edge><MenuPanel /></PanelCard>
-        <PanelCard id="shopcard" inner="shopin" active={page === "pantry"}><PantryPanel /></PanelCard>
+        <PanelCard id="shopcard" inner="shopin" active={page === "pantry"} edge><PantryPanel /></PanelCard>
         <PanelCard id="chorecard" inner="chorein" active={page === "chores"} edge><ChoresPanel /></PanelCard>
         {page === "settings" ? <div id="setlayer"><Settings /></div> : null}
         <Reminders />
