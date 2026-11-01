@@ -3,6 +3,7 @@
 mod calendar;
 mod dinners;
 mod family;
+mod shopping;
 
 use axum::{
     extract::{Query, State},
@@ -86,6 +87,7 @@ struct App {
     cals: RwLock<HashMap<String, CalState>>,
     family: RwLock<family::Family>,
     dinners: RwLock<dinners::Dinners>,
+    shopping: RwLock<shopping::Shopping>,
 }
 
 const MAX_CALENDARS: usize = 8;
@@ -109,7 +111,11 @@ async fn main() {
         Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
         Err(_) => dinners::Dinners::default(),
     };
-    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners) });
+    let shopping = match tokio::fs::read(data.join("shopping.json")).await {
+        Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
+        Err(_) => shopping::Shopping::default(),
+    };
+    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping) });
 
     // Keep the calendars fresh: once now, then every ten minutes.
     let background = app.clone();
@@ -134,6 +140,11 @@ async fn main() {
         .route("/api/calendars", post(save_calendars))
         .route("/api/clock", post(save_clock))
         .route("/api/events", get(events))
+        .route("/api/shopping", get(get_shopping))
+        .route("/api/shopping/add", post(shopping_add))
+        .route("/api/shopping/update", post(shopping_update))
+        .route("/api/shopping/remove", post(shopping_remove))
+        .route("/api/shopping/clear", post(shopping_clear))
         .route("/api/dinners", get(get_dinners))
         .route("/api/meal", post(save_meal))
         .route("/api/meal/delete", post(delete_meal))
@@ -350,26 +361,74 @@ async fn events(State(app): Shared, Query(q): Query<EventsQuery>) -> impl IntoRe
     Json(json!({"events": all.into_iter().map(|(_, v)| v).collect::<Vec<_>>(), "calendars": info, "people": family.people})).into_response()
 }
 
-/// Change the family (and maybe its events) and save it whole, or say why not.
-async fn edit_family<T>(app: &App, change: impl FnOnce(&mut family::Family) -> Result<T, &'static str>) -> Result<T, (StatusCode, String)> {
-    let mut current = app.family.write().await;
+/// Change a small saved thing (family, dinners, shopping) and save it whole to its file, or say why not.
+async fn edit_json<T: Clone + Serialize, R>(lock: &RwLock<T>, file: PathBuf, change: impl FnOnce(&mut T) -> Result<R, &'static str>) -> Result<R, (StatusCode, String)> {
+    let mut current = lock.write().await;
     let mut next = current.clone();
     let out = change(&mut next).map_err(|why| (StatusCode::BAD_REQUEST, why.to_string()))?;
     let bytes = serde_json::to_vec_pretty(&next).unwrap();
-    write_atomic(&app.data.join("family.json"), &bytes).await.map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save that.".to_string()))?;
+    write_atomic(&file, &bytes).await.map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save that.".to_string()))?;
     *current = next;
     Ok(out)
 }
 
-/// Change the dinners and save them whole, or say why not.
+async fn edit_family<T>(app: &App, change: impl FnOnce(&mut family::Family) -> Result<T, &'static str>) -> Result<T, (StatusCode, String)> {
+    edit_json(&app.family, app.data.join("family.json"), change).await
+}
+
 async fn edit_dinners<T>(app: &App, change: impl FnOnce(&mut dinners::Dinners) -> Result<T, &'static str>) -> Result<T, (StatusCode, String)> {
-    let mut current = app.dinners.write().await;
-    let mut next = current.clone();
-    let out = change(&mut next).map_err(|why| (StatusCode::BAD_REQUEST, why.to_string()))?;
-    let bytes = serde_json::to_vec_pretty(&next).unwrap();
-    write_atomic(&app.data.join("dinners.json"), &bytes).await.map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save that.".to_string()))?;
-    *current = next;
-    Ok(out)
+    edit_json(&app.dinners, app.data.join("dinners.json"), change).await
+}
+
+async fn edit_shopping<T>(app: &App, change: impl FnOnce(&mut shopping::Shopping) -> Result<T, &'static str>) -> Result<T, (StatusCode, String)> {
+    edit_json(&app.shopping, app.data.join("shopping.json"), change).await
+}
+
+/// The shopping list.
+async fn get_shopping(State(app): Shared) -> Json<shopping::Shopping> {
+    Json(app.shopping.read().await.clone())
+}
+
+#[derive(Deserialize)]
+struct ItemBody {
+    name: String,
+}
+
+async fn shopping_add(State(app): Shared, Json(body): Json<ItemBody>) -> impl IntoResponse {
+    match edit_shopping(&app, |l| l.add(&body.name)).await {
+        Ok(id) => Json(json!({"id": id})).into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct ItemUpdate {
+    id: String,
+    done: Option<bool>,
+    name: Option<String>,
+}
+
+/// Tick something off (or back on), or rename it.
+async fn shopping_update(State(app): Shared, Json(body): Json<ItemUpdate>) -> impl IntoResponse {
+    match edit_shopping(&app, |l| l.set(&body.id, body.done, body.name.as_deref())).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+async fn shopping_remove(State(app): Shared, Json(body): Json<IdBody>) -> impl IntoResponse {
+    match edit_shopping(&app, |l| l.remove(&body.id)).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+/// Take every ticked item off the list.
+async fn shopping_clear(State(app): Shared) -> impl IntoResponse {
+    match edit_shopping(&app, |l| { l.clear_done(); Ok(()) }).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
 }
 
 /// Every dinner the family knows, and what's planned on which day.
