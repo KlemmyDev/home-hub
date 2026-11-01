@@ -268,13 +268,16 @@ export function ChoresPanel() {
 
 /** The checklist for a job with steps. */
 export function StepsSheet({ k }: { k: string }) {
-  const { ppOn } = useHub();
+  const { ppOn, closeSheet } = useHub();
+  const qc = useQueryClient();
   const day = fromYmd(k.split("|")[2]);
-  const { data: c = NO_CHORES } = useChores(day, day);
+  const { data: fresh } = useChores(day, day);
+  // The jobs the screen already holds are used at once, so the sheet opens full instead of empty and then filling in.
+  const held = qc.getQueriesData<Chores>({ queryKey: ["chores"] }).map(([, d]) => d).find(d => d?.days[ymd(day)]);
+  const c = fresh ?? held ?? NO_CHORES;
   const acts = useJobActions(c);
   const { j } = acts.find(k);
-  const { closeSheet } = useHub();
-  if (!j || !ppOn) return null;
+  if (!j || !ppOn) return <SheetFrame title="Job" foot={<button className="primary" onClick={closeSheet} style={{ marginLeft: "auto", minWidth: 200 }}>Done</button>} body={<p style={{ fontSize: 20, color: "#6b7488", marginTop: 18 }}>Loading the steps…</p>} />;
   const kid = c.kids.find(x => x.id === j.kid_id), col = kid ? kidColor(kid, c.kids) : "#101828", locked = j.status === "approved", done = jobDone(j);
   return (
     <SheetFrame title={j.title} foot={<button className="primary" onClick={closeSheet} style={{ marginLeft: "auto", minWidth: 200 }}>Done</button>} body={
