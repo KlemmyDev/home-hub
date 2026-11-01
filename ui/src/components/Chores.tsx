@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DEMO, post } from "../lib/api";
-import { addDays, clockT, fromYmd, nowZ, sameDay, shortDate, startOfDay, ymd } from "../lib/dates";
+import { addDays, clockT, fromYmd, nowZ, sameDay, shortDate, startOfDay, weekStart, ymd } from "../lib/dates";
 import { Check, Chev, ChevL, ChevR } from "../lib/icons";
 import { NO_CHORES, useChores, usePatchChores, type Chores, type Job, type Kid } from "../data";
 import { useHub } from "../hub";
@@ -98,27 +98,48 @@ function Ring({ n, t, col, size, children }: { n: number; t: number; col: string
   );
 }
 
-function JobChip({ j, day, color, big, acts, c }: { j: Job; day: Date; color: string; big: boolean; acts: ReturnType<typeof useJobActions>; c: Chores }) {
-  const key = `${j.kid_id}|${j.chore_id}|${ymd(day)}`, done = jobDone(j);
+type PillKind = "ok" | "wait" | "todo";
+const Pill = ({ kind, children }: { kind: PillKind; children: React.ReactNode }) => <span className={"cp-pill " + kind}>{children}</span>;
+
+/** Where a job has got to, the way the parent portal says it. */
+function jobStatus(j: Job): { kind: PillKind; long: string; short: string } | null {
+  if (j.status === "approved") return { kind: "ok", long: "Checked", short: "Checked" };
+  if (j.status === "pending") return { kind: "wait", long: "Waiting for a grown-up", short: "Waiting" };
+  return null;
+}
+
+/** One job, as a row (on the Chores page) or a small chip (on the Overview). Tapping ticks it; a job with steps opens its list. */
+function JobItem({ j, day, color, row, acts, c }: { j: Job; day: Date; color: string; row: boolean; acts: ReturnType<typeof useJobActions>; c: Chores }) {
+  const key = `${j.kid_id}|${j.chore_id}|${ymd(day)}`, done = jobDone(j), st = jobStatus(j);
   const [burst, setBurst] = useState(0);
-  const cls = (j.steps && j.steps.length ? "jchip stp" : "jchip") + (done ? " done" : "") + (j.status === "approved" ? " ok" : "") + (big ? " big" : "");
-  const stop = (f: () => void) => (ev: React.MouseEvent) => { ev.stopPropagation(); f(); };
+  const steps = j.steps && j.steps.length ? j.steps : null, n = steps ? steps.filter(x => x.done).length : 0;
+  const locked = !steps && (j.status === "approved" || (!done && !j.tickable) || !c.tick);
+  const cls = (row ? "cp-row" : "cp-chip") + (done ? " done" : "") + (st ? " s-" + st.kind : "");
   const stars = burst ? <span className="ppburst" key={burst} aria-hidden="true">{[0, 1, 2, 3, 4, 5].map(i => <i key={i} style={{ "--a": i * 60 + "deg" } as any}><Star size={13} /></i>)}</span> : null;
-  if (j.steps && j.steps.length) {
-    const n = j.steps.filter(x => x.done).length;
-    return <button className={cls} style={{ "--kc": color } as any} onClick={stop(() => acts.openSteps(key))}><span className="jc">{done ? <span className="ppcheck"><Check /></span> : <small className="num">{n}/{j.steps.length}</small>}</span><span className="jt">{j.title}</span>{j.status === "pending" ? <span className="jw">waiting</span> : null}</button>;
-  }
-  const locked = j.status === "approved" || (!done && !j.tickable) || !c.tick;
-  return <button className={cls} aria-pressed={done} data-locked={locked ? "1" : undefined} style={{ "--kc": color } as any} onClick={stop(() => { if (!done && !locked) setBurst(x => x + 1); acts.tick(key); })}>{stars}<span className="jc">{done ? <span className="ppcheck"><Check /></span> : null}</span><span className="jt">{j.title}</span>{j.status === "pending" ? <span className="jw">waiting</span> : null}</button>;
+  const tick = <span className="cp-tick" style={{ "--kc": color } as any}>{done ? <span className="ppcheck"><Check /></span> : steps ? <small className="num">{n}/{steps.length}</small> : null}</span>;
+  const click = (ev: React.MouseEvent) => {
+    ev.stopPropagation();
+    if (steps) return acts.openSteps(key);
+    if (!done && !locked) setBurst(x => x + 1);
+    acts.tick(key);
+  };
+  return (
+    <button className={cls} aria-pressed={steps ? undefined : done} data-locked={locked ? "1" : undefined} onClick={click}>
+      {stars}{tick}
+      <span className="cp-jt">{j.title}{row && steps && !done ? <small>{n} of {steps.length} steps</small> : null}</span>
+      {st ? <Pill kind={st.kind}>{row ? st.long : st.short}</Pill> : row && !steps ? <Pill kind="todo">To do</Pill> : null}
+      {row && steps ? <span className="cp-chev"><Chev /></span> : null}
+    </button>
+  );
 }
 
 function DoneToggle({ c, day }: { c: Chores; day: Date }) {
   const { showDone, setShowDone } = useHub();
   const { done } = jobCounts(c, day);
-  return done ? <button className="dtoggle pk" aria-pressed={showDone} onClick={() => setShowDone(!showDone)}>{showDone ? "Hide done" : `Show done · ${done}`}</button> : null;
+  return done ? <button className="cp-btn" aria-pressed={showDone} onClick={() => setShowDone(!showDone)}>{showDone ? "Hide done" : `Show done · ${done}`}</button> : null;
 }
 
-/* The Overview's Chores card: today's jobs for each child, in the PocketPals look. */
+/* The Overview's Chores card: today's jobs for each child, in the parent portal's calm look. */
 export function ChoresCard() {
   const { ppOn, now, showDone } = useHub();
   const { go } = useNav();
@@ -128,37 +149,36 @@ export function ChoresCard() {
   if (!ppOn) return null;
   const { left, done } = jobCounts(c, today), groups = jobsByKid(c, today);
   return (
-    <section id="chorescard" className="tile-card ppcard">
-      <span className="ppsparkle" aria-hidden="true" />
-      <div className="fx" style={{ justifyContent: "space-between", gap: 12, margin: "0 4px 12px", position: "relative" }}>
-        <div className="fx" style={{ gap: 12, alignItems: "center" }}>
-          <span style={{ fontSize: 34, fontWeight: 800, letterSpacing: "-.03em" }}>Chores</span>
-          {groups.length ? <span key={left} className={"ppbadge ppbadge-pop " + (left ? "" : "ok")}>{left ? `${left} to do` : <><Star size={15} color="#fff" /> All done!</>}</span> : null}
+    <section id="chorescard" className="tile-card cpcard">
+      <div className="cp-head">
+        <div><div className="cp-eyebrow">Today</div><h2 className="cp-h">Chores</h2></div>
+        <div className="fx" style={{ gap: 10 }}>
+          {groups.length ? <span key={left}><Pill kind={left ? "wait" : "ok"}>{left ? `${left} to do` : <><Check /> All done</>}</Pill></span> : null}
+          <button className="cp-btn" id="ch-open" onClick={() => go("chores")}>All chores<Chev /></button>
         </div>
-        <button className="ppbtn" id="ch-open" onClick={() => go("chores")}>All chores<Chev /></button>
       </div>
-      <div className="ppks">
+      <div className="cp-kids">
         {groups.length ? groups.map((g, gi) => {
           const col = kidColor(g.kid, c.kids), [n, t] = jobTally(g.jobs), todo = g.jobs.filter(j => !jobDone(j)), got = g.jobs.filter(jobDone);
           const shown = showDone ? g.jobs : todo;
           return (
-            <div className="ppk pprise" key={g.kid.id} style={{ "--i": gi } as any}>
-              <Ring n={g.away ? 0 : n} t={g.away ? 1 : t} col={col} size={84}>
+            <div className="cp-kid pprise" key={g.kid.id} style={{ "--i": gi } as any}>
+              <Ring n={g.away ? 0 : n} t={g.away ? 1 : t} col={col} size={72}>
                 <span className="ppav" style={{ "--kc": col } as any}><KidFace kid={g.kid} col={col} head /></span>
               </Ring>
-              <div className="ppb">
-                <div className="fx" style={{ gap: 8, alignItems: "baseline" }}><b className="ppn">{g.kid.name}</b>{g.away ? null : <small className="num ppc">{n}/{t}</small>}{!g.away && n === t && t > 0 ? <span className="ppstar"><Star size={20} /></span> : null}</div>
-                <div className="fx" style={{ gap: 8, flexWrap: "wrap", marginTop: 6 }}>
-                  {g.away ? <span className="jnote">Away today</span>
-                    : shown.length ? shown.map(j => <JobChip key={j.chore_id} j={j} day={today} color={col} big={false} acts={acts} c={c} />)
-                    : <span className="jnote ok"><Check /> All done{got.length ? ` · ${got.length}` : ""}</span>}
+              <div className="cp-kb">
+                <div className="fx" style={{ gap: 10, alignItems: "baseline" }}><b className="cp-kn">{g.kid.name}</b>{g.away ? null : <small className="num cp-ks">{n} of {t} done</small>}</div>
+                <div className="cp-chips">
+                  {g.away ? <span className="cp-note">Away today</span>
+                    : shown.length ? shown.map(j => <JobItem key={j.chore_id} j={j} day={today} color={col} row={false} acts={acts} c={c} />)
+                    : <span className="cp-note ok"><Check /> All done{got.length ? ` · ${got.length} jobs` : ""}</span>}
                 </div>
               </div>
             </div>
           );
-        }) : <div style={{ padding: "10px 4px 8px", fontSize: 19, fontWeight: 700, color: "rgba(255,255,255,.85)" }}>{c.error ? "Can't reach PocketPals" : "No jobs today"}</div>}
+        }) : <div className="cp-note" style={{ padding: "14px 0 6px" }}>{c.error ? "Can't reach PocketPals" : "No jobs today"}</div>}
       </div>
-      {done ? <div className="fx" style={{ margin: "12px 4px 0", position: "relative" }}><DoneToggle c={c} day={today} /></div> : null}
+      {done ? <div className="fx" style={{ marginTop: 6 }}><DoneToggle c={c} day={today} /></div> : null}
     </section>
   );
 }
@@ -166,67 +186,82 @@ export function ChoresCard() {
 /* ---------- Chores screen ---------- */
 export function ChoresPanel() {
   const { dim, now, h24, choreDay, setChoreDay, showDone } = useHub();
-  const P = dim.phone, day = startOfDay(choreDay), isToday = sameDay(day, now);
-  const { data: c = NO_CHORES } = useChores(day, day);
+  const P = dim.phone, day = startOfDay(choreDay), today = startOfDay(now), isToday = sameDay(day, today);
+  const wk = weekStart(day), week = Array.from({ length: 7 }, (_, i) => addDays(wk, i));
+  const { data: c = NO_CHORES } = useChores(wk, addDays(wk, 6));
   const acts = useJobActions(c);
   const groups = jobsByKid(c, day);
   const dir = useRef(1);
-  const go = (n: number) => { dir.current = n; setChoreDay(addDays(day, n)); };
+  const pick = (d: Date) => { dir.current = d >= day ? 1 : -1; setChoreDay(d); };
   const { left, done } = jobCounts(c, day), total = left + done, pct = total ? Math.round(done / total * 100) : 0;
-  const label = day.toLocaleDateString([], { weekday: P ? "short" : "long", day: "numeric", month: P ? "short" : "long" });
+  const short = (d: Date) => d.toLocaleDateString([], { day: "numeric", month: "short" });
   return (
-    <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", padding: (P ? "14px 14px" : "18px 18px") + " 0", color: "#fff", fontFamily: "'Figtree','Onest',sans-serif", position: "relative" }}>
-      <span className="ppsparkle" aria-hidden="true" />
-      <div className="fx" style={{ justifyContent: "space-between", padding: "0 4px 12px", gap: 12, position: "relative" }}>
-        <div className="fx" style={{ gap: 14 }}><span className="clk num" style={{ fontFamily: "'Comfortaa','Onest',sans-serif", fontSize: P ? 44 : 54, fontWeight: 700, letterSpacing: "-.07em", lineHeight: .9 }}>{clockT(now, h24)}</span><span className="cdt" style={{ fontSize: P ? 16 : 20, fontWeight: 700, letterSpacing: "-.03em", lineHeight: 1.1 }}>{shortDate(now)}</span></div>
-        <span style={{ fontSize: P ? 26 : 32, fontWeight: 800, letterSpacing: "-.03em" }}>Chores</span>
+    <div className="cppage" style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", padding: (P ? "14px 14px" : "18px 18px") + " 0" }}>
+      <div className="fx" style={{ justifyContent: "space-between", padding: "0 4px 14px", gap: 12 }}>
+        <div className="fx" style={{ gap: 14 }}><span className="clk num" style={{ fontFamily: "'Comfortaa','Onest',sans-serif", fontSize: P ? 44 : 54, fontWeight: 700, letterSpacing: "-.07em", lineHeight: .9, WebkitTextStroke: "1.8px #1c1a33", paintOrder: "stroke fill" }}>{clockT(now, h24)}</span><span className="cdt" style={{ fontSize: P ? 16 : 20, fontWeight: 700, letterSpacing: "-.03em", lineHeight: 1.1 }}>{shortDate(now)}</span></div>
       </div>
-      <div className="fx" style={{ justifyContent: "space-between", padding: "0 0 12px", gap: 10, position: "relative" }}>
-        <div className="fx" style={{ gap: 10, minWidth: 0 }}>
-          <button className="cnav ppnav" aria-label="Back" onClick={() => go(-1)}><ChevL /></button>
-          <span style={{ fontSize: P ? 21 : 28, fontWeight: 800, letterSpacing: "-.03em", whiteSpace: "nowrap", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
-          <button className="cnav ppnav" aria-label="Forward" onClick={() => go(1)}><ChevR /></button>
+      <div className="fx" style={{ justifyContent: "space-between", alignItems: "flex-end", padding: "0 4px 14px", gap: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="cp-eyebrow">{short(wk)} to {short(week[6])}</div>
+          <h1 className="cp-h cp-h1">Chores</h1>
         </div>
-        <div className="fx" style={{ gap: 8 }}><DoneToggle c={c} day={day} />{isToday ? null : <button className="ppbtn" onClick={() => { dir.current = day < startOfDay(now) ? 1 : -1; setChoreDay(nowZ()); }}>Today</button>}</div>
+        <div className="fx" style={{ gap: 8 }}><DoneToggle c={c} day={day} />{isToday ? null : <button className="cp-btn solid" onClick={() => pick(today)}>Today</button>}</div>
       </div>
-      {groups.length ? (
-        <div className="ppsum pprise" style={{ "--i": 0 } as any}>
-          <div className="fx" style={{ justifyContent: "space-between", gap: 10 }}>
-            <span style={{ fontSize: P ? 20 : 24, fontWeight: 800, letterSpacing: "-.02em" }}>{left ? `${done} of ${total} jobs done` : "Every job is done!"}</span>
-            <span key={left} className={"ppbadge ppbadge-pop " + (left ? "" : "ok")}>{left ? `${left} to go` : <><Star size={15} color="#fff" /> Brilliant</>}</span>
-          </div>
-          <div className="ppsumtrack"><div style={{ width: pct + "%" }} /></div>
-        </div>
-      ) : null}
-      <div className="scroll" style={{ flex: 1, minHeight: 0, paddingTop: P ? 52 : 66, position: "relative" }}>
-        <div key={ymd(day)} className={dir.current > 0 ? "ppflowr" : "ppflowl"}>
-          {groups.length ? groups.map((g, gi) => {
-            const col = kidColor(g.kid, c.kids), [n, t] = jobTally(g.jobs), shown = showDone ? g.jobs : g.jobs.filter(j => !jobDone(j)), all = !g.away && t > 0 && n === t;
+      <div className="fx" style={{ gap: 6, padding: "0 0 14px" }}>
+        <button className="cp-nav" aria-label="Previous week" onClick={() => pick(addDays(day, -7))}><ChevL /></button>
+        <div className="cp-days" role="group" aria-label="Days this week">
+          {week.map(d => {
+            const jobs = (c.days[ymd(d)]?.jobs || []), lf = jobs.filter(j => !jobDone(j)).length, on = sameDay(d, day);
             return (
-              <section className="kcard pk pprise" key={g.kid.id} style={{ "--i": gi + 1 } as any}>
-                <div className="kpal ppbob"><KidFace kid={g.kid} col={col} head={false} /></div>
-                <div className="fx" style={{ gap: 12, marginBottom: 8, paddingRight: P ? 96 : 130 }}>
-                  <i style={{ width: 14, height: 14, borderRadius: "50%", background: col, flex: "none" }} />
-                  <span style={{ fontSize: P ? 24 : 30, fontWeight: 800, letterSpacing: "-.03em" }}>{g.kid.name}</span>
-                  {g.away ? null : all ? <span className="ppbadge ok ppbadge-pop"><Star size={14} color="#fff" /> All done</span> : <span className="num" style={{ fontSize: 18, fontWeight: 800, color: "#6b6890" }}>{n} of {t}</span>}
+              <button key={+d} className={"cp-day" + (on ? " on" : "") + (sameDay(d, today) ? " now" : "")} aria-pressed={on} aria-label={`${d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" })}, ${lf} to do`} onClick={() => pick(d)}>
+                {d.toLocaleDateString([], { weekday: "short" }).slice(0, P ? 1 : 3)}
+                <b className="num">{d.getDate()}</b>
+                <i className={"cp-dot" + (jobs.length ? (lf ? "" : " ok") : " none")} />
+              </button>
+            );
+          })}
+        </div>
+        <button className="cp-nav" aria-label="Next week" onClick={() => pick(addDays(day, 7))}><ChevR /></button>
+      </div>
+      <div className="scroll" style={{ flex: 1, minHeight: 0 }}>
+        <div key={ymd(day)} className={dir.current > 0 ? "ppflowr" : "ppflowl"}>
+          {groups.length ? (
+            <div className="cp-card cp-sum pprise" style={{ "--i": 0 } as any}>
+              <div className="fx" style={{ justifyContent: "space-between", gap: 10 }}>
+                <span className="cp-cn" style={{ fontSize: P ? 19 : 22 }}>{left ? `${done} of ${total} jobs done` : "Every job is done"}</span>
+                <Pill kind={left ? "wait" : "ok"}>{left ? `${left} to go` : <><Check /> All done</>}</Pill>
+              </div>
+              <div className="cp-bar"><div className={"ppfill" + (left ? "" : " ok")} style={{ width: pct + "%", background: left ? "var(--cp-vt)" : "var(--cp-okfg)" }} /></div>
+            </div>
+          ) : null}
+          {groups.length ? groups.map((g, gi) => {
+            const col = kidColor(g.kid, c.kids), [n, t] = jobTally(g.jobs), shown = showDone ? g.jobs : g.jobs.filter(j => !jobDone(j)), all = !g.away && t > 0 && n === t, lf = t - n;
+            return (
+              <section className="cp-card pprise" key={g.kid.id} style={{ "--i": gi + 1 } as any}>
+                <div className="cp-ch">
+                  <Ring n={g.away ? 0 : n} t={g.away ? 1 : t} col={col} size={P ? 60 : 68}>
+                    <span className="ppav" style={{ "--kc": col } as any}><KidFace kid={g.kid} col={col} head /></span>
+                  </Ring>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="cp-cn">{g.kid.name}</div>
+                    {g.away ? <div className="cp-cs">Away today</div> : <div className="cp-cs num">{n} of {t} done</div>}
+                  </div>
+                  {g.away ? <Pill kind="todo">Away</Pill> : <Pill kind={all ? "ok" : "wait"}>{all ? <><Check /> All done</> : `${lf} to do`}</Pill>}
                 </div>
-                {g.away ? null : <div className="ptrack"><div className="ppfill" style={{ width: (t ? Math.round(n / t * 100) : 0) + "%", background: all ? "linear-gradient(90deg,#30c25a,#7be08f)" : col }} /></div>}
-                <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>
-                  {g.away ? <div style={{ fontSize: 19, color: "#6b6890", padding: "6px 0 4px" }}>Away today, so no jobs.</div>
-                    : shown.length ? shown.map(j => <JobChip key={j.chore_id} j={j} day={day} color={col} big acts={acts} c={c} />)
-                    : <span className="jnote ok" style={{ fontSize: 19 }}><Check /> All done</span>}
-                </div>
+                {g.away ? <div className="cp-note" style={{ padding: "4px 0 14px" }}>No jobs while they're away.</div>
+                  : shown.length ? shown.map(j => <JobItem key={j.chore_id} j={j} day={day} color={col} row acts={acts} c={c} />)
+                  : <div className="cp-note ok" style={{ padding: "8px 0 14px" }}><Check /> Everything is done for today.</div>}
               </section>
             );
           }) : (
-            <div className="pprise" style={{ padding: "50px 0", textAlign: "center", "--i": 1 } as any}>
-              <div style={{ fontSize: 26, fontWeight: 800 }}>{c.error ? "Can't reach PocketPals" : "No jobs this day"}</div>
-              <div style={{ fontSize: 18, opacity: .8, marginTop: 6 }}>{c.error || "Nothing is set for anyone."}</div>
+            <div className="cp-card pprise" style={{ textAlign: "center", padding: "40px 20px", "--i": 0 } as any}>
+              <div className="cp-cn">{c.error ? "Can't reach PocketPals" : "No jobs this day"}</div>
+              <div className="cp-cs" style={{ marginTop: 6 }}>{c.error || "Nothing is set for anyone."}</div>
             </div>
           )}
+          <div className="cp-cs" style={{ padding: "6px 4px 124px" }}>Ticks wait for a grown-up to check them in PocketPals.</div>
         </div>
       </div>
-      <div className="fx" style={{ flex: "none", height: 140, padding: "8px 4px 0", alignItems: "flex-start" }}><span style={{ fontSize: 16, fontWeight: 600, opacity: .85 }}>Ticks wait for a grown-up to check them in PocketPals.</span></div>
     </div>
   );
 }
