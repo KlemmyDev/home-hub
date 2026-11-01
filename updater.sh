@@ -56,7 +56,7 @@ put status.json "{\"state\": \"running\", \"started_at\": $started, \"step\": \"
 rm -f "$DIR/request"
 
 if [ -n "$why" ]; then
-  put status.json "{\"state\": \"failed\", \"message\": $(jstr "$why")}"
+  put status.json "{\"state\": \"failed\", \"started_at\": $started, \"finished_at\": $(date +%s), \"message\": $(jstr "$why")}"
   exit 0
 fi
 
@@ -66,5 +66,5 @@ if HH_PROGRESS="$DIR/status.json" HH_STARTED="$started" bash install.sh >"$DIR/u
   put last.json "{\"took\": $((finished - started))}"
   put status.json "{\"state\": \"done\", \"started_at\": $started, \"finished_at\": $finished}"
 else
-  put status.json "{\"state\": \"failed\", \"message\": \"the build didn't finish: see data/update/update.log\"}"
+  put status.json "{\"state\": \"failed\", \"started_at\": $started, \"finished_at\": $(date +%s), \"message\": \"the build didn't finish: see data/update/update.log\"}"
 fi
