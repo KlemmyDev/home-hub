@@ -6,7 +6,8 @@ import { nowZ } from "../lib/dates";
 import { CalendarPanel } from "./Calendar";
 import { ChoresPanel } from "./Chores";
 import { Overview } from "./Overview";
-import { MenuPanel, ShoppingPanel } from "./Panels";
+import { ShoppingPanel } from "./Panels";
+import { MenuPanel } from "./Dinners";
 import { Settings } from "../screens/Settings";
 import { SheetHost } from "./Sheets";
 import { Reminders } from "./Reminders";
@@ -47,7 +48,7 @@ function PanelCard({ id, inner, active, edge, children }: { id: string; inner: s
 
 /** The floating menu: always open, so every screen is one tap away. */
 function Dock() {
-  const { S, dim, ppOn, cal } = useHub();
+  const { S, dim, ppOn, cal, setDview } = useHub();
   const page = usePage();
   const { go, openCal } = useNav();
   const url = (id: string) => S.config.widgets.find(w => w.id === id)?.url;
@@ -63,7 +64,7 @@ function Dock() {
           const on = to === "page" && id === page;
           const inner = on ? <><DockIcon name={id} size={22} /><span className="lb">{name}</span></> : <DockIcon name={id} />;
           return to === "page"
-            ? <button key={id} id={"dk-" + id} className={"dk" + (on ? " on" : "")} aria-label={name} aria-current={on ? "page" : undefined} onClick={() => id === "calendar" ? (page === "calendar" ? undefined : openCal(cal.mode, nowZ())) : go(id as Page | "settings")}>{inner}</button>
+            ? <button key={id} id={"dk-" + id} className={"dk" + (on ? " on" : "")} aria-label={name} aria-current={on ? "page" : undefined} onClick={() => id === "calendar" ? (page === "calendar" ? undefined : openCal(cal.mode, nowZ())) : id === "menu" ? (page === "menu" ? setDview({ v: "home" }) : go("menu")) : go(id as Page | "settings")}>{inner}</button>
             : <a key={id} className="dk" href={to} aria-label={name}>{inner}</a>;
         })}
       </div>

@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { DEMO, post } from "../lib/api";
-import { addDays, clockT, longDay, nowZ, sameDay, shortDate, startOfDay, weekStart, ymd } from "../lib/dates";
-import { Check, Chev, ChevL, ChevR, XIcon } from "../lib/icons";
-import { dinnerFor, useDinners, useShopping } from "../data";
+import { post } from "../lib/api";
+import { clockT, shortDate } from "../lib/dates";
+import { Check, XIcon } from "../lib/icons";
+import { useShopping } from "../data";
 import { useHub } from "../hub";
-import { FoodIcon } from "../lib/foodicons";
 
 /** The clock and the screen's name, along the top of Dinners and Shopping. */
-function PanelTop({ title, title2 }: { title: string; title2?: string }) {
+export function PanelTop({ title, title2 }: { title: string; title2?: string }) {
   const { dim, now, h24 } = useHub();
   const P = dim.phone;
   return (
@@ -21,62 +20,7 @@ function PanelTop({ title, title2 }: { title: string; title2?: string }) {
     </div>
   );
 }
-const wrap = (P: boolean) => ({ display: "flex", flexDirection: "column" as const, width: "100%", height: "100%", padding: (P ? "14px 14px" : "18px 18px") + " 0" });
-
-/* ---------- Dinners ---------- */
-export function MenuPanel() {
-  const { dim, now, people, menuWeek, setMenuWeek, openSheet } = useHub();
-  const { data: din } = useDinners();
-  const P = dim.phone;
-  const w = weekStart(startOfDay(menuWeek)), b = addDays(w, 6), m = (x: Date) => x.toLocaleDateString([], { month: P ? "short" : "long" });
-  const title = w.getMonth() === b.getMonth() ? `${w.getDate()} to ${b.getDate()} ${m(b)}` : `${w.getDate()} ${m(w)} to ${b.getDate()} ${m(b)}`;
-  const thisWeek = sameDay(w, weekStart(now));
-  let planned = 0;
-  const rows = Array.from({ length: 7 }, (_, i) => {
-    const day = addDays(w, i), today = sameDay(day, now), t = dinnerFor(din, people, day), past = day < startOfDay(now);
-    if (t) planned++;
-    return (
-      <button key={i} className={"drow" + (today ? " today" : "") + (t ? " set" : "")} aria-label={longDay(day) + (t ? ": " + t.name : "")} onClick={() => {
-        if (DEMO) return;
-        const p = din?.plan[ymd(day)];
-        openSheet({ mode: "dinner", date: ymd(day), cook: p && p.cook ? p.cook : null });
-      }}>
-        <span className={"dnumbox" + (today ? " now" : "")}><span className="dnum2 num">{day.getDate()}</span></span>
-        <span style={{ flex: 1, minWidth: 0 }}>
-          <span className="dday">{day.toLocaleDateString([], { weekday: "long" })}{today ? <b className="dtoday">Today</b> : null}</span>
-          {t ? <>
-            <span className="dname">{t.name}</span>
-            {t.cook ? <span className="dcook"><i className="av" style={{ width: 22, height: 22, fontSize: 12, background: t.cookColor || "#8a93a6" }}>{t.cook[0].toUpperCase()}</i>{t.cook} cooking</span> : null}
-          </> : <span className="dempty">{past ? "No dinner planned" : "Tap to choose a dinner"}</span>}
-        </span>
-        {t ? <FoodIcon name={t.name} size={P ? 64 : 84} /> : <span className="dplus" aria-hidden="true">+</span>}
-      </button>
-    );
-  });
-  return (
-    <div style={wrap(P)}>
-      <PanelTop title="Dinners" />
-      <div className="fx" style={{ justifyContent: "space-between", padding: "0 0 12px", gap: 10 }}>
-        <div className="fx" style={{ gap: 10, minWidth: 0 }}>
-          <button className="cnav" aria-label="Back" onClick={() => setMenuWeek(addDays(w, -7))}><ChevL /></button>
-          <span style={{ fontSize: P ? 21 : 28, fontWeight: 700, letterSpacing: "-.04em", whiteSpace: "nowrap", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{title}</span>
-          <button className="cnav" aria-label="Forward" onClick={() => setMenuWeek(addDays(w, 7))}><ChevR /></button>
-        </div>
-        <div className="fx" style={{ gap: 8, flex: "none" }}>
-          {thisWeek ? null : <button className="cbtn" style={{ background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={() => setMenuWeek(nowZ())}>This week</button>}
-          <button className="cbtn accent" hidden={DEMO} style={{ padding: "0 20px" }} onClick={() => openSheet({ mode: "meals" })}>{P ? "Ideas" : "Dinner ideas"}{din?.meals.length ? " · " + din.meals.length : ""}</button>
-        </div>
-      </div>
-      <div className="drows">{rows}</div>
-      <div style={{ flex: "none", height: 140, padding: "10px 4px 0" }}>
-        <div className="pbar" aria-hidden style={{ margin: "0 0 14px" }}>{Array.from({ length: 7 }, (_, i) => <i key={i} className={dinnerFor(din, people, addDays(w, i)) ? "on" : ""} />)}</div>
-        <div className="fx" style={{ justifyContent: "space-between", gap: 12 }}>
-          <span style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-.02em" }}>{planned} of 7 planned</span>
-        </div>
-      </div>
-    </div>
-  );
-}
+export const wrap = (P: boolean) => ({ display: "flex", flexDirection: "column" as const, width: "100%", height: "100%", padding: (P ? "14px 14px" : "18px 18px") + " 0" });
 
 /* ---------- Shopping list ---------- */
 export function ShoppingPanel() {
@@ -100,7 +44,7 @@ export function ShoppingPanel() {
   const row = (x: typeof items[number]) => (
     <div className={"srow" + (x.done ? " done" : "")} key={x.id}>
       <button className="stk" aria-pressed={x.done} onClick={async () => { change(l => l.map(i => i.id === x.id ? { ...i, done: !i.done } : i)); try { await post("/api/shopping/update", { id: x.id, done: !x.done }); } catch { reload(); } }}>
-        <span className="chk" aria-hidden="true">{x.done ? <Check /> : null}</span><span className="sn">{x.name}</span>
+        <span className="chk" aria-hidden="true">{x.done ? <Check /> : null}</span><span className="sn">{x.name}{x.note ? <small className="snote">{x.note}</small> : null}</span>
       </button>
       <button className="sx" aria-label={"Remove " + x.name} onClick={async () => { change(l => l.filter(i => i.id !== x.id)); try { await post("/api/shopping/remove", { id: x.id }); } catch { reload(); } }}><XIcon /></button>
     </div>

@@ -5,6 +5,7 @@ mod dinners;
 mod family;
 mod holidays;
 mod pocketpals;
+mod products;
 mod shopping;
 mod weather;
 
@@ -193,6 +194,9 @@ async fn main() {
         .route("/api/dinners", get(get_dinners))
         .route("/api/meal", post(save_meal))
         .route("/api/meal/delete", post(delete_meal))
+        .route("/api/meal/details", post(save_meal_details))
+        .route("/api/products/search", get(product_search))
+        .route("/api/shopping/add-many", post(shopping_add_many))
         .route("/api/dinner-plan", post(plan_dinner))
         .route("/api/people", post(save_people))
         .route("/api/hub-event", get(hub_event).post(save_hub_event))
@@ -844,6 +848,66 @@ async fn get_dinners(State(app): Shared) -> Json<dinners::Dinners> {
 struct MealBody {
     id: Option<String>,
     name: String,
+}
+
+#[derive(Deserialize)]
+struct MealDetailsBody {
+    id: String,
+    #[serde(flatten)]
+    details: dinners::MealDetails,
+}
+
+/// Save a dinner's ingredients, notes and the rest from its own page.
+async fn save_meal_details(State(app): Shared, Json(body): Json<MealDetailsBody>) -> impl IntoResponse {
+    match edit_dinners(&app, |d| d.set_details(&body.id, body.details)).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct ProductQuery {
+    q: String,
+}
+
+/// Look up supermarket products (Open Food Facts) by name or barcode.
+async fn product_search(Query(q): Query<ProductQuery>) -> impl IntoResponse {
+    match products::search(&q.q).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => (StatusCode::BAD_GATEWAY, e).into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct ManyItem {
+    name: String,
+    #[serde(default)]
+    note: String,
+    #[serde(default)]
+    barcode: String,
+}
+
+#[derive(Deserialize)]
+struct ManyBody {
+    items: Vec<ManyItem>,
+    #[serde(default)]
+    from: String,
+}
+
+/// Put several things on the shopping list at once (a dinner's ingredients), keeping what exactly to get.
+async fn shopping_add_many(State(app): Shared, Json(body): Json<ManyBody>) -> impl IntoResponse {
+    if body.items.len() > 80 {
+        return (StatusCode::BAD_REQUEST, "That's a lot to add at once.").into_response();
+    }
+    match edit_shopping(&app, |l| {
+        for i in &body.items {
+            l.add_for(&i.name, &i.note, &i.barcode, &body.from)?;
+        }
+        Ok(body.items.len())
+    }).await {
+        Ok(n) => Json(json!({"added": n})).into_response(),
+        Err(e) => e.into_response(),
+    }
 }
 
 /// Add a dinner, or rename one.

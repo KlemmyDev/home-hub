@@ -18,7 +18,9 @@ export function usePrefetchEvents() {
 }
 export const EMPTY_EVENTS: EvData = { list: [], cals: {} };
 
-export type Meal = { id: string; name: string };
+export type Product = { code: string; name: string; brand: string; quantity: string; image: string };
+export type Ingredient = { id: string; name: string; amount: string; product: Product | null; staple: boolean };
+export type Meal = { id: string; name: string; ingredients?: Ingredient[]; notes?: string; link?: string; serves?: number; minutes?: number; tags?: string[]; favourite?: boolean };
 export type Dinners = { meals: Meal[]; plan: Record<string, { meal: string; cook?: string }> };
 export function useDinners() {
   return useQuery<Dinners>({ queryKey: ["dinners"], queryFn: () => DEMO ? Promise.resolve(demoDinners()) : api("/api/dinners"), refetchInterval: 300000 });
@@ -27,7 +29,11 @@ export function useDinners() {
 function demoDinners(): Dinners {
   const names = ["Spaghetti Bolognese", "Fish and chips", "Chicken curry", "Tacos", "Homemade pizza", "Roast chicken", ""];
   const extra = ["Sausages and mash", "Beef stir fry", "Mac and cheese", "Pumpkin soup", "Pancakes", "Burgers", "Lasagne", "Sushi night"];
-  const meals = [...names.filter(Boolean), ...extra].map((name, i) => ({ id: "m" + i, name }));
+  const sample: Record<string, [string, string][]> = {
+    "Spaghetti Bolognese": [["Spaghetti", "500 g"], ["Beef mince", "500 g"], ["Passata", "1 jar"], ["Onion", "1"], ["Garlic", "2 cloves"]],
+    "Tacos": [["Taco shells", "1 box"], ["Beef mince", "500 g"], ["Cheese", "1 cup"], ["Lettuce", "1"]],
+  };
+  const meals: Meal[] = [...names.filter(Boolean), ...extra].map((name, i) => ({ id: "m" + i, name, serves: 4, minutes: 30, tags: i % 3 === 0 ? ["Quick"] : [], favourite: i < 2, ingredients: (sample[name] || []).map(([n, amount], j) => ({ id: `i${i}x${j}`, name: n, amount, product: null, staple: n === "Garlic" || n === "Onion" })) }));
   const w = weekStart(startOfDay(nowZ())), plan: Dinners["plan"] = {};
   names.forEach((n, i) => { if (n) plan[ymd(addDays(w, i))] = { meal: "m" + i, cook: ["d", "m", "a", "d", "m", "d", ""][i] || undefined }; });
   return { meals, plan };
@@ -39,7 +45,7 @@ export function dinnerFor(din: Dinners | undefined, people: { id: string; name: 
   return { name: m.name, cook: cook ? cook.name : "", cookColor: cook?.color || "" };
 }
 
-export type ShopItem = { id: string; name: string; done: boolean };
+export type ShopItem = { id: string; name: string; done: boolean; note?: string; barcode?: string; from?: string };
 export const useShopping = () => useQuery<{ items: ShopItem[] }>({ queryKey: ["shopping"], queryFn: () => api("/api/shopping") });
 
 /* ---------- PocketPals jobs ---------- */

@@ -462,3 +462,34 @@ button:disabled{opacity:.55;pointer-events:none}
 .upbar{display:block;height:14px;border-radius:7px;background:#edf0f5;overflow:hidden}.upbar i{display:block;height:100%;border-radius:7px;background:linear-gradient(90deg,#c8f54a,#6ddc8c);transition:width 1.2s linear}
 #upd button.primary{min-height:60px;padding:0 34px;border-radius:999px;font-size:20px}
 .upwait{margin-top:14px;padding-top:14px;border-top:1px solid #edf0f5}.upwait p{font-size:18px;margin:0 0 12px}.upwait button{min-height:52px;font-size:18px}
+
+/* dinners: ideas, one dinner, shopping for the week */
+.dvpage{animation:fadein .25s ease both}
+.dvback{display:flex;align-items:center;gap:4px;min-height:52px;padding:0 18px 0 10px;border-radius:999px;border:1.5px solid #d5dbe6;background:#fff;font-size:18px;font-weight:650;flex:none}
+.dvfav{width:52px;height:52px;min-height:0;padding:0;border-radius:50%;border:1.5px solid #d5dbe6;background:#fff;font-size:26px;color:#c7ccd8;line-height:1}.dvfav.on{background:#fff4cc;border-color:#f3c93a;color:#e8a800}
+.dvchips{gap:8px;overflow-x:auto;scrollbar-width:none;padding:0 0 12px;flex:none}.dvchips .pill{flex:none;height:48px}.dvsep{flex:none;width:1.5px;height:28px;background:#dde1e7;margin:0 4px}
+.dvgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.phone .dvgrid{grid-template-columns:1fr}
+.dvcard{display:flex;align-items:center;gap:12px;min-height:104px;padding:10px 14px 10px 10px;border-radius:24px;border:0;background:#fff;box-shadow:0 1px 2px rgba(20,32,70,.05),0 6px 18px rgba(20,32,70,.05);text-align:left;color:var(--text)}
+.dvct{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.dvct b{font-size:21px;font-weight:700;letter-spacing:-.025em;line-height:1.15;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.dvct small{font-size:15px;font-weight:600;color:#5a6478;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dvct .dvlast{color:#8a93a6}
+.dvstar{font-style:normal;color:#e8a800;margin-left:6px}
+.dvhero{display:flex;align-items:center;gap:18px;padding:6px 4px 14px}
+.dvname{display:flex;flex-direction:column;align-items:flex-start;gap:0;min-height:0;padding:0;border:0;background:none;font-size:34px;font-weight:700;letter-spacing:-.04em;line-height:1.1;text-align:left}.dvname small{font-size:15px;font-weight:600;color:#8a93a6;letter-spacing:0}
+.dvmeta{display:flex;flex-direction:column;gap:2px;margin-top:8px;font-size:18px;font-weight:600;color:#5a6478}
+.dvh{display:flex;align-items:baseline;gap:10px;margin:26px 4px 8px;font-size:24px;font-weight:700;letter-spacing:-.03em}.dvh small{font-size:17px;color:#8a93a6;font-weight:600}
+.dving,.dvprod{display:flex;align-items:center;gap:14px;width:100%;min-height:76px;padding:8px 14px 8px 10px;margin-bottom:8px;border:0;border-radius:20px;background:#f6f8fb;text-align:left;color:var(--text)}
+.dvprod.on{background:var(--hub-soft);box-shadow:inset 0 0 0 2px #101828}
+.dvthumb{flex:none;width:56px;height:56px;border-radius:16px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:24px;color:#8a93a6}.dvthumb.big{width:64px;height:64px}.dvthumb img{width:100%;height:100%;object-fit:contain}
+.dvit{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.dvit b{font-size:21px;font-weight:700;letter-spacing:-.02em;line-height:1.2}.dvit b em{font-style:normal;font-weight:600;color:#5a6478;margin-left:10px;font-size:18px}
+.dvit small{font-size:16px;font-weight:600;color:#5a6478;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dvcode{color:#8a93a6!important;font-size:14px!important}
+.dvadd{display:flex;align-items:center;justify-content:center;width:100%;min-height:64px;border-radius:20px;border:2px dashed #cdd3de;background:none;font-size:20px;font-weight:650;color:#3a4358}
+.dvnone{font-size:18px;color:#6b7488;margin:6px 4px 12px}
+.dvrow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 4px;border-top:1px solid #edf0f5;font-size:20px;font-weight:650}.dvrow.col{flex-direction:column;align-items:stretch}.dvrow small{display:block;font-size:15px;font-weight:500;color:#6b7488;max-width:460px}
+.dvta{width:100%;border:1.5px solid var(--line);border-radius:16px;padding:12px 16px;font:inherit;font-size:20px;background:#f6f8fb;resize:none;user-select:text}.dvta:focus{outline:0;border-color:#101828;background:#fff}
+.dvlink{border:0;background:none;min-height:48px;padding:0 6px;font-size:18px;font-weight:650;color:var(--hub-text);text-align:left}
+.dvbar{position:absolute;left:0;right:0;bottom:118px;padding:0 4px;display:flex}.dvbar .primary{flex:1}
+.dvshop{background:#fff;border-radius:24px;padding:4px 14px 8px;margin:12px 0;box-shadow:0 1px 2px rgba(20,32,70,.05),0 6px 18px rgba(20,32,70,.05)}
+.dvdone{width:84px;height:84px;margin:0 auto;border-radius:50%;background:var(--good);color:#fff;display:flex;align-items:center;justify-content:center;transform:scale(1.6)}
+.snote{display:block;font-size:15px;font-weight:600;color:#6b7488;text-decoration:none;white-space:normal}
+.dvbody .qadd{margin-top:10px}
+.dvshop .srow.off .chk{background:#fff;border-color:#c5ccd8}.dvshop .srow.off .sn{color:#8a93a6}

@@ -11,6 +11,7 @@ import { Lab, Pill, SheetFrame } from "./SheetFrame";
 import { StepsSheet } from "./Chores";
 import { FoodIcon } from "../lib/foodicons";
 import { FindSheet } from "./Find";
+import { IngredientSheet, PlanMealSheet } from "./Dinners";
 
 const DAYCODES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
 const DAYNAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -314,7 +315,7 @@ const MealCard = ({ name, on, onClick }: { name: string; on?: boolean; onClick: 
 );
 
 function DinnerSheet({ date, cook: startCook }: { date: string; cook: string | null }) {
-  const { people, closeSheet } = useHub();
+  const { people, closeSheet, setDview } = useHub();
   const qc = useQueryClient();
   const { data: din } = useDinners();
   const [cook, setCook] = useState(startCook);
@@ -352,48 +353,7 @@ function DinnerSheet({ date, cook: startCook }: { date: string; cook: string | n
     </>
   );
   return <SheetFrame title={longDay(fromYmd(date))} body={body} error={err}
-    foot={<>{cur ? <button className="danger-o" onClick={() => plan({ date })}>Clear this day</button> : null}<button style={{ marginLeft: "auto" }} onClick={closeSheet}>Cancel</button></>} />;
-}
-
-function MealsSheet() {
-  const { closeSheet } = useHub();
-  const qc = useQueryClient();
-  const { data: din } = useDinners();
-  const [text, setText] = useState("");
-  const [edit, setEdit] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [sure, setSure] = useState(false);
-  const [err, setErr] = useState("");
-  const meals = [...(din?.meals || [])].sort((a, b) => a.name.localeCompare(b.name));
-  const run = async (f: () => Promise<unknown>) => { try { await f(); await qc.invalidateQueries({ queryKey: ["dinners"] }); setEdit(null); setSure(false); setErr(""); } catch (e: any) { setErr(e.message); } };
-  const add = () => run(async () => { await post("/api/meal", { name: text }); setText(""); });
-  const open = (id: string, n: string) => { setEdit(edit === id ? null : id); setName(n); setSure(false); };
-  const cur = meals.find(m => m.id === edit);
-  return <SheetFrame title="Dinner ideas" error={err} foot={<button className="primary" onClick={closeSheet} style={{ marginLeft: "auto", minWidth: 200 }}>Done</button>} body={
-    <>
-      <p className="sheetsec" style={{ color: "var(--soft)", fontSize: 18, margin: "10px 0 0", "--d": 0 } as React.CSSProperties}>Everything you cook. Pick from here when you plan a day, and tap one to rename or remove it.</p>
-      <Sec n={1} label="Add a dinner">
-        <NewDinner text={text} setText={setText} go="Add" placeholder="Spaghetti Bolognese, Tacos…" onGo={add} />
-      </Sec>
-      <Sec n={2} label={meals.length ? `${meals.length} ${meals.length === 1 ? "idea" : "ideas"}` : "Your ideas"}>
-        {meals.length ? <div className="mgrid">{meals.map(m => <MealCard key={m.id} name={m.name} on={edit === m.id} onClick={() => open(m.id, m.name)} />)}</div> : <p style={{ color: "var(--soft)", fontSize: 18, margin: 0 }}>No dinners yet. Add your favourites above and they will turn up here with a picture.</p>}
-        <Reveal open={!!cur}>
-          <div className="medit">
-            <div className="fx" style={{ gap: 12 }}>
-              <FoodIcon name={name || cur?.name || ""} size={64} />
-              <input key={edit} value={name} onChange={e => setName(e.target.value)} maxLength={40} aria-label="Dinner name" autoComplete="off" style={{ flex: 1, minWidth: 0, background: "#fff" }} />
-            </div>
-            <div className="fx" style={{ gap: 10, marginTop: 12 }}>
-              {sure ? <button className="danger" style={{ flex: 1 }} onClick={() => run(() => post("/api/meal/delete", { id: edit }))}>Yes, remove it</button>
-                : <button className="danger-o" style={{ flex: 1 }} onClick={() => setSure(true)}>Remove</button>}
-              <button className="primary" style={{ flex: 1 }} disabled={!name.trim() || name.trim() === cur?.name} onClick={() => run(() => post("/api/meal", { id: edit, name }))}>Save name</button>
-            </div>
-            {sure ? <p style={{ fontSize: 16, color: "var(--soft)", margin: "10px 0 0" }}>Removing a dinner also takes it off any days it was planned.</p> : null}
-          </div>
-        </Reveal>
-      </Sec>
-    </>
-  } />;
+    foot={<>{cur ? <button className="danger-o" onClick={() => plan({ date })}>Clear this day</button> : null}{cur ? <button onClick={() => { closeSheet(); setDview({ v: "meal", id: cur.meal }); }}>Open dinner</button> : null}<button style={{ marginLeft: "auto" }} onClick={closeSheet}>Cancel</button></>} />;
 }
 
 function SheetBody({ sheet }: { sheet: Sheet }) {
@@ -403,7 +363,8 @@ function SheetBody({ sheet }: { sheet: Sheet }) {
     case "family": return <FamilySheet back={sheet.back} />;
     case "steps": return <StepsSheet k={sheet.key} />;
     case "dinner": return <DinnerSheet date={sheet.date} cook={sheet.cook} />;
-    case "meals": return <MealsSheet />;
+    case "ingredient": return <IngredientSheet meal={sheet.meal} ing={sheet.ing} />;
+    case "planmeal": return <PlanMealSheet meal={sheet.meal} />;
     case "find": return <FindSheet />;
   }
 }

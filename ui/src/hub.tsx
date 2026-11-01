@@ -20,13 +20,16 @@ export type Dim = { W: number; H: number; s: number; phone: boolean; st: number;
 const DIM0: Dim = { W: 800, H: 1280, s: 1, phone: false, st: 0, sb: 0 };
 
 export type CalView = { mode: "day" | "week" | "month" | "agenda"; date: Date; who: string | null };
+/** Which page of Dinners is open: the week, the list of ideas, one dinner, or shopping for the week. */
+export type DView = { v: "home" } | { v: "ideas" } | { v: "meal"; id: string } | { v: "shop" };
 export type Sheet =
   | { mode: "event"; draft: EventDraft; occ?: string; back?: boolean }
   | { mode: "view"; e: import("./lib/events").Ev; cal: { name: string; color: string } }
   | { mode: "family"; back?: EventDraft }
   | { mode: "steps"; key: string }
   | { mode: "dinner"; date: string; cook: string | null }
-  | { mode: "meals" }
+  | { mode: "ingredient"; meal: string; ing: string | null }
+  | { mode: "planmeal"; meal: string }
   | { mode: "find" };
 export type EventDraft = {
   id: string; occ?: string; title: string; location: string; allDay: boolean; sd: string; st: string; ned: string; net: string;
@@ -40,6 +43,7 @@ type Ctx = {
   cal: CalView; setCal: (f: (c: CalView) => CalView) => void;
   ovMode: "day" | "week"; setOvMode: (m: "day" | "week") => void;
   menuWeek: Date; setMenuWeek: (d: Date) => void;
+  dview: DView; setDview: (v: DView) => void;
   choreDay: Date; setChoreDay: (d: Date) => void;
   showDone: boolean; setShowDone: (b: boolean) => void;
   sheet: Sheet | null; openSheet: (s: Sheet | null) => void; closeSheet: () => void;
@@ -108,6 +112,7 @@ function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNod
   const [cal, setCalState] = useState<CalView>({ mode: "day", date: nowZ(), who: null });
   const [ovMode, setOvMode] = useState<"day" | "week">("day");
   const [menuWeek, setMenuWeek] = useState(() => nowZ());
+  const [dview, setDview] = useState<DView>({ v: "home" });
   const [choreDay, setChoreDay] = useState(() => nowZ());
   const [showDone, setShowDone] = useState(false);
   const [sheet, openSheet] = useState<Sheet | null>(null);
@@ -121,10 +126,10 @@ function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNod
   const refreshState = useCallback(async () => { await qc.fetchQuery({ queryKey: ["state"], queryFn: () => api<HubState>("/api/state"), staleTime: 0 }); }, [qc]);
   const value = useMemo<Ctx>(() => ({
     S, people: DEMO && !S.people?.length ? DEMO_PEOPLE : S.people || [], h24: !!S.config.hour24, dim, now, refreshState,
-    cal, setCal: f => setCalState(f), ovMode, setOvMode, menuWeek, setMenuWeek, choreDay, setChoreDay, showDone, setShowDone,
+    cal, setCal: f => setCalState(f), ovMode, setOvMode, menuWeek, setMenuWeek, dview, setDview, choreDay, setChoreDay, showDone, setShowDone,
     sheet, openSheet, closeSheet: () => openSheet(null), toast, toastAct, soon,
     ppOn: DEMO || !!S.config.pocketpals?.connected,
-  }), [S, dim, now, refreshState, cal, ovMode, menuWeek, choreDay, showDone, sheet, toast, toastAct, soon]);
+  }), [S, dim, now, refreshState, cal, ovMode, menuWeek, dview, choreDay, showDone, sheet, toast, toastAct, soon]);
   return <HubCtx.Provider value={value}>{children}</HubCtx.Provider>;
 }
 

@@ -10,6 +10,14 @@ pub struct Item {
     pub name: String,
     #[serde(default)]
     pub done: bool,
+    /// What exactly to get ("San Remo Spaghetti 500 g"), and the product's barcode if it's a particular one.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub note: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub barcode: String,
+    /// The dinner it's for, if it came from one.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub from: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
@@ -52,7 +60,25 @@ impl Shopping {
             return Err("The list is very long. Clear some ticked items first.");
         }
         let id = new_id(|id| self.items.iter().any(|x| x.id == id));
-        self.items.push(Item { id: id.clone(), name, done: false });
+        self.items.push(Item { id: id.clone(), name, done: false, ..Default::default() });
+        Ok(id)
+    }
+
+    /// Add something from a dinner, with what exactly to get. If it's already on the list, what's wanted is added to its note.
+    pub fn add_for(&mut self, name: &str, note: &str, barcode: &str, from: &str) -> Result<String, &'static str> {
+        let id = self.add(name)?;
+        let item = self.items.iter_mut().find(|x| x.id == id).unwrap();
+        let note = note.trim();
+        if !note.is_empty() && !item.note.contains(note) {
+            item.note = if item.note.is_empty() { note.to_string() } else { format!("{} · {}", item.note, note) };
+            item.note = item.note.chars().take(200).collect();
+        }
+        if item.barcode.is_empty() && barcode.len() <= 14 && barcode.bytes().all(|b| b.is_ascii_digit()) {
+            item.barcode = barcode.to_string();
+        }
+        if item.from.is_empty() {
+            item.from = from.trim().chars().take(40).collect();
+        }
         Ok(id)
     }
 
