@@ -60,6 +60,7 @@ function Dock() {
   const items: [string, string, string][] = [["overview", "Overview", "page"], ["calendar", "Calendar", "page"], ["menu", "Dinners", "page"], ["shopping", "Shopping", "page"]];
   if (ppOn) items.push(["chores", "Chores", "page"]); else if (url("pocketpals")) items.push(["chores", "Chores", url("pocketpals")!]);
   if (url("wattsmypower")) items.push(["energy", "Energy", url("wattsmypower")!]);
+  items.push(["settings", "Settings", "page"]);
   const dw = dim.phone ? 50 * items.length + 10 : 150 + 60 * (items.length - 1) + 20;
   return (
     <nav id="dock" aria-label="Main" style={{ "--dw": dw + "px" } as CSSProperties}>
@@ -68,7 +69,7 @@ function Dock() {
           const on = to === "page" && id === page;
           const inner = on ? <><DockIcon name={id} size={22} /><span className="lb">{name}</span></> : <DockIcon name={id} />;
           return to === "page"
-            ? <button key={id} id={"dk-" + id} className={"dk" + (on ? " on" : "")} aria-label={name} aria-current={on ? "page" : undefined} onClick={() => id === "calendar" ? openCal(cal.mode, cal.date) : go(id as Page)}>{inner}</button>
+            ? <button key={id} id={"dk-" + id} className={"dk" + (on ? " on" : "")} aria-label={name} aria-current={on ? "page" : undefined} onClick={() => id === "calendar" ? openCal(cal.mode, cal.date) : go(id as Page | "settings")}>{inner}</button>
             : <a key={id} className="dk" href={to} aria-label={name}>{inner}</a>;
         })}
       </div>

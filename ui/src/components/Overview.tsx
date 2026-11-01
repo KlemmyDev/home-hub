@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, DEMO } from "../lib/api";
 import { addDays, fmtT, clockT, longDay, sameDay, startOfDay, weekStart } from "../lib/dates";
 import { calOf, colorsOf, onDay, tint, type Ev, type EvData } from "../lib/events";
-import { Chev, DinnerIcon, Gear, PpLogo } from "../lib/icons";
+import { Chev, DinnerIcon, PpLogo } from "../lib/icons";
 import { EMPTY_EVENTS, dinnerFor, useDinners, useEvents } from "../data";
 import { useHub } from "../hub";
 import { useNav } from "../nav";
@@ -15,7 +15,6 @@ function Greeting() {
   const { now, S } = useHub();
   const g = now.getHours() < 12 ? "Good morning!" : now.getHours() < 17 ? "Good afternoon!" : "Good evening!";
   const [a, b] = g.split(" ");
-  const { go } = useNav();
   return (
     <div className="fx" style={{ justifyContent: "space-between", alignItems: "flex-end", padding: "0 8px" }}>
       <div>
@@ -26,7 +25,6 @@ function Greeting() {
         <div id="clock" className="num clk" style={{ fontFamily: "'Comfortaa','Onest',sans-serif", fontSize: 128, fontWeight: 700, letterSpacing: "-.07em", lineHeight: .88, WebkitTextStroke: "4px #101828", paintOrder: "stroke fill" }}>{clockT(now, !!S.config.hour24)}</div>
         <div className="fx" style={{ gap: 12, justifyContent: "flex-end", marginTop: 14 }}>
           <span style={{ fontSize: 19, fontWeight: 600, color: "#3a4358" }}>{S.config.name}</span>
-          <button className="gear" id="gear" aria-label="Settings" onClick={() => go("settings")}><Gear /></button>
         </div>
       </div>
     </div>
@@ -174,7 +172,7 @@ function WidgetCards() {
   if (!ws.length) return (
     <div className="tile-card" style={{ padding: 22, display: "flex", flexDirection: "column", justifyContent: "center", textAlign: "center" }}>
       <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-.03em" }}>No apps added yet</div>
-      <div style={{ fontSize: 19, color: "#6b7488", marginTop: 6 }}>Tap the cog to add PocketPals or WattsMyPower.</div>
+      <div style={{ fontSize: 19, color: "#6b7488", marginTop: 6 }}>Open Settings in the menu below to add PocketPals or WattsMyPower.</div>
     </div>
   );
   return (
