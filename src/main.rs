@@ -1,6 +1,7 @@
 //! Home Hub: one small service that serves the dashboard and keeps its settings in data/config.json.
 
 mod calendar;
+mod family;
 
 use axum::{
     extract::{Query, State},
@@ -82,6 +83,7 @@ struct App {
     config: RwLock<Config>,
     latest: Mutex<Option<(Instant, Option<String>)>>,
     cals: RwLock<HashMap<String, CalState>>,
+    family: RwLock<family::Family>,
 }
 
 const MAX_CALENDARS: usize = 8;
@@ -97,7 +99,11 @@ async fn main() {
         Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
         Err(_) => Config::default(),
     };
-    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()) });
+    let family = match tokio::fs::read(data.join("family.json")).await {
+        Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
+        Err(_) => family::Family::default(),
+    };
+    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family) });
 
     // Keep the calendars fresh: once now, then every ten minutes.
     let background = app.clone();
@@ -122,6 +128,9 @@ async fn main() {
         .route("/api/calendars", post(save_calendars))
         .route("/api/clock", post(save_clock))
         .route("/api/events", get(events))
+        .route("/api/people", post(save_people))
+        .route("/api/hub-event", get(hub_event).post(save_hub_event))
+        .route("/api/hub-event/delete", post(delete_hub_event))
         .route("/api/status", get(status))
         .route("/api/update", get(update_info))
         .route("/api/update/request", post(update_request))
@@ -149,8 +158,10 @@ async fn state(State(app): Shared) -> Json<Value> {
         .iter()
         .map(|c| json!({"id": c.id, "name": c.name, "color": c.color, "site": host_port(&c.url.replacen("webcal://", "https://", 1)).map(|h| h.0)}))
         .collect();
+    let people = app.family.read().await.people.clone();
     Json(json!({
         "version": VERSION,
+        "people": people,
         "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars, "hour24": config.hour24},
         "catalog": catalog_json(),
     }))
@@ -310,8 +321,77 @@ async fn events(State(app): Shared, Query(q): Query<EventsQuery>) -> impl IntoRe
             }
         }
     }
+    // Events made on the hub, tagged with who they're for.
+    let family = app.family.read().await;
+    let made: Vec<(&family::HubEvent, calendar::Event)> = family.events.iter().filter_map(|h| h.to_event().map(|e| (h, e))).collect();
+    let engine: Vec<calendar::Event> = made.iter().map(|(_, e)| e.clone()).collect();
+    for e in calendar::between(&engine, from, to, "hub") {
+        let series = e.id.split(':').nth(1).unwrap_or_default().to_string();
+        let Some((h, _)) = made.iter().find(|(h, _)| h.id == series) else { continue };
+        let mut v = serde_json::to_value(&e).unwrap_or(Value::Null);
+        v["cal"] = json!("hub");
+        v["hub"] = json!(true);
+        v["series"] = json!(h.id);
+        v["people"] = json!(h.people);
+        v["repeats"] = json!(h.repeat.freq != "none");
+        all.push((e.start.clone(), v));
+    }
     all.sort_by(|a, b| a.0.cmp(&b.0));
-    Json(json!({"events": all.into_iter().map(|(_, v)| v).collect::<Vec<_>>(), "calendars": info})).into_response()
+    Json(json!({"events": all.into_iter().map(|(_, v)| v).collect::<Vec<_>>(), "calendars": info, "people": family.people})).into_response()
+}
+
+/// Change the family (and maybe its events) and save it whole, or say why not.
+async fn edit_family<T>(app: &App, change: impl FnOnce(&mut family::Family) -> Result<T, &'static str>) -> Result<T, (StatusCode, String)> {
+    let mut current = app.family.write().await;
+    let mut next = current.clone();
+    let out = change(&mut next).map_err(|why| (StatusCode::BAD_REQUEST, why.to_string()))?;
+    let bytes = serde_json::to_vec_pretty(&next).unwrap();
+    write_atomic(&app.data.join("family.json"), &bytes).await.map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save that.".to_string()))?;
+    *current = next;
+    Ok(out)
+}
+
+/// Replace the list of family members.
+async fn save_people(State(app): Shared, Json(body): Json<Vec<family::PersonIn>>) -> impl IntoResponse {
+    match edit_family(&app, |f| f.set_people(body)).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct IdQuery {
+    id: String,
+}
+
+/// One hub event as it was made (its repeat rule and people), for editing.
+async fn hub_event(State(app): Shared, Query(q): Query<IdQuery>) -> impl IntoResponse {
+    match app.family.read().await.events.iter().find(|e| e.id == q.id) {
+        Some(e) => Json(e.clone()).into_response(),
+        None => (StatusCode::NOT_FOUND, "That event has gone already.").into_response(),
+    }
+}
+
+/// Add an event, or change one that has an id.
+async fn save_hub_event(State(app): Shared, Json(body): Json<family::HubEvent>) -> impl IntoResponse {
+    match edit_family(&app, |f| f.save_event(body)).await {
+        Ok(id) => Json(json!({"id": id})).into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct DeleteBody {
+    id: String,
+    /// For a repeating event: just the one starting then (like 2026-11-04T16:00:00).
+    only: Option<String>,
+}
+
+async fn delete_hub_event(State(app): Shared, Json(body): Json<DeleteBody>) -> impl IntoResponse {
+    match edit_family(&app, |f| f.remove_event(&body.id, body.only.as_deref())).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
 }
 
 /// Is each widget's app answering? A quick connection to its address; nothing is fetched.
