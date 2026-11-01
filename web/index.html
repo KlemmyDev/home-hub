@@ -22,7 +22,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:20p
 #hello{font-size:32px;font-weight:600;text-align:right}
 main{padding:0 32px 32px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:24px}
+a.tile{display:flex;text-decoration:none;color:inherit;border:2px solid var(--line);background:var(--card);cursor:pointer}
 .tile{display:flex;flex-direction:column;justify-content:space-between;min-height:200px;padding:28px;text-align:left;border-radius:24px}
+a.tile:active{transform:scale(.98)}
 .tile h2{margin:0;font-size:40px}
 .tile p{margin:6px 0 0;color:var(--soft)}
 .dot{display:inline-block;width:16px;height:16px;border-radius:50%;margin-right:10px;background:var(--line)}
@@ -40,9 +42,6 @@ main{padding:0 32px 32px}
 .pick small{color:var(--soft);display:block}
 .row{display:flex;gap:16px;margin-top:28px;flex-wrap:wrap}
 .err{color:var(--bad);margin-top:16px;min-height:1.4em}
-#app{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column}
-#app .bar{display:flex;align-items:center;gap:20px;padding:12px 20px;border-bottom:2px solid var(--line)}
-#app iframe{flex:1;border:0;width:100%;background:#fff}
 .box{background:var(--card);border:2px solid var(--line);border-radius:20px;padding:24px;margin-bottom:20px}
 .box h3{margin:0 0 8px;font-size:30px}
 .box p{margin:4px 0;color:var(--soft)}
@@ -63,10 +62,6 @@ main{padding:0 32px 32px}
 
 <div id="settings" class="page hidden"></div>
 
-<div id="app" class="hidden">
-  <div class="bar"><button id="back">&larr; Back to the hub</button><strong id="apptitle"></strong></div>
-  <iframe id="frame" title="App"></iframe>
-</div>
 
 <script>
 "use strict";
@@ -81,7 +76,7 @@ async function api(path, opts) {
   return r.status === 204 ? null : r.json();
 }
 function show(which) {
-  for (const id of ["setup", "dash", "settings", "app"]) $(id).classList.toggle("hidden", id !== which);
+  for (const id of ["setup", "dash", "settings"]) $(id).classList.toggle("hidden", id !== which);
   if (which !== "dash") clearInterval(pollTimer);
 }
 
@@ -111,9 +106,8 @@ function drawDash() {
   }
   g.innerHTML = c.widgets.map(w => {
     const meta = S.catalog.find(x => x.id === w.id);
-    return `<button class="tile" data-id="${esc(w.id)}"><div><h2>${esc(meta.name)}</h2><p>${esc(meta.about)}</p></div><div class="state" data-state="${esc(w.id)}"><span class="dot"></span>Checking…</div></button>`;
+    return `<a class="tile" href="${esc(w.url)}"><div><h2>${esc(meta.name)}</h2><p>${esc(meta.about)}</p></div><div class="state" data-state="${esc(w.id)}"><span class="dot"></span>Checking…</div></a>`;
   }).join("");
-  g.onclick = e => { const t = e.target.closest(".tile"); if (t) openApp(t.dataset.id); };
 }
 async function poll() {
   try {
@@ -131,13 +125,6 @@ function showDash() {
   poll();
   pollTimer = setInterval(poll, 30000);
 }
-function openApp(id) {
-  const w = S.config.widgets.find(x => x.id === id);
-  $("apptitle").textContent = S.catalog.find(x => x.id === id).name;
-  $("frame").src = w.url;
-  show("app");
-}
-$("back").onclick = () => { $("frame").src = "about:blank"; showDash(); };
 $("gear").onclick = showSettings;
 
 /* ---------- Setup (first run, and "change widgets") ---------- */
