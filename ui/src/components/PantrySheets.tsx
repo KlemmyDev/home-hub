@@ -5,7 +5,7 @@ import { XIcon } from "../lib/icons";
 import { NO_PANTRY, stockLevel, usePantry, useDinners, useShopping, type PantryData, type PItem, type Product } from "../data";
 import { useHub } from "../hub";
 import { SHEET_MS, useAutoFocus } from "../lib/focus";
-import { UNITS, fmtQty, stepFor } from "../lib/units";
+import { MAIN_UNITS, STARTERS, UNITS, fmtQty, guessUnit, stepFor } from "../lib/units";
 import { planUse } from "../lib/pantrylib";
 import { Pill, SheetFrame } from "./SheetFrame";
 import { Scanner, scanProblem } from "./Scanner";
@@ -66,60 +66,95 @@ function ProductPick({ name, value, onPick }: { name: string; value: Product | n
   );
 }
 
-/** One thing in the pantry: how much, the least to keep, where it's bought, and whether dinners use it up. */
+/** One thing in the pantry. Adding is quick: a name, how much and the least to keep; the shop is one tap; the rest is under "More". */
 export function PantryItemSheet({ id, name: startName }: { id: string | null; name?: string }) {
   const { closeSheet, soon } = useHub();
   const qc = useQueryClient();
   const { data: pan = NO_PANTRY } = usePantry();
   const cur = pan.items.find(i => i.id === id);
-  const [t, setT] = useState<PItem>(() => cur || { id: "", name: startName || "", qty: 0, unit: "each", min: 0, want: 0, store: "", auto: true, product: null, note: "" });
-  const [busy, setBusy] = useState(false), [err, setErr] = useState("");
+  const blank = (store = "", unit = "each"): PItem => ({ id: "", name: startName || "", qty: 0, unit, min: 0, want: 0, store, auto: true, product: null, note: "" });
+  const [t, setT] = useState<PItem>(() => cur || { ...blank(), unit: startName ? guessUnit(startName) : "each" });
+  const [busy, setBusy] = useState(false), [err, setErr] = useState(""), [units, setUnits] = useState(false), [scan, setScan] = useState(false), [scanMsg, setScanMsg] = useState("");
+  const [more, setMore] = useState(() => !!cur && (cur.want > 0 || !cur.auto || !!cur.product));
+  const touchedUnit = useRef(!!cur);
   const nameRef = useRef<HTMLInputElement>(null);
   useAutoFocus(nameRef, SHEET_MS, !cur);
   const set = (p: Partial<PItem>) => { setErr(""); setT(x => ({ ...x, ...p })); };
+  const rename = (name: string) => set({ name, ...(touchedUnit.current ? {} : { unit: guessUnit(name) }) });
   const step = stepFor(t.unit);
-  const done = () => { qc.invalidateQueries({ queryKey: ["pantry"] }); qc.invalidateQueries({ queryKey: ["shopping"] }); closeSheet(); };
-  const run = async (f: () => Promise<unknown>) => { setBusy(true); try { await f(); done(); } catch (e: any) { setErr(e.message || "Couldn't save that."); setBusy(false); } };
   const level = stockLevel(t);
+  const refresh = () => { qc.invalidateQueries({ queryKey: ["pantry"] }); qc.invalidateQueries({ queryKey: ["shopping"] }); };
+  const valid = () => { if (!t.name.trim()) { setErr("Say what it is first."); nameRef.current?.focus({ preventScroll: true }); return false; } return true; };
+  const save = async (another: boolean) => {
+    if (!valid()) return;
+    setBusy(true);
+    try {
+      await post("/api/pantry/item", { ...t, name: t.name.trim() });
+      refresh();
+      if (another) { soon(`${t.name.trim()} added.`); touchedUnit.current = false; setT(blank(t.store)); setMore(false); setBusy(false); setTimeout(() => nameRef.current?.focus({ preventScroll: true }), 50); }
+      else closeSheet();
+    } catch (e: any) { setErr(e.message || "Couldn't save that."); setBusy(false); }
+  };
+  const found = (p: Product | null) => set({ product: p, ...(p && !t.name.trim() ? { name: p.name, unit: touchedUnit.current ? t.unit : guessUnit(p.name) } : {}) });
+  const taken = new Set(pan.items.map(i => i.name.toLowerCase()));
+  const starters = STARTERS.filter(n => !taken.has(n.toLowerCase()) && (!t.name.trim() || n.toLowerCase().includes(t.name.trim().toLowerCase()))).slice(0, 12);
   const body = (
     <>
-      <div className="cap" style={{ margin: "14px 0 8px" }}>What is it?</div>
-      <input ref={nameRef} value={t.name} onChange={e => set({ name: e.target.value })} maxLength={50} placeholder="Flour, rice, olive oil…" aria-label="Name" autoComplete="off" style={{ fontSize: 26, fontWeight: 700, minHeight: 72 }} />
-      <div className="fx" style={{ gap: 8, flexWrap: "wrap", margin: "14px 0 0" }}>{UNITS.map(u => <Pill key={u} on={t.unit.toLowerCase() === u.toLowerCase()} onClick={() => set({ unit: u })}>{u}</Pill>)}</div>
+      <div className="fx" style={{ gap: 10, marginTop: 14 }}>
+        <input ref={nameRef} value={t.name} onChange={e => rename(e.target.value)} maxLength={50} placeholder="What is it? Flour, rice, milk…" aria-label="Name" autoComplete="off" enterKeyHint="done" style={{ flex: 1, minWidth: 0, fontSize: 26, fontWeight: 700, minHeight: 72 }} />
+        {!cur ? <button className="ptscan" aria-label="Scan a barcode" onClick={() => { const why = scanProblem(); if (why) { setScanMsg(why); } else { setScanMsg(""); setScan(true); } }}>📷</button> : null}
+      </div>
+      {scan ? <Scanner onClose={() => setScan(false)} onCode={async code => { setScan(false); try { const r = await api<Product[]>("/api/products/search?q=" + code); found(r.find(p => p.code === code) || { code, name: t.name || "Scanned product", brand: "", quantity: "", image: "" }); } catch { found({ code, name: t.name || "Scanned product", brand: "", quantity: "", image: "" }); } }} /> : null}
+      {scanMsg ? <p className="dvnone">{scanMsg}</p> : null}
+      {t.product ? <p className="ptprod">📷 {[t.product.brand, t.product.name, t.product.quantity].filter(Boolean).join(" · ")}</p> : null}
+      {!cur && starters.length ? <div className="fx" style={{ gap: 8, flexWrap: "wrap", margin: "10px 0 0" }}>{starters.map(n => <Pill key={n} onClick={() => rename(n)}>{n}</Pill>)}</div> : null}
 
-      <div className="cap" style={{ margin: "24px 0 8px" }}>How much is there?</div>
+      <div className="cap" style={{ margin: "26px 0 8px" }}>How much have you got?</div>
       <Stepper value={t.qty} onChange={n => set({ qty: n })} step={step} label="amount" unit={t.unit} />
-      <p className={"ptstate " + level}>{level === "out" ? "None left." : level === "low" ? "That's under the minimum, so it goes on the shopping list." : "That's fine."}</p>
+      <div className="fx" style={{ gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+        {(units ? UNITS : MAIN_UNITS.concat(UNITS.includes(t.unit) && !MAIN_UNITS.includes(t.unit) ? [t.unit] : [])).map(u => <Pill key={u} on={t.unit.toLowerCase() === u.toLowerCase()} onClick={() => { touchedUnit.current = true; set({ unit: u }); }}>{u}</Pill>)}
+        {!units ? <Pill onClick={() => setUnits(true)}>More…</Pill> : null}
+      </div>
 
-      <div className="cap" style={{ margin: "20px 0 8px" }}>The least to keep</div>
+      <div className="cap" style={{ margin: "24px 0 8px" }}>Add it to the shopping list when there's less than</div>
       <Stepper value={t.min} onChange={n => set({ min: n })} step={step} label="minimum" unit={t.unit} />
-      <p style={{ margin: "8px 2px 0", fontSize: 16, color: "var(--soft)" }}>Below this it goes on the shopping list. Leave it at 0 to keep no minimum.</p>
+      <p className={"ptstate " + (t.min > 0 ? level : "")}>{t.min <= 0 ? "Leave this at 0 and it won't be added by itself." : level === "out" ? "None left, so it goes on the list." : level === "low" ? "That's under the minimum, so it goes on the list." : "That's fine."}</p>
 
-      <div className="cap" style={{ margin: "20px 0 8px" }}>Top up to</div>
-      <Stepper value={t.want} onChange={n => set({ want: n })} step={step} label="top-up level" unit={t.unit} />
-      <p style={{ margin: "8px 2px 0", fontSize: 16, color: "var(--soft)" }}>How much to have after a shop. Leave it at 0 for twice the minimum.</p>
-
-      <div className="cap" style={{ margin: "24px 0 8px" }}>Usually bought at</div>
       {pan.stores.length ? (
-        <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>
-          <Pill on={!t.store} onClick={() => set({ store: "" })}>Anywhere</Pill>
-          {pan.stores.map(s => <button key={s.id} className={"pill" + (t.store === s.id ? " on" : "")} style={{ gap: 8 }} onClick={() => set({ store: s.id })}><i className="ptdot" style={{ background: s.color }} />{s.name}</button>)}
+        <>
+          <div className="cap" style={{ margin: "20px 0 8px" }}>Where do you buy it?</div>
+          <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>
+            <Pill on={!t.store} onClick={() => set({ store: "" })}>Anywhere</Pill>
+            {pan.stores.map(s => <button key={s.id} className={"pill" + (t.store === s.id ? " on" : "")} style={{ gap: 8 }} onClick={() => set({ store: s.id })}><i className="ptdot" style={{ background: s.color }} />{s.name}</button>)}
+          </div>
+        </>
+      ) : null}
+
+      <button className="ptmore" aria-expanded={more} onClick={() => setMore(!more)}>{more ? "Fewer options" : "More options"}<span aria-hidden>{more ? "▴" : "▾"}</span></button>
+      {more ? (
+        <div className="ptmorebox">
+          <div className="cap" style={{ margin: "4px 0 8px" }}>Top up to (how much to have after a shop)</div>
+          <Stepper value={t.want} onChange={n => set({ want: n })} step={step} label="top-up level" unit={t.unit} />
+          <p style={{ margin: "8px 2px 0", fontSize: 16, color: "var(--soft)" }}>Leave it at 0 and it tops up to twice the minimum.</p>
+          <div className="fx dvrow" style={{ marginTop: 16 }}><span>Use it up when I cook<small>Turn this off for herbs and spices, which a dinner never uses up.</small></span>
+            <button className={"sw2" + (t.auto ? " on" : "")} role="switch" aria-checked={t.auto} aria-label="Use it up when I cook" onClick={() => set({ auto: !t.auto })}><i /></button></div>
+          <div className="cap" style={{ margin: "16px 0 8px" }}>The exact product</div>
+          <ProductPick name={t.name} value={t.product} onPick={found} />
         </div>
-      ) : <p className="dvnone" style={{ margin: 0 }}>Add your shops on the Shops tab, and you can pick one here.</p>}
-
-      <div className="fx dvrow" style={{ marginTop: 22 }}><span>Use it up when I cook<small>Turn this off for things like herbs and spices, where a dinner never uses the whole thing. You can still change the amount yourself.</small></span>
-        <button className={"sw2" + (t.auto ? " on" : "")} role="switch" aria-checked={t.auto} aria-label="Use it up when I cook" onClick={() => set({ auto: !t.auto })}><i /></button></div>
-
-      <div className="cap" style={{ margin: "22px 0 8px" }}>The exact product (optional)</div>
-      <ProductPick name={t.name} value={t.product} onPick={p => set({ product: p, ...(p && !t.name.trim() ? { name: p.name } : {}) })} />
+      ) : null}
     </>
   );
-  const foot = (
+  const foot = cur ? (
     <>
-      {cur ? <button className="danger-o" disabled={busy} onClick={() => run(() => post("/api/pantry/item/delete", { id: cur.id }))}>Remove</button> : null}
-      {cur ? <button disabled={busy} onClick={async () => { try { await post("/api/shopping/add", { name: cur.name }); qc.invalidateQueries({ queryKey: ["shopping"] }); soon(`${cur.name} is on the shopping list.`); } catch (e: any) { setErr(e.message); } }}>Add to list</button> : null}
-      <button style={{ marginLeft: "auto" }} onClick={closeSheet}>Cancel</button>
-      <button className="primary" style={{ minWidth: 170 }} disabled={busy} onClick={() => run(() => post("/api/pantry/item", { ...t, name: t.name.trim() }))}>{busy ? "Saving…" : cur ? "Save" : "Add"}</button>
+      <button className="danger-o" disabled={busy} onClick={async () => { setBusy(true); try { await post("/api/pantry/item/delete", { id: cur.id }); refresh(); closeSheet(); } catch (e: any) { setErr(e.message); setBusy(false); } }}>Remove</button>
+      <button disabled={busy} onClick={async () => { try { await post("/api/shopping/add", { name: cur.name }); qc.invalidateQueries({ queryKey: ["shopping"] }); soon(`${cur.name} is on the shopping list.`); } catch (e: any) { setErr(e.message); } }}>Add to list</button>
+      <button className="primary" style={{ marginLeft: "auto", minWidth: 170 }} disabled={busy} onClick={() => save(false)}>{busy ? "Saving…" : "Save"}</button>
+    </>
+  ) : (
+    <>
+      <button style={{ marginRight: "auto" }} onClick={closeSheet}>Cancel</button>
+      <button disabled={busy} onClick={() => save(true)}>Add another</button>
+      <button className="primary" style={{ minWidth: 150 }} disabled={busy} onClick={() => save(false)}>{busy ? "Adding…" : "Add"}</button>
     </>
   );
   return <SheetFrame title={cur ? cur.name : "Add to the pantry"} body={body} foot={foot} error={err} />;

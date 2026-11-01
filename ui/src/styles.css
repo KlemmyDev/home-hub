@@ -541,3 +541,8 @@ button:disabled{opacity:.55;pointer-events:none}
 .ptstate{margin:8px 2px 0;font-size:17px;font-weight:700}.ptstate.low{color:#b45309}.ptstate.out{color:#c2331f}.ptstate.ok{color:#14a06c}
 .ptuse{padding:14px;margin-bottom:10px;border-radius:22px;background:#f6f8fb}
 .phone .ptstep span{min-width:64px;font-size:17px}.phone .ptstep button{width:48px;height:48px}
+
+.ptscan{flex:none;width:72px;height:72px;min-height:0;padding:0;border-radius:20px;border:1.5px solid #d5dbe6;background:#fff;font-size:30px}
+.ptprod{margin:8px 4px 0;font-size:16px;font-weight:600;color:#5a6478}
+.ptmore{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:22px;min-height:60px;border-radius:18px;border:1.5px dashed #cdd3de;background:none;font-size:19px;font-weight:650;color:#3a4358}
+.ptmorebox{margin-top:12px;padding:16px;border-radius:22px;background:#f6f8fb}
