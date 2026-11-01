@@ -1,0 +1,1 @@
+import{t as e}from"./index-ClH9DMN3.js";var t=e(),n=()=>(0,t.jsx)(`div`,{children:`Hello hub`});export{n as component};

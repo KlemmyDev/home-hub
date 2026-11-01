@@ -9,10 +9,11 @@ mod shopping;
 use axum::{
     extract::{Query, State},
     http::{header, StatusCode},
-    response::{Html, IntoResponse},
+    response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
+use include_dir::{include_dir, Dir};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -28,14 +29,8 @@ use tokio::{
     time::timeout,
 };
 
-const INDEX: &str = include_str!("../web/index.html");
-const MANIFEST: &str = include_str!("../web/manifest.webmanifest");
-const SERVICE_WORKER: &str = include_str!("../web/sw.js");
-const ICON_SVG: &str = include_str!("../web/icon.svg");
-const ICON_192: &[u8] = include_bytes!("../web/icons/icon-192.png");
-const ICON_512: &[u8] = include_bytes!("../web/icons/icon-512.png");
-const ICON_MASKABLE: &[u8] = include_bytes!("../web/icons/icon-maskable-512.png");
-const ICON_APPLE: &[u8] = include_bytes!("../web/icons/apple-touch-icon.png");
+/// The built dashboard (made from ui/ by `bash build-ui.sh`, and kept in git so the hub builds with only Rust).
+static WEB: Dir = include_dir!("$CARGO_MANIFEST_DIR/web");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const LATEST_CACHE: Duration = Duration::from_secs(300);
 
@@ -137,14 +132,6 @@ async fn main() {
     });
 
     let router = Router::new()
-        .route("/", get(|| async { ([(header::CACHE_CONTROL, "no-cache")], Html(INDEX)) }))
-        .route("/manifest.webmanifest", get(|| async { ([(header::CONTENT_TYPE, "application/manifest+json"), (header::CACHE_CONTROL, "no-cache")], MANIFEST) }))
-        .route("/sw.js", get(|| async { ([(header::CONTENT_TYPE, "text/javascript"), (header::CACHE_CONTROL, "no-cache")], SERVICE_WORKER) }))
-        .route("/icon.svg", get(|| async { ([(header::CONTENT_TYPE, "image/svg+xml"), (header::CACHE_CONTROL, "no-cache")], ICON_SVG) }))
-        .route("/icons/icon-192.png", get(|| async { png(ICON_192) }))
-        .route("/icons/icon-512.png", get(|| async { png(ICON_512) }))
-        .route("/icons/icon-maskable-512.png", get(|| async { png(ICON_MASKABLE) }))
-        .route("/icons/apple-touch-icon.png", get(|| async { png(ICON_APPLE) }))
         .route("/api/state", get(state))
         .route("/api/setup", post(setup))
         .route("/api/calendars", post(save_calendars))
@@ -170,6 +157,7 @@ async fn main() {
         .route("/api/status", get(status))
         .route("/api/update", get(update_info))
         .route("/api/update/request", post(update_request))
+        .fallback(serve_web)
         .with_state(app);
 
     let port: u16 = std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8787);
@@ -178,8 +166,29 @@ async fn main() {
     axum::serve(listener, router).await.expect("server stopped");
 }
 
-fn png(bytes: &'static [u8]) -> impl IntoResponse {
-    ([(header::CONTENT_TYPE, "image/png"), (header::CACHE_CONTROL, "no-cache")], bytes)
+/// Serves the built dashboard: a file if there is one, otherwise the app's start page (it picks the screen itself).
+async fn serve_web(uri: axum::http::Uri) -> impl IntoResponse {
+    let path = uri.path().trim_start_matches('/');
+    let (file, name) = match WEB.get_file(path) {
+        Some(f) if !path.is_empty() => (f, path),
+        _ => match WEB.get_file("_shell.html") {
+            Some(f) if !path.starts_with("api/") && !path.contains('.') => (f, "_shell.html"),
+            _ => return (StatusCode::NOT_FOUND, [(header::CONTENT_TYPE, "text/plain"), (header::CACHE_CONTROL, "no-cache")], b"Not found".as_slice()),
+        },
+    };
+    let kind = match name.rsplit('.').next().unwrap_or("") {
+        "html" => "text/html; charset=utf-8",
+        "js" => "text/javascript",
+        "css" => "text/css",
+        "svg" => "image/svg+xml",
+        "png" => "image/png",
+        "webmanifest" => "application/manifest+json",
+        "woff2" => "font/woff2",
+        _ => "application/octet-stream",
+    };
+    // File names under assets/ carry a hash of their contents, so they never change; the rest is checked every time.
+    let cache = if name.starts_with("assets/") { "public, max-age=31536000, immutable" } else { "no-cache" };
+    (StatusCode::OK, [(header::CONTENT_TYPE, kind), (header::CACHE_CONTROL, cache)], file.contents())
 }
 
 fn catalog_json() -> Value {
