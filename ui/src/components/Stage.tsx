@@ -6,15 +6,18 @@ import { CalendarPanel } from "./Calendar";
 import { ChoresPanel } from "./Chores";
 import { Overview } from "./Overview";
 import { MenuPanel, ShoppingPanel } from "./Panels";
+import { Settings } from "../screens/Settings";
 import { SheetHost } from "./Sheets";
 
 type Box = { l: number; t: number; w: number; h: number };
-const fullBox = (d: Dim): Box => d.phone ? { l: 10, t: 10 + d.st, w: d.W - 20, h: d.H - 20 - d.st - d.sb } : { l: 20, t: 20, w: d.W - 40, h: d.H - 40 };
+const boxFull = (d: Dim): Box => d.phone ? { l: 10, t: 10 + d.st, w: d.W - 20, h: d.H - 20 - d.st - d.sb } : { l: 20, t: 20, w: d.W - 40, h: d.H - 40 };
+const edgeBox = (d: Dim): Box => ({ l: 0, t: 0, w: d.W, h: d.H });   // the whole screen, no margin
 const applyBox = (el: HTMLElement, b: Box) => { el.style.left = b.l + "px"; el.style.top = b.t + "px"; el.style.width = b.w + "px"; el.style.height = b.h + "px"; };
 
 /** A full screen that fades in over the Overview, and fades back out. */
-function PanelCard({ id, inner, active, children }: { id: string; inner: string; active: boolean; children: ReactNode }) {
+function PanelCard({ id, inner, active, edge, children }: { id: string; inner: string; active: boolean; edge?: boolean; children: ReactNode }) {
   const { dim } = useHub();
+  const fullBox = edge ? edgeBox : boxFull;
   const card = useRef<HTMLElement>(null);
   const was = useRef(false), timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useLayoutEffect(() => {
@@ -33,7 +36,7 @@ function PanelCard({ id, inner, active, children }: { id: string; inner: string;
   }, [active, dim]);
   const fb = fullBox(dim);
   return (
-    <section id={id} ref={card} className="tile-card">
+    <section id={id} ref={card} className={"tile-card" + (edge ? " edge" : "")}>
       <div id={inner} style={{ width: fb.w, height: fb.h }}>{active || was.current ? children : null}</div>
     </section>
   );
@@ -73,10 +76,11 @@ export function Stage() {
     <div id="dash">
       <div id="stage" className={(dim.phone ? "phone " : "") + (sheet ? "sheet-on" : "")} style={style}>
         <Overview away={page !== "overview"} />
-        <PanelCard id="calcard" inner="calin" active={page === "calendar"}><CalendarPanel /></PanelCard>
+        <PanelCard id="calcard" inner="calin" active={page === "calendar"} edge><CalendarPanel /></PanelCard>
         <PanelCard id="menucard" inner="menuin" active={page === "menu"}><MenuPanel /></PanelCard>
         <PanelCard id="shopcard" inner="shopin" active={page === "shopping"}><ShoppingPanel /></PanelCard>
         <PanelCard id="chorecard" inner="chorein" active={page === "chores"}><ChoresPanel /></PanelCard>
+        {page === "settings" ? <div id="setlayer"><Settings /></div> : null}
         <Dock />
         <div id="sheetscrim" onClick={closeSheet} />
         <SheetHost />

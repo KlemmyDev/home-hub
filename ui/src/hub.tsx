@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, DEMO } from "./lib/api";
 import { addDays, startOfDay, weekStart } from "./lib/dates";
-import type { Person } from "./lib/events";
+import { DEMO_PEOPLE, type Person } from "./lib/events";
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 15000, retry: false, refetchOnWindowFocus: false } } });
 
@@ -107,7 +107,7 @@ function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNod
   }, []);
   const refreshState = useCallback(async () => { await qc.fetchQuery({ queryKey: ["state"], queryFn: () => api<HubState>("/api/state"), staleTime: 0 }); }, [qc]);
   const value = useMemo<Ctx>(() => ({
-    S, people: S.people || [], h24: !!S.config.hour24, dim, now, refreshState,
+    S, people: DEMO && !S.people?.length ? DEMO_PEOPLE : S.people || [], h24: !!S.config.hour24, dim, now, refreshState,
     cal, setCal: f => setCalState(f), ovMode, setOvMode, menuWeek, setMenuWeek, choreDay, setChoreDay, showDone, setShowDone,
     sheet, openSheet, closeSheet: () => openSheet(null), toast, soon,
     ppOn: !DEMO && !!S.config.pocketpals?.connected,

@@ -5,17 +5,24 @@ import { PALETTE } from "../lib/events";
 import { FamilyEditor } from "../components/Family";
 import { useHub } from "../hub";
 import { useNav } from "../nav";
+import { DockIcon } from "../lib/icons";
 
-const Box = ({ title, children }: { title: string; children: React.ReactNode }) => <div className="box"><h3>{title}</h3>{children}</div>;
+const TINT: Record<string, [string, string]> = { clock: ["#e6edfb", "#1d4ed8"], chores: ["#ece8fe", "#5b3bf0"], family: ["#fde8ef", "#d6336c"], weather: ["#fff3d6", "#d98a00"], calendar: ["#e1f5ec", "#14a06c"], update: ["#eef1f6", "#101828"] };
+const Box = ({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) => {
+  const [bg, fg] = TINT[icon] || TINT.update;
+  return <section className="box"><div className="bh"><span className="bi" style={icon === "chores" ? undefined : { background: bg, color: fg }}><DockIcon name={icon} size={22} /></span><h3>{title}</h3></div>{children}</section>;
+};
+/** Two or three choices in one rounded track, like the calendar's Day, Week, Month switch. */
+const Seg = ({ items, value, onPick }: { items: [string, string][]; value: string; onPick: (v: string) => void }) => (
+  <div className="seg">{items.map(([v, label]) => <button key={v} className={"sg big" + (v === value ? " on" : "")} onClick={() => onPick(v)}>{label}</button>)}</div>
+);
 
 function Time() {
   const { h24, refreshState } = useHub();
   return (
-    <Box title="Time">
+    <Box title="Time" icon="clock">
       <p>How should the clock and event times look?</p>
-      <div className="fx" style={{ gap: 12, marginTop: 12 }}>
-        {[false, true].map(v => <button key={String(v)} className={h24 === v ? "primary" : ""} onClick={async () => { try { await post("/api/clock", { hour24: v }); await refreshState(); } catch { /* keep the old choice */ } }}>{v ? "24-hour (15:30)" : "12-hour (3:30pm)"}</button>)}
-      </div>
+      <Seg items={[["12", "12-hour (3:30pm)"], ["24", "24-hour (15:30)"]]} value={h24 ? "24" : "12"} onPick={async v => { try { await post("/api/clock", { hour24: v === "24" }); await refreshState(); } catch { /* keep the old choice */ } }} />
     </Box>
   );
 }
@@ -28,7 +35,7 @@ function PocketPals() {
   const [msg, setMsg] = useState<{ text: string; good?: boolean }>({ text: "" });
   const after = async () => { await refreshState(); qc.removeQueries({ queryKey: ["chores"] }); };
   return (
-    <Box title="PocketPals">
+    <Box title="PocketPals" icon="chores">
       <p style={{ margin: "0 0 12px" }}>{pp.connected ? (pp.tick ? "Connected. Kids can tick their jobs on the hub." : "Connected, but this key can only show jobs.") : "Show the kids' jobs on the calendar and let them tick them off here. In PocketPals, open You, then Developers, make a key and paste it below."}</p>
       <input value={url} onChange={e => setUrl(e.target.value)} inputMode="url" autoCapitalize="off" autoComplete="off" placeholder="PocketPals address, like https://pocketpals.example.com" style={{ marginBottom: 12 }} />
       <input value={key} onChange={e => setKey(e.target.value)} autoCapitalize="off" autoComplete="off" placeholder={pp.connected ? "Key saved. Leave blank to keep it" : "Paste the key (starts with pp_)"} style={{ marginBottom: 12 }} />
@@ -52,14 +59,12 @@ function Weather() {
   const done = async () => { await refreshState(); qc.removeQueries({ queryKey: ["weather"] }); };
   const search = async () => { try { setFound(await api("/api/weather/search?q=" + encodeURIComponent(q))); setErr(""); } catch (e: any) { setErr(e.message); setFound(null); } };
   return (
-    <Box title="Weather">
+    <Box title="Weather" icon="weather">
       <p style={{ margin: "0 0 12px" }}>{w?.connected ? <>Showing the weather for <strong>{w.place}</strong> under the clock.</> : "Show today's weather under the clock. Pick your town or city. It comes from Open-Meteo, which needs no account; only the place's rough location is sent."}</p>
       {w?.connected ? (
         <>
-          <div className="fx" style={{ gap: 12, marginBottom: 14 }}>
-            {[false, true].map(v => <button key={String(v)} className={w.fahrenheit === v ? "primary" : ""} onClick={async () => { try { await post("/api/weather/units", { fahrenheit: v }); await done(); } catch (e: any) { setErr(e.message); } }}>{v ? "Fahrenheit (°F)" : "Celsius (°C)"}</button>)}
-          </div>
-          <div className="fx" style={{ gap: 12 }}><button onClick={async () => { try { await post("/api/weather/disconnect"); await done(); setFound(null); } catch (e: any) { setErr(e.message); } }}>Remove weather</button></div>
+          <Seg items={[["c", "Celsius (°C)"], ["f", "Fahrenheit (°F)"]]} value={w.fahrenheit ? "f" : "c"} onPick={async v => { try { await post("/api/weather/units", { fahrenheit: v === "f" }); await done(); } catch (e: any) { setErr(e.message); } }} />
+          <div className="fx" style={{ gap: 12, marginTop: 14 }}><button onClick={async () => { try { await post("/api/weather/disconnect"); await done(); setFound(null); } catch (e: any) { setErr(e.message); } }}>Remove weather</button></div>
         </>
       ) : null}
       <p style={{ margin: "16px 0 8px" }}><strong>{w?.connected ? "Change place" : "Find your place"}</strong></p>
@@ -92,7 +97,7 @@ function Calendars() {
   const keep = () => list.map(c => ({ id: c.id, name: c.name, color: c.color }));
   const save = async (l: any[]) => { await post("/api/calendars", l); await refreshState(); };
   return (
-    <Box title="Calendars">
+    <Box title="Calendars" icon="calendar">
       {list.length ? list.map(c => (
         <div className="fx" key={c.id} style={{ gap: 14, padding: "12px 0", borderTop: "1px solid #edf0f5" }}>
           <i style={{ width: 18, height: 18, borderRadius: "50%", background: c.color, flex: "none" }} />
@@ -124,11 +129,11 @@ function Updates() {
     if (waiting && u?.status?.state === "done" && !u.requested) location.reload();
     if (waiting && u?.status?.state === "failed") setWaiting(false);
   }, [u, waiting]);
-  if (isError) return <Box title="Updates"><p>Couldn't check for updates.</p></Box>;
-  if (!u) return <Box title="Updates"><p>Checking…</p></Box>;
+  if (isError) return <Box title="Updates" icon="update"><p>Couldn't check for updates.</p></Box>;
+  if (!u) return <Box title="Updates" icon="update"><p>Checking…</p></Box>;
   const st = u.status, up = u.updater, alive = up && (Date.now() / 1000 - up.seen_at) < 180;
   return (
-    <Box title="Updates">
+    <Box title="Updates" icon="update">
       <p>Version {u.version}{u.current ? ` (${u.current})` : ""}</p>
       {u.requested || (st && st.state === "running") ? <p><strong>Updating now… the hub will restart in a few minutes.</strong></p>
         : !u.latest ? <p>Couldn't reach GitHub to look for a newer version.</p>
@@ -149,15 +154,15 @@ function Updates() {
 export function Settings() {
   const { go } = useNav();
   return (
-    <div className="page">
-      <h1>Settings</h1>
+    <div className="page settings">
+      <header className="shead"><div><h1>Settings</h1><p className="lead">Everything for your hub in one place.</p></div><button className="primary" onClick={() => go("overview")}>Done</button></header>
       <Time />
       <PocketPals />
-      <Box title="Family"><FamilyEditor /></Box>
+      <Box title="Family" icon="family"><FamilyEditor /></Box>
       <Weather />
       <Calendars />
       <Updates />
-      <div className="row"><button onClick={() => go("setup")}>Change widgets</button><button className="primary" onClick={() => go("overview")}>Done</button></div>
+      <div className="row"><button onClick={() => go("setup")}>Change widgets</button></div>
     </div>
   );
 }

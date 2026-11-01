@@ -11,6 +11,11 @@ export function useEvents(from: Date, to: Date) {
     refetchInterval: 300000, placeholderData: prev => prev,
   });
 }
+/** Fetch the days either side ahead of time, so a swipe lands on real events instead of the old ones. */
+export function usePrefetchEvents() {
+  const qc = useQueryClient();
+  return (ranges: [Date, Date][]) => ranges.forEach(([a, b]) => qc.prefetchQuery({ queryKey: ["events", +a, +b], queryFn: () => fetchEvents(a, b), staleTime: 60000 }));
+}
 export const EMPTY_EVENTS: EvData = { list: [], cals: {} };
 
 export type Meal = { id: string; name: string };

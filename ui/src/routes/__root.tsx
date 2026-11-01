@@ -3,14 +3,13 @@ import { HeadContent, Outlet, Scripts, createRootRoute, useRouterState } from "@
 import appCss from "../styles.css?url";
 import { HubProvider, useHub } from "../hub";
 import { Stage } from "../components/Stage";
-import { Settings } from "../screens/Settings";
 import { Setup } from "../screens/Setup";
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width,initial-scale=1,viewport-fit=cover" },
+      { name: "viewport", content: "width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" },
       { name: "theme-color", content: "#eef1f6" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
@@ -37,9 +36,15 @@ export const Route = createRootRoute({
 function Screen() {
   const { S } = useHub();
   const path = useRouterState({ select: s => s.location.pathname });
+  useEffect(() => {                                      // no pinch or double-tap zoom, like a native app (Safari ignores the viewport rule)
+    const stop = (e: Event) => e.preventDefault();
+    const multi = (e: TouchEvent) => { if (e.touches.length > 1) e.preventDefault(); };
+    for (const g of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(g, stop);
+    document.addEventListener("touchmove", multi, { passive: false });
+    return () => { for (const g of ["gesturestart", "gesturechange", "gestureend"]) document.removeEventListener(g, stop); document.removeEventListener("touchmove", multi); };
+  }, []);
   useEffect(() => { document.title = S.config.name || "Home Hub"; }, [S.config.name]);
   if (!S.config.setup_done) return <Setup first />;
-  if (path === "/settings") return <Settings />;
   if (path === "/setup") return <Setup first={false} />;
   return <><Stage /><Outlet /></>;
 }

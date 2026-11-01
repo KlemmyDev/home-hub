@@ -28,26 +28,28 @@ export function calOf(e: Ev, data: EvData, people: Person[]) {
 export const colorsOf = (e: Ev, data: EvData, people: Person[]) => e.hub ? (peopleOf(e, people).length ? peopleOf(e, people).map(p => p.color) : ["#8a93a6"]) : [calOf(e, data, people).color];
 export const visibleTo = (e: Ev, who: string | null) => !who || (!!e.hub && (e.people || []).includes(who));
 
+export const DEMO_PEOPLE: Person[] = [["d", "Dad"], ["m", "Mum"], ["a", "Kid one"], ["b", "Kid two"]].map(([id, name], i) => ({ id, name, color: PALETTE[i] }));
+
 function demoData(from: Date, to: Date): EvData {
-  const cals: Record<string, CalInfo> = {};
-  ([["d", "Dad", 0], ["m", "Mum", 1], ["a", "Kid one", 2], ["b", "Kid two", 3]] as const).forEach(([id, name, i]) => cals[id] = { id, name, color: PALETTE[i], ok: true });
-  const week: [number, number, number, string, string][][] = [   // by weekday, Monday first: [hour, minute, minutes long, title, calendar]
-    [[8, 15, 45, "School run", "a"], [9, 30, 90, "Planning call", "d"], [15, 15, 45, "Dentist", "b"], [17, 15, 60, "Football training", "a"]],
+  const week: [number, number, number, string, string][][] = [   // by weekday, Monday first: [hour, minute, minutes long, title, people]
+    [[8, 15, 45, "School run", "a,b"], [9, 30, 90, "Planning call", "d"], [15, 15, 45, "Dentist", "b"], [17, 15, 60, "Football training", "a"]],
     [[12, 0, 480, "Late shift", "m"], [16, 0, 60, "Swim", "b"]],
     [[15, 45, 75, "Drama club", "a"], [18, 30, 60, "Gym", "d"]],
     [[17, 30, 60, "Cubs", "a"], [18, 30, 90, "School disco", "b"]],
-    [[15, 30, 60, "Sleepover", "b"], [18, 0, 120, "Movie night", "m"]],
-    [[10, 0, 120, "Football match", "a"], [18, 30, 90, "Dinner out", "m"]],
-    [[12, 30, 150, "Lunch at Gran's", "m"]],
+    [[15, 30, 60, "Sleepover", "b"], [18, 0, 120, "Movie night", "m,a,b"]],
+    [[10, 0, 120, "Football match", "a,d"], [18, 30, 90, "Dinner out", "d,m"]],
+    [[12, 30, 150, "Lunch at Gran's", "d,m,a,b"], [16, 0, 60, "Homework hour", "a,b"]],
   ];
   const list: Ev[] = [];
   for (let d = startOfDay(from); d < to; d = addDays(d, 1)) {
-    for (const [h, mi, len, title, cal] of week[(d.getDay() + 6) % 7]) {
+    const wd = (d.getDay() + 6) % 7;
+    for (const [h, mi, len, title, who] of week[wd]) {
       const s = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, mi);
-      list.push({ id: title + +d, title, location: "", cal, all_day: false, s, e: new Date(+s + len * 60000) });
+      list.push({ id: title + +d, title, location: "", hub: true, people: who.split(","), all_day: false, s, e: new Date(+s + len * 60000) });
     }
+    if (wd === 3) list.push({ id: "bins" + +d, title: "Bins out", location: "", hub: true, people: ["d"], all_day: true, s: d, e: addDays(d, 1) });
   }
-  return { list, cals };
+  return { list, cals: {} };
 }
 
 export async function fetchEvents(from: Date, to: Date): Promise<EvData> {
