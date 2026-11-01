@@ -65,7 +65,7 @@ input:focus{outline:3px solid #1d4ed8;outline-offset:2px}
 .toast{position:absolute;left:50%;bottom:calc(120px + var(--sb, 0px));transform:translateX(-50%);background:#101828;color:#fff;border-radius:999px;padding:14px 26px;font-size:19px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:12;white-space:nowrap}
 .toast.on{opacity:1}
 .cnav{width:52px;height:52px;min-height:0;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #e1e6ef;color:#101828}
-.cbtn{height:52px;min-height:0;padding:0 20px;border-radius:999px;background:#101828;color:#fff;border:0;font-size:17px;font-weight:650}
+.cbtn{display:inline-flex;align-items:center;gap:6px;height:52px;min-height:0;padding:0 20px;border-radius:999px;background:#101828;color:#fff;border:0;font-size:17px;font-weight:650}
 .ov{position:absolute;inset:0;padding:48px 44px 124px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;scrollbar-width:none;transition:opacity .45s ease,transform .55s cubic-bezier(.2,.8,.2,1)}
 .ov.away{opacity:0;transform:scale(.97);pointer-events:none}
 #calcard,#menucard,#shopcard,#chorecard{position:absolute;display:none;overflow:hidden;z-index:3}
@@ -155,7 +155,10 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 .jkid i{width:12px;height:12px;border-radius:50%;background:var(--kc);flex:none}
 .jkid b{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jkid small{font-size:14px;font-weight:700;color:#6b7488}
-.phone .jkid{width:100%;line-height:26px}
+.phone .jrow{flex-direction:column;align-items:stretch;gap:2px}
+.phone .jkid{width:100%;line-height:30px}
+.phone .jrow>.fx{min-width:0!important}
+.phone .jchip{min-height:48px;font-size:17px}
 .jchip{display:inline-flex;align-items:center;gap:9px;min-height:44px;padding:0 14px 0 6px;border-radius:999px;border:1.5px solid var(--kc);background:#fff;font-size:17px;font-weight:650;color:#101828;max-width:100%;text-align:left}
 .jchip.big{min-height:56px;font-size:20px;padding:0 18px 0 8px;gap:12px}
 .jchip .jc{width:30px;height:30px;border-radius:50%;border:2.5px solid var(--kc);display:flex;align-items:center;justify-content:center;color:#fff;flex:none}
