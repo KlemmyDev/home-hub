@@ -269,7 +269,7 @@ function EventSheet({ draft: start }: { draft: EventDraft }) {
       <b>{t.title.trim() || "New event"}</b>{pick.length ? <> for {joinNames(pick.map(p => p.name))}</> : null}
       <span>{whenText}{repeatText}{t.location.trim() ? " · " + t.location.trim() : ""}</span>
       {askScope ? <span className="clash">Change just the ones from {longDay(fromYmd(t.occ!.slice(0, 10)))} onwards, or all of them?</span> : null}
-      {clash.length ? <span className="clash">Overlaps {joinNames(clash.slice(0, 2).map(e => e.name + " (" + fmtT(e.s, h24) + ")"))}</span> : null}
+      <span className="clash" style={{ minHeight: "1.4em" }}>{clash.length ? `Overlaps ${joinNames(clash.slice(0, 2).map(e => e.name + " (" + fmtT(e.s, h24) + ")"))}` : "\u00a0"}</span>
     </div>
   );
   return <SheetFrame title={editing ? "Change event" : "New event"} body={body} foot={foot} error={err} sum={confirmDel ? undefined : sum} />;

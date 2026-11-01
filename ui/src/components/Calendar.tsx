@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { flushSync } from "react-dom";
-import { addDays, clockT, dayDiff, fmtT, hourLabel, longDay, nowZ, sameDay, shortDate, startOfDay, weekStart, ymd } from "../lib/dates";
+import { addDays, clockT, dayDiff, fmtT, hmOf, hourLabel, longDay, nowZ, sameDay, shortDate, startOfDay, weekStart, ymd } from "../lib/dates";
 import { calOf, colorsOf, onDay, peopleOf, timedOn, visibleTo, type Ev, type EvData, type Person } from "../lib/events";
 import { ChevL, ChevR, SearchIcon } from "../lib/icons";
-import { DEMO } from "../lib/api";
+import { api, DEMO, post } from "../lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 import { EMPTY_EVENTS, useEvents, usePrefetchEvents } from "../data";
 import { useHub, type CalView } from "../hub";
 import { usePage } from "../nav";
@@ -12,7 +13,7 @@ import { loadEventDraft, newEventDraft } from "./Sheets";
 const HOUR_PX = (big: boolean, phone: boolean) => phone ? 64 : big ? 76 : 64;     // a fixed height for each hour, so the day scrolls
 
 /** Round initials in each person's colour, so who it is can be read without reading a name. */
-const Avs = ({ ps, size, max = 4 }: { ps: Person[]; size: number; max?: number }) => ps.length ? (
+export const Avs = ({ ps, size, max = 4 }: { ps: Person[]; size: number; max?: number }) => ps.length ? (
   <span className="avs" aria-hidden>
     {ps.slice(0, max).map(p => <i key={p.id} className="av" style={{ width: size, height: size, fontSize: Math.round(size * .52), background: p.color }}>{(p.name.trim()[0] || "?").toUpperCase()}</i>)}
     {ps.length > max ? <i className="av" style={{ width: size, height: size, fontSize: Math.round(size * .46), background: "#5a6478" }}>+{ps.length - max}</i> : null}
@@ -42,13 +43,72 @@ const usePaneCal = () => { const p = useContext(PaneCal), { cal } = useHub(); re
 /** The hours' scroll position, shared by the panes so the next day lines up with this one as it slides in. */
 type Shared = { top: number; els: Set<HTMLElement> };
 
+/** True while an event is being carried across the day, so the swipe track leaves the touch alone; `until` stops the lift-off from counting as a tap. */
+const carrying = { on: false, until: 0 };
+
 function Grid({ days, gutter, big, c }: { days: Date[]; gutter: number; big: boolean; c: Ctx }) {
-  const { now, dim, openSheet, cal } = useHub();
+  const { now, dim, openSheet, cal, soon } = useHub();
+  const qc = useQueryClient();
+  const [lift, setLift] = useState<{ id: string; dx: number; dy: number; label: string } | null>(null);
   const per = days.map(d => timedOn(c.list, d));
   const tot = 24, top = (h: number) => h / tot * 100;      // midnight to midnight
   const px = HOUR_PX(big, dim.phone);
   const showNow = days.some(d => sameDay(d, now));
   const h = now.getHours() + now.getMinutes() / 60;
+
+  /** Press and hold an event, then carry it: up and down changes the time (in 15 minute steps), sideways changes the day. */
+  const startCarry = (e: Ev, colIdx: number, ev: React.PointerEvent<HTMLElement>) => {
+    if (DEMO || !e.hub || e.fixed || (ev.pointerType === "mouse" && ev.button !== 0)) return;
+    const el = ev.currentTarget, pid = ev.pointerId, x0 = ev.clientX, y0 = ev.clientY, sc = dim.s || 1;
+    const col = el.closest(".gcol") as HTMLElement | null, box = el.closest(".gscroll") as HTMLElement | null;
+    if (!col) return;
+    const colW = col.getBoundingClientRect().width, sy0 = box?.scrollTop ?? 0;
+    const startMin = e.s.getHours() * 60 + e.s.getMinutes(), len = Math.round((+e.e - +e.s) / 60000), endMin = startMin + len;
+    let cx = x0, cy = y0, live = false, raf = 0, lastM = 0, lastD = 0, first = true;
+    const calc = () => {
+      const dyS = (cy - y0) + ((box?.scrollTop ?? 0) - sy0);
+      const m = Math.max(-startMin, Math.min(1440 - endMin, Math.round(dyS / sc / px * 4) * 15));
+      const dd = days.length > 1 ? Math.max(-colIdx, Math.min(days.length - 1 - colIdx, Math.round((cx - x0) / colW))) : 0;
+      if (first || m !== lastM || dd !== lastD) { first = false; lastM = m; lastD = dd; setLift({ id: e.id, dx: dd * colW / sc, dy: m / 60 * px, label: fmtT(new Date(+e.s + m * 60000), c.h24) }); }
+    };
+    const frame = () => {
+      if (!live) return;
+      if (box) { const r = box.getBoundingClientRect(), edge = 70 * sc; if (cy < r.top + edge) box.scrollTop -= 10; else if (cy > r.bottom - edge) box.scrollTop += 10; }
+      calc(); raf = requestAnimationFrame(frame);
+    };
+    const hold = (m: PointerEvent) => { cx = m.clientX; cy = m.clientY; if (!live && Math.hypot(cx - x0, cy - y0) > 10) stop(); };
+    const stopTouch = (t: TouchEvent) => { if (live) t.preventDefault(); };      // once lifted, the page must not scroll under the finger
+    const stop = () => { clearTimeout(timer); window.removeEventListener("pointermove", hold); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", cancel); window.removeEventListener("touchmove", stopTouch); };
+    const finish = (drop: boolean) => {
+      const was = live; live = false; cancelAnimationFrame(raf); stop();
+      if (!was) return;
+      try { el.releasePointerCapture(pid); } catch { /* already let go */ }
+      setLift(null); carrying.on = false; carrying.until = Date.now() + 250;
+      if (drop && (lastM || lastD)) void moveTo(e, lastM, lastD);
+    };
+    const up = () => finish(true), cancel = () => finish(false);
+    const timer = setTimeout(() => {
+      if (e.s.getDate() !== new Date(+e.e - 1).getDate()) return soon("Tap a long event to change it.");
+      if ((e as any).repeats) return soon("Tap a repeating event to change it.");
+      live = true; carrying.on = true; navigator.vibrate?.(12);
+      try { el.setPointerCapture(pid); } catch { /* fine without */ }
+      calc(); raf = requestAnimationFrame(frame);
+    }, 380);
+    window.addEventListener("pointermove", hold); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", cancel);
+    window.addEventListener("touchmove", stopTouch, { passive: false });
+  };
+  const moveTo = async (e: Ev, minutes: number, dayShift: number) => {
+    const shift = (str: string) => { const d = new Date(+new Date(str.slice(0, 16)) + minutes * 60000); d.setDate(d.getDate() + dayShift); return ymd(d) + "T" + hmOf(d); };
+    const move = (d: Date) => { const n = new Date(+d + minutes * 60000); n.setDate(n.getDate() + dayShift); return n; };
+    try {
+      const was = await api("/api/hub-event?id=" + encodeURIComponent(e.series!));
+      const moved = { ...was, start: shift(was.start), end: shift(was.end) };
+      qc.setQueriesData<EvData>({ queryKey: ["events"] }, old => old && { ...old, list: old.list.map(x => x.id === e.id ? { ...x, s: move(x.s), e: move(x.e) } : x) });      // it settles where it was dropped while the hub saves
+      await post("/api/hub-event", moved);
+      qc.invalidateQueries({ queryKey: ["events"] });
+      soon(`Moved to ${move(e.s).toLocaleDateString([], { weekday: "short" })} ${fmtT(move(e.s), c.h24)}.`, async () => { try { await post("/api/hub-event/restore", was); qc.invalidateQueries({ queryKey: ["events"] }); } catch (err: any) { soon(err.message); } });
+    } catch (err: any) { qc.invalidateQueries({ queryKey: ["events"] }); soon(err.message || "Couldn't move that."); }
+  };
   return (
     <div className="gwrap" style={{ flex: "none", height: tot * px, position: "relative" }}>
       {Array.from({ length: 24 }, (_, hr) => (
@@ -73,7 +133,8 @@ function Grid({ days, gutter, big, c }: { days: Date[]; gutter: number; big: boo
                 const who = ps.map(p => p.name).join(" · ");
                 const style: CSSProperties = { top: `calc(${top(t0)}% + 2px)`, height: `calc(${top(t1) - top(t0)}% - 4px)`, left: `calc(${x.col / n * 100}% + 3px)`, width: `calc(${100 / n}% - 6px)`, background: evBg(cs[0]), padding: big ? "7px 12px" : "5px 6px", ...vtn(e, day, c, t0) };
                 return (
-                  <button key={e.id + x.col} className="evb" style={style} onClick={ev => { ev.stopPropagation(); c.open(e); }}>
+                  <button key={e.id + x.col} className={"evb" + (lift?.id === e.id ? " lifted" : "")} style={lift?.id === e.id ? { ...style, transform: `translate(${lift.dx}px, ${lift.dy}px)` } : style} onPointerDown={ev => startCarry(e, i, ev)} onClick={ev => { ev.stopPropagation(); if (Date.now() < carrying.until) return; c.open(e); }}>
+                    {lift?.id === e.id ? <span className="dragtip">{lift.label}</span> : null}
                     
                     {big ? (tall ? (
                       <>
@@ -342,10 +403,10 @@ function SwipePane({ onStep, api, keyOf, children }: { onStep: (n: number) => vo
   };
   return (
     <div ref={box} style={{ flex: 1, minHeight: 0, position: "relative", touchAction: "pan-y", overflow: "hidden" }}
-      onPointerDown={e => { const s = g.current; if (s.busy || (e.pointerType === "mouse" && e.button !== 0)) return; Object.assign(s, { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp, dx: 0, lock: false }); }}
+      onPointerDown={e => { const s = g.current; if (carrying.on || s.busy || (e.pointerType === "mouse" && e.button !== 0)) return; Object.assign(s, { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp, dx: 0, lock: false }); }}
       onPointerMove={e => {
         const s = g.current;
-        if (e.pointerId !== s.id) return;
+        if (carrying.on || e.pointerId !== s.id) return;
         const dx = (e.clientX - s.x) / dim.s, dy = (e.clientY - s.y) / dim.s;
         if (!s.lock) {
           if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { s.id = -1; return; }

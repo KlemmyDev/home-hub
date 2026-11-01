@@ -2,13 +2,14 @@ import { useEffect, useRef, type CSSProperties } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, DEMO } from "../lib/api";
 import { addDays, clockT, fmtT, longDay, nowZ, sameDay, startOfDay, weekStart } from "../lib/dates";
-import { calOf, colorsOf, onDay, tint, type Ev, type EvData } from "../lib/events";
+import { calOf, colorsOf, onDay, peopleOf, tint, type Ev, type EvData } from "../lib/events";
 import { FoodIcon, foodFor } from "../lib/foodicons";
 import { Chev, DinnerIcon, PpLogo, WeatherIcon } from "../lib/icons";
 import { EMPTY_EVENTS, dinnerFor, useDinners, useEvents } from "../data";
 import { useHub } from "../hub";
 import { useNav } from "../nav";
 import { ChoresCard } from "./Chores";
+import { Avs } from "./Calendar";
 
 const fx = (extra?: CSSProperties): CSSProperties => ({ display: "flex", alignItems: "center", ...extra });
 
@@ -146,17 +147,19 @@ function TodayCard() {
             })}
           </div>
           {shown.length ? (
-            <div style={{ position: "relative", marginTop: 2 }}>
-              <div style={{ position: "absolute", left: "var(--tl,105px)", top: 36, bottom: 36, borderLeft: "2px solid #e4e8f0" }} />
+            <div className="otl" style={{ marginTop: 6 }}>
               {shown.map((e, i) => {
-                const c = calOf(e, data, people), first = i === 0 && !e.all_day;
+                const c = calOf(e, data, people), ps = peopleOf(e, people), color = colorsOf(e, data, people)[0], live = !e.all_day && e.s <= now, next = i === 0 && !e.all_day;
+                const sub = [ps.map(p => p.name).join(" and ") || c.name, e.location].filter(Boolean).join(" · ");
                 return (
-                  <div className="tl" key={e.id}>
-                    <span className="t num" style={first ? { color: "var(--hub-text)" } : undefined}>{e.all_day ? <span style={{ fontSize: 16 }}>All day</span> : fmtT(e.s, h24)}</span>
-                    <span className="dotm" style={{ background: first ? "var(--hub-text)" : c.color }} />
-                    <span className="n">{e.title}</span>
-                    {c.name ? <span className="pp"><i style={{ background: c.color }} />{c.name}</span> : null}
-                  </div>
+                  <button key={e.id} className={"orow" + (live ? " live" : next ? " next" : "")} style={{ "--ec": color } as CSSProperties} onClick={() => openCal("day", e.s)} aria-label={`${e.title}, ${e.all_day ? "all day" : fmtT(e.s, h24)}`}>
+                    <span className="ot num">{e.all_day ? "All day" : live ? "Now" : fmtT(e.s, h24)}</span>
+                    <span className="orail" aria-hidden><i /></span>
+                    <span className="ocard">
+                      <span className="om"><b>{e.title}</b>{sub ? <small>{sub}</small> : null}</span>
+                      <Avs ps={ps} size={34} max={3} />
+                    </span>
+                  </button>
                 );
               })}
             </div>
