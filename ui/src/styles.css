@@ -546,3 +546,15 @@ button:disabled{opacity:.55;pointer-events:none}
 .ptprod{margin:8px 4px 0;font-size:16px;font-weight:600;color:#5a6478}
 .ptmore{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:22px;min-height:60px;border-radius:18px;border:1.5px dashed #cdd3de;background:none;font-size:19px;font-weight:650;color:#3a4358}
 .ptmorebox{margin-top:12px;padding:16px;border-radius:22px;background:#f6f8fb}
+
+/* standby: a dim clock on black. Nothing else is drawn, and nothing moves. */
+html.standby #stage{display:none}
+html.standby *{animation:none!important;transition:none!important}
+#standby{position:fixed;inset:0;z-index:100;background:#000;color:#5d6678;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;touch-action:manipulation;user-select:none}
+#standby.leaving{opacity:0;pointer-events:none;transition:opacity .3s ease!important}
+.sb-in{text-align:center;padding:0 24px;will-change:transform}
+.sb-time{font-family:"Comfortaa","Onest",sans-serif;font-size:min(30vw,260px);font-weight:700;letter-spacing:-.06em;line-height:.95;color:#6a7488}
+.sb-date{margin-top:22px;font-size:clamp(20px,4.2vw,34px);font-weight:600;color:#4c5568}
+.sb-next{margin-top:30px;font-size:clamp(18px,3.6vw,28px);font-weight:600;color:#3f485a}
+.sb-hint{margin-top:56px;font-size:clamp(15px,2.6vw,20px);font-weight:600;color:#2c3342;letter-spacing:.04em}
+#standby.sleep .sb-time{color:#4a5262}#standby.sleep .sb-date{color:#363d4c}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useHold } from "../lib/power";
 
 const FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"];
 type Detector = { detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> };
@@ -14,6 +15,7 @@ export function scanProblem(): string | null {
 /** The camera, with a frame to line the barcode up in. Calls back once with the number it reads. */
 export function Scanner({ onCode, onClose }: { onCode: (code: string) => void; onClose: () => void }) {
   const video = useRef<HTMLVideoElement>(null);
+  useHold(true);
   const [err, setErr] = useState("");
   useEffect(() => {
     let stream: MediaStream | undefined, timer: ReturnType<typeof setInterval> | undefined, stopped = false, last = "";

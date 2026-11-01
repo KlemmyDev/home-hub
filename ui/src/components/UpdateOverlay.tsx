@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Check } from "../lib/icons";
+import { useHold, wake } from "../lib/power";
 import { liveRun, updating, useJustAsked, usePulse, type UpdateStatus } from "../lib/pulse";
 
 const STEPS: [string, string][] = [["asked", "Update asked for"], ["pull", "Getting the latest version"], ["build", "Building the new version"], ["start", "Restarting the hub"], ["done", "Ready"]];
@@ -57,6 +58,7 @@ export function UpdateOverlay() {
       </div>
     );
   }
+  useHold(idx >= 0 && !(hid && hid === askedAt));
   if (idx > 0 && hid) setHid(0);
   if (hid && hid === askedAt) return null;
   if (idx < 0 || (!running && !done && !(isError && saw.current) && !bootChanged)) return null;

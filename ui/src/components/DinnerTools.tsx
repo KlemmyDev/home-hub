@@ -6,6 +6,7 @@ import { Check, Chev, ChevL, ChevR, XIcon } from "../lib/icons";
 import { KINDS, type Dinners, type Meal } from "../data";
 import { EMPTY_EVENTS, NO_PANTRY, useDinners as useDinners2, useEvents, usePantry } from "../data";
 import { planUse } from "../lib/pantrylib";
+import { useHold } from "../lib/power";
 import { useHub } from "../hub";
 import { FoodIcon } from "../lib/foodicons";
 import { ago, busyAt, cookingFor, dayName, scaleAmount, stepsOf, suggestWeek, useStats, type Pick } from "../lib/dinnerlib";
@@ -183,6 +184,7 @@ export function Cook({ din, id }: { din: Dinners | undefined; id: string }) {
   const qc = useQueryClient();
   const { data: pan = NO_PANTRY } = usePantry();
   const P = dim.phone, m = din?.meals.find(x => x.id === id), list = useTimers();
+  useHold(true);      // cooking: the screen stays up
   const steps = useMemo(() => stepsOf(m?.notes || ""), [m?.notes]);
   const [i, setI] = useState(0), [tab, setTab] = useState<"steps" | "food">("steps"), [done, setDone] = useState<number[]>([]);
   const today = ymd(now), planned = din?.plan[today]?.meal === id;

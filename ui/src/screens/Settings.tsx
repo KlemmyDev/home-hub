@@ -7,6 +7,7 @@ import { FamilyEditor } from "../components/Family";
 import { useHub } from "../hub";
 import { useNav } from "../nav";
 import { askUpdate } from "../lib/pulse";
+import { dimNow, savePower, usePower } from "../lib/power";
 import { ChevL, ChevR, DockIcon } from "../lib/icons";
 
 const TINT: Record<string, [string, string]> = { clock: ["#e6edfb", "#1d4ed8"], chores: ["#ece8fe", "#5b3bf0"], family: ["#fde8ef", "#d6336c"], weather: ["#fff3d6", "#d98a00"], calendar: ["#e1f5ec", "#14a06c"], update: ["#eef1f6", "#101828"] };
@@ -57,6 +58,41 @@ function Zone() {
       </div>
       {current ? <button className="zdev" disabled={busy} onClick={() => choose("")}>Follow the tablet's own zone{device ? ` (${label(device)})` : ""}</button> : null}
       {err ? <div className="err" role="alert">{err}</div> : null}
+    </Box>
+  );
+}
+
+/** Dimming the screen when nobody is using it, and letting it sleep. These belong to this screen only. */
+function Power() {
+  const p = usePower();
+  const num = (v: string, f: (n: number) => void) => f(Number(v));
+  return (
+    <Box title="Screen and battery" icon="clock">
+      <p>When nobody has touched this screen for a while it can show a dim clock on black and stop refreshing, which saves battery. A touch brings it back. This only changes this screen, not other tablets or phones.</p>
+      <div className="cap" style={{ margin: "14px 0 8px" }}>Dim the screen after</div>
+      <Seg items={[["0", "Never"], ["2", "2 min"], ["5", "5 min"], ["10", "10 min"], ["30", "30 min"]]} value={String(p.standbyMin)} onPick={v => num(v, n => savePower({ standbyMin: n }))} />
+      <div className="cap" style={{ margin: "20px 0 8px" }}>Show on the dim screen</div>
+      <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>
+        <button className={"pill" + (p.showNext ? " on" : "")} aria-pressed={p.showNext} onClick={() => savePower({ showNext: !p.showNext })}>The next event</button>
+        <button className={"pill" + (p.showWeather ? " on" : "")} aria-pressed={p.showWeather} onClick={() => savePower({ showWeather: !p.showWeather })}>The weather</button>
+      </div>
+      <div className="cap" style={{ margin: "20px 0 8px" }}>Let the screen turn off</div>
+      <Seg items={[["never", "Never"], ["after", "After a while"], ["night", "At night"]]} value={p.screenOff} onPick={v => savePower({ screenOff: v as typeof p.screenOff })} />
+      {p.screenOff === "after" ? (
+        <>
+          <div className="cap" style={{ margin: "14px 0 8px" }}>After being dim for</div>
+          <Seg items={[["30", "30 min"], ["60", "1 hour"], ["120", "2 hours"], ["240", "4 hours"]]} value={String(p.offAfterMin)} onPick={v => num(v, n => savePower({ offAfterMin: n }))} />
+        </>
+      ) : null}
+      {p.screenOff === "night" ? (
+        <div className="fx" style={{ gap: 12, marginTop: 14, flexWrap: "wrap" }}>
+          <label className="bday" style={{ width: "auto", flex: 1, minWidth: 220 }}><span>From</span><input type="time" value={p.nightFrom} onChange={e => e.target.value && savePower({ nightFrom: e.target.value })} aria-label="Screen turns off from" /></label>
+          <label className="bday" style={{ width: "auto", flex: 1, minWidth: 220 }}><span>Until</span><input type="time" value={p.nightTo} onChange={e => e.target.value && savePower({ nightTo: e.target.value })} aria-label="Screen turns off until" /></label>
+        </div>
+      ) : null}
+      <p style={{ fontSize: 16, marginTop: 14 }}>{p.screenOff === "never" ? "The screen is asked to stay on, even when dim." : "Then this page stops asking the tablet to keep the screen on, and the tablet turns it off by its own timer. Touch it, or press its button, to bring it back."}</p>
+      <div className="row" style={{ marginTop: 6 }}><button onClick={() => dimNow()}>Try the dim screen now</button></div>
+      <p style={{ fontSize: 16, marginTop: 14 }}>A web page can't change the tablet's brightness. For the biggest saving, set the tablet's brightness low in its quick settings, and use the night setting above.</p>
     </Box>
   );
 }
@@ -299,7 +335,7 @@ export function Settings() {
             );
           })}
         </nav>
-      ) : open === "general" ? <><Time /><Weather /></>
+      ) : open === "general" ? <><Time /><Power /><Weather /></>
         : open === "calendar" ? <><Calendars /><Reminders /><Holidays /><Share /></>
         : open === "family" ? <Box title="Family" icon="family"><FamilyEditor /></Box>
         : open === "apps" ? <><PocketPals /><div className="row"><button onClick={() => go("setup")}>Change widgets</button></div></>

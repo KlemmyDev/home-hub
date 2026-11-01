@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, DEMO, post } from "./api";
 import { queryClient } from "../hub";
+import { inStandby } from "./power";
 
 export type UpdateStatus = { state: "running" | "done" | "failed"; step?: string; step_at?: number; started_at?: number; finished_at?: number; message?: string };
 export type Pulse = { boot: string; now: number; status: UpdateStatus | null; requested: boolean; took: number | null };
@@ -26,6 +27,6 @@ export const useJustAsked = () => useSyncExternalStore(f => { listeners.add(f); 
 export function usePulse() {
   return useQuery<Pulse>({
     queryKey: ["pulse"], queryFn: () => api<Pulse>("/api/pulse"), enabled: !DEMO, retry: false, staleTime: 0,
-    refetchInterval: q => updating(q.state.data) || q.state.status === "error" ? 1500 : 6000, refetchIntervalInBackground: true,
+    refetchInterval: q => updating(q.state.data) || q.state.status === "error" ? 1500 : inStandby() ? 30000 : 6000, refetchIntervalInBackground: true,
   });
 }

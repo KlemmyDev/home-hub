@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tan
 import { api, DEMO } from "./lib/api";
 import { addDays, nowZ, setZone, startOfDay, weekStart } from "./lib/dates";
 import { DEMO_PEOPLE, type Person } from "./lib/events";
+import { useStandby } from "./lib/power";
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 15000, retry: false, refetchOnWindowFocus: false } } });
 
@@ -61,12 +62,15 @@ export const useHubState = () => useQuery({ queryKey: ["state"], queryFn: () => 
 
 export function useNow() {
   const [now, setNow] = useState(() => nowZ());
+  const standby = useStandby();
   useEffect(() => {
+    if (standby !== "awake") return;      // the dim screen keeps its own clock: nothing here redraws once a minute while it's showing
     let t: ReturnType<typeof setTimeout>;
     const tick = () => { const d = nowZ(); setNow(d); t = setTimeout(tick, 60000 - (d.getSeconds() * 1000 + d.getMilliseconds())); };
-    t = setTimeout(tick, 60000 - (now.getSeconds() * 1000 + now.getMilliseconds()));
+    const d0 = nowZ(); setNow(d0);
+    t = setTimeout(tick, 60000 - (d0.getSeconds() * 1000 + d0.getMilliseconds()));
     return () => clearTimeout(t);
-  }, []);
+  }, [standby]);
   return now;
 }
 
@@ -103,14 +107,17 @@ function useNoLongPressMenu() {
   }, []);
 }
 
+/** Asks for the screen to stay on, except while it's allowed to sleep (see lib/power.ts). */
 function useKeepAwake() {
+  const allow = useStandby() !== "sleep";
   useEffect(() => {
+    if (!allow) return;
     let lock: { release?: () => Promise<void> } | null = null;
     const go = async () => { try { if ("wakeLock" in navigator && document.visibilityState === "visible") lock = await (navigator as any).wakeLock.request("screen"); } catch { /* not allowed */ } };
     go();
     document.addEventListener("visibilitychange", go);
     return () => { document.removeEventListener("visibilitychange", go); lock?.release?.().catch(() => {}); };
-  }, []);
+  }, [allow]);
 }
 
 function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNode; probe: React.RefObject<HTMLDivElement | null>; dim: Dim }) {

@@ -1,4 +1,5 @@
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { useHold, wake } from "../lib/power";
 import { addDays, fmtT, startOfDay } from "../lib/dates";
 import { colorsOf, peopleOf } from "../lib/events";
 import { EMPTY_EVENTS, useEvents } from "../data";
@@ -17,6 +18,8 @@ export function Reminders() {
     .filter(x => x.show)
     .sort((a, b) => a.m - b.m)
     .slice(0, 2);
+  useHold(soon.length > 0);
+  useEffect(() => { if (soon.length) wake(); }, [soon.length]);      // something is about to start: bring the screen back
   if (!soon.length) return null;
   return (
     <div id="remind" role="status" aria-live="polite" style={{ bottom: 120 + dim.sb }}>
