@@ -42,7 +42,7 @@ input:focus{outline:3px solid #1d4ed8;outline-offset:2px}
 
 /* the dashboard: a fixed 800 x 1280 portrait stage, scaled to fit the screen */
 #dash{position:fixed;inset:0;overflow:hidden}
-#stage{position:absolute;left:50%;top:50%;width:800px;height:1280px;transform:translate(-50%,-50%) scale(var(--s,1));color:var(--text)}
+#stage{position:absolute;left:50%;top:50%;width:var(--W,800px);height:var(--H,1280px);transform:translate(-50%,-50%) scale(var(--s,1));color:var(--text)}
 #stage a{color:inherit;text-decoration:none}
 .fx{display:flex;align-items:center}
 .num{font-variant-numeric:tabular-nums}
@@ -62,7 +62,7 @@ input:focus{outline:3px solid #1d4ed8;outline-offset:2px}
 .stat{display:inline-flex;align-items:center;gap:7px;font-size:14px;font-weight:600}
 .stat .sd{width:8px;height:8px;border-radius:50%;background:#9a9a9a}
 .stat[data-up="1"] .sd{background:#3ee08f}.stat[data-up="0"] .sd{background:#ff8a80}
-.toast{position:absolute;left:50%;bottom:120px;transform:translateX(-50%);background:#101828;color:#fff;border-radius:999px;padding:14px 26px;font-size:19px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:12;white-space:nowrap}
+.toast{position:absolute;left:50%;bottom:calc(120px + var(--sb, 0px));transform:translateX(-50%);background:#101828;color:#fff;border-radius:999px;padding:14px 26px;font-size:19px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:12;white-space:nowrap}
 .toast.on{opacity:1}
 .cnav{width:52px;height:52px;min-height:0;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #e1e6ef;color:#101828}
 .cbtn{height:52px;min-height:0;padding:0 20px;border-radius:999px;background:#101828;color:#fff;border:0;font-size:17px;font-weight:650}
@@ -84,8 +84,8 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 .sw2 i{position:absolute;left:4px;top:4px;width:40px;height:40px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
 .sw2.on{background:#101828}.sw2.on i{transform:translateX(36px)}
 #scrim{position:absolute;inset:0;z-index:5;min-height:0;padding:0;border:0;border-radius:0;background:rgba(16,24,40,.28)}
-#dock{position:absolute;left:28px;bottom:28px;width:76px;height:76px;border-radius:38px;background:#101828;box-shadow:0 14px 34px rgba(16,24,40,.38);overflow:hidden;z-index:6;transition:left .5s cubic-bezier(.2,.8,.2,1),width .5s cubic-bezier(.2,.8,.2,1)}
-#dock.open{left:calc((800px - var(--dw, 546px)) / 2);width:var(--dw, 546px)}
+#dock{position:absolute;left:28px;bottom:calc(28px + var(--sb, 0px));width:76px;height:76px;border-radius:38px;background:#101828;box-shadow:0 14px 34px rgba(16,24,40,.38);overflow:hidden;z-index:6;transition:left .5s cubic-bezier(.2,.8,.2,1),width .5s cubic-bezier(.2,.8,.2,1)}
+#dock.open{left:calc((var(--W, 800px) - var(--dw, 546px)) / 2);width:var(--dw, 546px)}
 #dk-t{position:absolute;left:6px;top:6px;width:64px;height:64px;min-height:0;padding:0;border:0;border-radius:50%;background:none;color:#fff;display:flex;align-items:center;justify-content:center}
 #dk-t .i-close{display:none}#dock.open #dk-t .i-close{display:flex}#dock.open #dk-t .i-open{display:none}
 #dk-i{position:absolute;left:76px;top:0;bottom:0;display:flex;align-items:center;gap:4px;opacity:0;visibility:hidden;transition:opacity .2s ease,visibility 0s .2s}
@@ -93,7 +93,42 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 #dock .dk{min-height:0;height:56px;width:56px;padding:0;border:0;border-radius:50%;background:none;color:#c9d0de;display:flex;align-items:center;justify-content:center;flex:none}
 #dock .dk.on{width:150px;border-radius:999px;background:#fff;color:#101828;gap:8px;font-size:17px;font-weight:700}
 #sheetscrim{position:absolute;inset:0;z-index:9;background:rgba(16,24,40,.4);opacity:0;pointer-events:none;transition:opacity .3s}
-#sheet{position:absolute;left:0;right:0;bottom:0;height:1140px;z-index:10;background:#fff;border-radius:34px 34px 0 0;box-shadow:0 -10px 40px rgba(20,32,70,.25);display:flex;flex-direction:column;transform:translateY(103%);transition:transform .4s cubic-bezier(.2,.8,.2,1),visibility 0s .4s;visibility:hidden}
+#sheet{position:absolute;left:0;right:0;bottom:0;height:min(1140px,calc(var(--H, 1280px) - 40px));z-index:10;background:#fff;border-radius:34px 34px 0 0;box-shadow:0 -10px 40px rgba(20,32,70,.25);display:flex;flex-direction:column;transform:translateY(103%);transition:transform .4s cubic-bezier(.2,.8,.2,1),visibility 0s .4s;visibility:hidden}
+.shh{padding:26px 32px 8px}.shb{padding:0 32px 16px}.shf{padding:16px 32px calc(34px + var(--sb, 0px))}
+/* phone: the same screens on a 430 wide stage */
+#stage.phone{--tl:92px}
+.phone .ov{padding:calc(16px + var(--st, 0px)) 14px calc(100px + var(--sb, 0px));gap:14px;overflow-y:auto;scrollbar-width:none}
+.phone .ov::-webkit-scrollbar{display:none}
+.phone .ov>*{flex:none}
+.phone #body{flex:none!important;min-height:0!important}
+.phone .wgrid{display:flex!important;flex-direction:column;flex:none!important;min-height:0!important}
+.phone .pane{min-height:300px}
+.phone #today{padding:16px 16px 12px!important}
+.phone #today>.fx:first-child{flex-wrap:wrap;row-gap:8px}
+.phone #greeting{font-size:40px!important}
+.phone #clock{font-size:72px!important;-webkit-text-stroke:2.5px #101828!important}
+.phone .tl{grid-template-columns:82px 22px 1fr auto}
+.phone .tl .t{font-size:18px}
+.phone .dinner{padding:14px 16px!important;gap:12px}
+.phone .dn{font-size:26px!important}
+.phone .legend{display:none}
+.phone .gscroll .gwrap{flex:none;height:820px;min-height:0}
+.phone #calin{overflow-y:auto;scrollbar-width:none}
+.phone .sg.big{height:36px;padding:0 12px;font-size:15px}
+.phone .cnav{width:44px;height:44px}
+.phone .cbtn{height:44px;padding:0 16px!important;font-size:16px}
+.phone #c-new{width:44px;padding:0!important;font-size:26px;line-height:1}
+.phone #dock{left:16px;bottom:calc(16px + var(--sb, 0px))}
+.phone #dock.open{left:calc((var(--W, 430px) - var(--dw, 388px)) / 2)}
+.phone #dock .dk{width:48px;height:48px}
+.phone #dock .dk.on{width:48px}
+.phone .lb{display:none}
+.phone #dk-i{gap:2px}
+.phone .shh{padding:20px 18px 6px}.phone .shb{padding:0 18px 12px}.phone .shf{padding:12px 18px calc(18px + var(--sb, 0px))}
+.phone #sheet button.primary{min-width:0!important}
+#sheet input{min-width:0}
+.phone #sheet input{font-size:18px;padding:0 12px}
+@media (max-width:600px){.page{padding:24px 16px}.page h1{font-size:36px}}
 .sheet-on #sheetscrim{opacity:1;pointer-events:auto}
 .sheet-on #sheet{transform:none;visibility:visible;transition:transform .4s cubic-bezier(.2,.8,.2,1),visibility 0s}
 .scroll{overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -116,6 +151,7 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 </head>
 <body>
 
+<div id="probe" aria-hidden="true" style="position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)"></div>
 <div id="setup" class="page hidden"></div>
 
 <div id="dash" class="hidden"><div id="stage"></div></div>
@@ -153,8 +189,25 @@ const STAR = (l, t, d, s, c) => `<svg class="tw" style="position:absolute;left:$
 const CHEV = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>`;
 
 /* ---------- Fit the 800 x 1280 stage to the screen ---------- */
-function fit() { $("stage").style.setProperty("--s", Math.min(innerWidth / 800, innerHeight / 1280)); }
-addEventListener("resize", fit);
+/* A tablet gets the fixed 800 x 1280 stage, scaled to fit. A phone gets a stage 430 wide (taller to match the screen),
+   so type is about its real size; the screen then scrolls where it needs to. */
+const DIM = {W: 800, H: 1280, s: 1, phone: false, st: 0, sb: 0};
+function fit() {
+  const iw = innerWidth, ih = innerHeight, stage = $("stage");
+  const phone = Math.min(iw, ih) < 600;
+  let W = 800, H = 1280, s = Math.min(iw / 800, ih / 1280);
+  if (phone) { if (iw <= ih) { W = 430; s = iw / W; H = ih / s; } else { W = iw; H = ih; s = 1; } }
+  const probe = getComputedStyle($("probe"));
+  Object.assign(DIM, {W, H, s, phone, st: phone ? (parseFloat(probe.paddingTop) || 0) / s : 0, sb: phone ? (parseFloat(probe.paddingBottom) || 0) / s : 0});
+  stage.classList.toggle("phone", phone);
+  for (const [k, v] of [["--s", s], ["--W", W + "px"], ["--H", H + "px"], ["--st", DIM.st + "px"], ["--sb", DIM.sb + "px"]]) stage.style.setProperty(k, v);
+}
+addEventListener("resize", () => {
+  fit();
+  if (!$("dock")) return;
+  drawDock();
+  if (view.page === "calendar") { setBox($("calcard"), fullBox()); drawCal(); }
+});
 
 /* ---------- Clock, greeting and date ---------- */
 function greeting(h) { return h < 12 ? "Good morning!" : h < 17 ? "Good afternoon!" : "Good evening!"; }
@@ -273,7 +326,7 @@ function drawToday() {
   if (next) { const m = Math.round((next.s - now) / 60000); nextTxt = m < 60 ? `Next in ${m} min` : `Next at ${fmtT(next.s)}`; }
   let body, later = "";
   if (shown.length) {
-    body = `<div style="position:relative;margin-top:2px"><div style="position:absolute;left:105px;top:36px;bottom:36px;border-left:2px solid #e4e8f0"></div>` + shown.map((e, i) => {
+    body = `<div style="position:relative;margin-top:2px"><div style="position:absolute;left:var(--tl,105px);top:36px;bottom:36px;border-left:2px solid #e4e8f0"></div>` + shown.map((e, i) => {
       const c = calOf(e), first = i === 0 && !e.all_day;
       return `<div class="tl"><span class="t num" ${first ? 'style="color:#1d4ed8"' : ""}>${e.all_day ? '<span style="font-size:16px">All day</span>' : fmtT(e.s)}</span><span class="dotm" style="background:${first ? "#1d4ed8" : esc(c.color)}"></span><span class="n">${esc(e.title)}</span>${tag(e)}</div>`;
     }).join("") + `</div>`;
@@ -299,8 +352,8 @@ function drawToday() {
 }
 
 /* ---------- Calendar page (Day, Week, Month) ---------- */
-const FULL = {l: 20, t: 20, w: 760, h: 1240};
-const boxIn = el => { let l = 0, t = 0, n = el; const st = $("stage"); while (n && n !== st) { l += n.offsetLeft; t += n.offsetTop; n = n.offsetParent; } return {l, t, w: el.offsetWidth, h: el.offsetHeight}; };
+const fullBox = () => DIM.phone ? {l: 10, t: 10 + DIM.st, w: DIM.W - 20, h: DIM.H - 20 - DIM.st - DIM.sb} : {l: 20, t: 20, w: DIM.W - 40, h: DIM.H - 40};
+const boxIn = el => { let l = 0, t = 0, n = el; const st = $("stage"); while (n && n !== st) { l += n.offsetLeft; t += n.offsetTop; n = n.offsetParent; } const ov = $("ov"); if (ov && ov.contains(el)) t -= ov.scrollTop; return {l, t, w: el.offsetWidth, h: el.offsetHeight}; };
 const setBox = (el, b) => { el.style.left = b.l + "px"; el.style.top = b.t + "px"; el.style.width = b.w + "px"; el.style.height = b.h + "px"; };
 const pad = n => String(n).padStart(2, "0");
 const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -329,7 +382,7 @@ function openCal(mode, date) {
   drawCal(); loadCal();
   void card.offsetWidth;                       // start from the Today card, then grow
   card.classList.add("anim");
-  setBox(card, FULL);
+  setBox(card, fullBox());
   $("ov").classList.add("away");
   $("calin").style.opacity = 1;
 }
@@ -362,12 +415,13 @@ function calStep(n) {
 async function loadCal() { await loadRange(...calRange()); drawCal(); }
 function calTitle() {
   const d = view.date;
-  if (view.mode === "day") return d.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"});
+  const w = DIM.phone ? "short" : "long";
+  if (view.mode === "day") return d.toLocaleDateString([], {weekday: w, day: "numeric", month: w});
   if (view.mode === "week") {
-    const a = weekStart(d), b = addDays(a, 6), m = x => x.toLocaleDateString([], {month: "long"});
+    const a = weekStart(d), b = addDays(a, 6), m = x => x.toLocaleDateString([], {month: w});
     return a.getMonth() === b.getMonth() ? `${a.getDate()} to ${b.getDate()} ${m(b)}` : `${a.getDate()} ${m(a)} to ${b.getDate()} ${m(b)}`;
   }
-  return d.toLocaleDateString([], {month: "long", year: "numeric"});
+  return d.toLocaleDateString([], {month: "long", year: DIM.phone && d.getFullYear() === new Date().getFullYear() ? undefined : "numeric"});
 }
 
 /* Timed events on one day, side by side where they overlap. */
@@ -404,7 +458,7 @@ function gridHtml(days, gutter, big) {
     hi = Math.max(hi, Math.min(24, Math.ceil(eh)));
   }
   const tot = hi - lo, top = h => (h - lo) / tot * 100, now = new Date();
-  let html = `<div style="flex:1;min-height:0;position:relative">`;
+  let html = `<div class="gwrap" style="flex:1;min-height:0;position:relative">`;
   for (let h = lo; h < hi; h++) html += `<div style="position:absolute;left:0;right:0;top:${top(h)}%;border-top:1px solid #edf0f5"><span class="num" style="position:absolute;left:0;top:4px;width:${gutter - 10}px;text-align:right;font-size:${big ? 14 : 13}px;font-weight:600;color:#6b7488">${hourLabel(h)}</span></div>`;
   html += `<div style="position:absolute;left:${gutter}px;right:0;top:0;bottom:0">`;
   days.forEach((day, i) => {
@@ -461,10 +515,23 @@ function monthHtml() {
     const day = addDays(first, i), inM = day.getMonth() === cur, today = sameDay(day, now);
     const evs = shown().filter(e => onDay(e, day)).sort((a, b) => (b.all_day - a.all_day) || a.s - b.s);
     const keep = evs.length > 3 ? evs.slice(0, 2) : evs, more = evs.length - keep.length;
-    const chips = keep.map(e => `<span class="mchip" style="background:${esc(tint(colorsOf(e)[0]))};${inM ? "" : "opacity:.55"}">${esc(e.title)}</span>`).join("") + (more > 0 ? `<span style="font-size:13px;font-weight:700;color:#5a6478;padding-left:4px">+${more} more</span>` : "");
-    return `<button class="mcell" data-day="${+day}" aria-label="${esc(day.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}))}" style="${i % 7 ? "border-left:1px solid #edf0f5;" : ""}${today ? "background:rgba(47,111,224,.06)" : ""}"><span class="num" style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex:none;${today ? "background:#101828;color:#fff" : inM ? "" : "color:#8a93a6"}">${day.getDate()}</span>${chips}</button>`;
+    const chips = DIM.phone ? `<span class="fx" style="gap:3px;flex-wrap:wrap;justify-content:center;padding-top:2px">${evs.slice(0, 6).map(e => `<i style="width:7px;height:7px;border-radius:50%;background:${esc(colorsOf(e)[0])};${inM ? "" : "opacity:.5"}"></i>`).join("")}</span>` : keep.map(e => `<span class="mchip" style="background:${esc(tint(colorsOf(e)[0]))};${inM ? "" : "opacity:.55"}">${esc(e.title)}</span>`).join("") + (more > 0 ? `<span style="font-size:13px;font-weight:700;color:#5a6478;padding-left:4px">+${more} more</span>` : "");
+    return `<button class="mcell" data-day="${+day}" aria-label="${esc(day.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}))}" style="${i % 7 ? "border-left:1px solid #edf0f5;" : ""}${today ? "background:rgba(47,111,224,.06)" : ""}"><span class="num" style="width:${DIM.phone ? 30 : 34}px;height:${DIM.phone ? 30 : 34}px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${DIM.phone ? 16 : 18}px;font-weight:700;flex:none;${DIM.phone ? "margin:0 auto;" : ""}${today ? "background:#101828;color:#fff" : inM ? "" : "color:#8a93a6"}">${day.getDate()}</span>${chips}</button>`;
   }).join("");
   return `<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));padding-bottom:8px">${head}</div><div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:repeat(6,minmax(0,1fr))">${cells}</div>`;
+}
+function agendaHtml() {
+  const w = weekStart(startOfDay(view.date)), now = new Date();
+  const rows = Array.from({length: 7}, (_, i) => {
+    const day = addDays(w, i), today = sameDay(day, now);
+    const evs = shown().filter(e => onDay(e, day)).sort((a, b) => (b.all_day - a.all_day) || a.s - b.s);
+    const list = evs.length ? evs.map(e => {
+      const c = colorsOf(e)[0], who = peopleOf(e).map(p => esc(p.name)).join(" · ") || esc(calOf(e).name);
+      return `<button class="evb" data-eid="${esc(e.id)}" style="position:relative;width:100%;background:${esc(tint(c))};padding:8px 12px 8px 16px;margin-bottom:6px"><span style="position:absolute;left:0;top:0;bottom:0;width:6px;background:${esc(c)}"></span><div class="fx" style="justify-content:space-between;gap:10px"><span style="font-size:19px;font-weight:700;letter-spacing:-.02em;min-width:0">${esc(e.title)}</span><span class="num" style="font-size:15px;font-weight:600;color:#3a4358;flex:none">${e.all_day ? "All day" : fmtT(e.s)}</span></div>${who ? `<div style="font-size:14px;font-weight:600;color:#3a4358;margin-top:2px">${who}</div>` : ""}</button>`;
+    }).join("") : `<div style="font-size:16px;color:#6b7488;padding:12px 0 14px">Nothing on</div>`;
+    return `<div style="display:grid;grid-template-columns:58px 1fr;gap:10px;padding:10px 0 4px;border-top:1px solid #edf0f5"><button data-day="${+day}" aria-label="${esc(day.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}))}" style="border:0;background:none;padding:0;min-height:0;display:flex;flex-direction:column;align-items:center;align-self:start;gap:2px"><span style="font-size:12px;font-weight:700;letter-spacing:.06em;color:#6b7488">${esc(day.toLocaleDateString([], {weekday: "short"}).toUpperCase())}</span><span class="num" style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;${today ? "background:#101828;color:#fff" : ""}">${day.getDate()}</span></button><div>${list}</div></div>`;
+  }).join("");
+  return `<div class="scroll" style="flex:1;min-height:0">${rows}</div>`;
 }
 function stripHtml() {
   const now = new Date();
@@ -472,33 +539,46 @@ function stripHtml() {
   let left = "";
   if (next) { const m = Math.round((next.s - now) / 60000); left = `<div class="fx" style="gap:7px;font-size:15px;font-weight:650;color:#1d4ed8"><span class="live" style="width:7px;height:7px;border-radius:50%;background:#1d4ed8"></span>${m < 60 ? `Next in ${m} min` : `Next at ${fmtT(next.s)}`}</div><div style="font-size:19px;font-weight:700;letter-spacing:-.02em;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(next.title)} · ${fmtT(next.s)}</div>`; }
   const legend = [...people().map(p => [p.name, p.color]), ...Object.values(EV.cals).map(c => [c.name + (c.ok ? "" : " (can't reach)"), c.color])].map(([n, c]) => `<span class="pp" style="font-size:15px"><i style="background:${esc(c)}"></i>${esc(n)}</span>`).join("");
-  return `<div class="fx" style="flex:none;height:84px;padding:0 4px 0 82px;justify-content:space-between;gap:14px"><div style="min-width:0">${left}</div><div class="fx" style="gap:14px;flex-wrap:wrap;justify-content:flex-end;max-height:60px;overflow:hidden">${legend}</div></div>`;
+  return `<div class="fx" style="flex:none;height:84px;padding:0 4px 0 82px;justify-content:space-between;gap:14px"><div style="min-width:0">${left}</div><div class="fx legend" style="gap:14px;flex-wrap:wrap;justify-content:flex-end;max-height:60px;overflow:hidden">${legend}</div></div>`;
 }
 function drawCal() {
   const el = $("calin");
   if (!el) return;
+  const fb = fullBox();
+  el.style.width = fb.w + "px"; el.style.height = fb.h + "px";
   const now = new Date(), d = startOfDay(view.date);
   let body;
   if (view.mode === "day") {
-    body = dayHead(Array.from({length: 7}, (_, i) => addDays(weekStart(d), i)), 0, 44) + alldayHtml([d], 60) + gridHtml([d], 60, true);
+    body = dayHead(Array.from({length: 7}, (_, i) => addDays(weekStart(d), i)), 0, DIM.phone ? 40 : 44) + alldayHtml([d], DIM.phone ? 48 : 60) + (DIM.phone ? `<div class="scroll gscroll" style="flex:1;min-height:0">${gridHtml([d], 48, true)}</div>` : gridHtml([d], 60, true));
   } else if (view.mode === "week") {
     const w = weekStart(d), days = Array.from({length: 7}, (_, i) => addDays(w, i));
-    body = dayHead(days, 52, 44) + alldayHtml(days, 52) + gridHtml(days, 52, false);
+    body = DIM.phone ? agendaHtml() : dayHead(days, 52, 44) + alldayHtml(days, 52) + gridHtml(days, 52, false);
   } else body = monthHtml();
   const chip = (id, label, color) => `<button class="pill${(view.who || "") === id ? " on" : ""}" data-who="${esc(id)}" style="height:40px;font-size:15px;padding:0 16px">${color ? `<i style="width:10px;height:10px;border-radius:50%;background:${esc(color)}"></i>` : ""}${esc(label)}</button>`;
-  el.innerHTML = `<div style="display:flex;flex-direction:column;width:100%;height:100%;padding:18px 18px 0">
+  el.innerHTML = `<div style="display:flex;flex-direction:column;width:100%;height:100%;padding:${DIM.phone ? "14px 14px" : "18px 18px"} 0">
     <div class="fx" style="justify-content:space-between;padding:0 4px 12px;gap:12px">
-      <div class="fx" style="gap:14px"><span class="clk num" style="font-family:'Comfortaa','Onest',sans-serif;font-size:54px;font-weight:700;letter-spacing:-.07em;line-height:.9;-webkit-text-stroke:1.8px #101828;paint-order:stroke fill">${esc(clockT(now))}</span><span class="cdt" style="font-size:20px;font-weight:700;letter-spacing:-.03em;line-height:1.1">${esc(now.toLocaleDateString([], {weekday: "short", day: "numeric", month: "short"}))}</span></div>
+      <div class="fx" style="gap:14px"><span class="clk num" style="font-family:'Comfortaa','Onest',sans-serif;font-size:${DIM.phone ? 44 : 54}px;font-weight:700;letter-spacing:-.07em;line-height:.9;-webkit-text-stroke:1.8px #101828;paint-order:stroke fill">${esc(clockT(now))}</span><span class="cdt" style="font-size:${DIM.phone ? 16 : 20}px;font-weight:700;letter-spacing:-.03em;line-height:1.1">${esc(now.toLocaleDateString([], {weekday: "short", day: "numeric", month: "short"}))}</span></div>
       <div class="fx" style="gap:3px;background:#f1f4f9;border-radius:999px;padding:3px;flex:none">${["day", "week", "month"].map(m => `<button class="sg big${view.mode === m ? " on" : ""}" data-mode="${m}">${m[0].toUpperCase() + m.slice(1)}</button>`).join("")}</div>
     </div>
     <div class="fx" style="justify-content:space-between;padding:0 0 10px;gap:10px">
-      <div class="fx" style="gap:10px;min-width:0"><button class="cnav" id="c-prev" aria-label="Back">${CHEV_L}</button><span style="font-size:${view.mode === "day" ? 25 : 28}px;font-weight:700;letter-spacing:-.04em;white-space:nowrap">${esc(calTitle())}</span><button class="cnav" id="c-next" aria-label="Forward">${CHEV_R}</button></div>
-      <div class="fx" style="gap:8px;flex:none">${DEMO ? "" : `<button class="cbtn" id="c-new" style="padding:0 22px">+ New</button>`}<button class="cbtn" id="c-today" style="background:#fff;color:#101828;border:1.5px solid #d5dbe6">Today</button></div>
+      <div class="fx" style="gap:10px;min-width:0"><button class="cnav" id="c-prev" aria-label="Back">${CHEV_L}</button><span style="font-size:${DIM.phone ? 21 : view.mode === "day" ? 25 : 28}px;font-weight:700;letter-spacing:-.04em;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(calTitle())}</span><button class="cnav" id="c-next" aria-label="Forward">${CHEV_R}</button></div>
+      <div class="fx" style="gap:8px;flex:none">${DEMO ? "" : `<button class="cbtn" id="c-new" aria-label="New event" style="padding:0 22px">${DIM.phone ? "+" : "+ New"}</button>`}<button class="cbtn" id="c-today" style="background:#fff;color:#101828;border:1.5px solid #d5dbe6">Today</button></div>
     </div>
     <div class="fx" style="gap:8px;padding:0 0 10px;overflow-x:auto;scrollbar-width:none">${chip("", "Everyone")}${people().map(p => chip(p.id, p.name, p.color)).join("")}${DEMO ? "" : `<button class="pill" id="c-fam" aria-label="Add or change family members" style="height:40px;font-size:15px;padding:0 16px">+ Family</button>`}</div>
     ${body}
     ${stripHtml()}
   </div>`;
+  const gs = el.querySelector(".gscroll");
+  if (gs) {                                   // phone: the hours scroll; start near now (or the morning)
+    const key = view.mode + ymd(view.date), c = gs.querySelector(".gcol");
+    if (drawCal.key !== key && c) {
+      drawCal.key = key;
+      const hr = sameDay(d, now) ? now.getHours() + now.getMinutes() / 60 : 8;
+      drawCal.gs = Math.max(0, (hr - +c.dataset.lo - 1) / +c.dataset.tot * gs.scrollHeight);
+    }
+    gs.scrollTop = drawCal.gs || 0;
+    gs.onscroll = () => { drawCal.gs = gs.scrollTop; };
+  }
   $("c-prev").onclick = () => calStep(-1);
   $("c-next").onclick = () => calStep(1);
   $("c-today").onclick = () => { view.date = new Date(); loadCal(); };
@@ -559,10 +639,10 @@ async function deleteEvent(only) {
 const pill = (attr, val, label, on, extra) => `<button class="pill${on ? " on" : ""}" ${attr}="${esc(val)}" ${extra || ""}>${label}</button>`;
 const lab = t => `<div class="cap" style="margin:22px 0 8px">${t}</div>`;
 function sheetFrame(title, body, foot) {
-  $("sheet").innerHTML = `<div class="fx" style="justify-content:space-between;padding:26px 32px 8px"><div style="font-size:34px;font-weight:700;letter-spacing:-.04em">${esc(title)}</div><button class="cnav" id="sh-x" aria-label="Close">${X_ICON}</button></div>
-    <div class="scroll" style="flex:1;min-height:0;padding:0 32px 16px">${body}</div>
-    <div class="err" id="ed-err" role="alert" style="margin:0;padding:0 32px;min-height:0"></div>
-    <div class="fx" style="gap:12px;padding:16px 32px 34px;border-top:1px solid #edf0f5">${foot}</div>`;
+  $("sheet").innerHTML = `<div class="fx shh" style="justify-content:space-between"><div style="font-size:34px;font-weight:700;letter-spacing:-.04em">${esc(title)}</div><button class="cnav" id="sh-x" aria-label="Close">${X_ICON}</button></div>
+    <div class="scroll shb" style="flex:1;min-height:0">${body}</div>
+    <div class="err shb" id="ed-err" role="alert" style="margin:0;padding-top:0;padding-bottom:0;min-height:0"></div>
+    <div class="fx shf" style="gap:12px;border-top:1px solid #edf0f5">${foot}</div>`;
   $("sh-x").onclick = closeSheet;
 }
 function drawSheet() {
@@ -729,12 +809,12 @@ function setDock(open) {
 }
 function drawDock() {
   const items = dockItems(), box = $("dk-i");
-  $("dock").style.setProperty("--dw", (76 + 8 + 150 + (items.length - 1) * 60 + 12) + "px");
+  $("dock").style.setProperty("--dw", (DIM.phone ? 76 + 12 + items.length * 50 : 76 + 8 + 150 + (items.length - 1) * 60 + 12) + "px");
   box.innerHTML = items.map(([id, name, to]) => {
     const on = to === "page" && id === view.page;
-    const inner = on ? `${dkIcon(id, 22)}${name}` : dkIcon(id);
+    const inner = on ? `${dkIcon(id, 22)}<span class="lb">${name}</span>` : dkIcon(id);
     return to === "page" || to === "soon"
-      ? `<button class="dk${on ? " on" : ""}" data-go="${id}" ${on ? 'aria-current="page"' : `aria-label="${name}"`}>${inner}</button>`
+      ? `<button class="dk${on ? " on" : ""}" data-go="${id}" aria-label="${name}"${on ? ' aria-current="page"' : ""}>${inner}</button>`
       : `<a class="dk" href="${esc(to)}" aria-label="${name}">${inner}</a>`;
   }).join("");
   box.querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
@@ -775,11 +855,11 @@ function drawBody() {      // the Overview cards (the calendar has its own layer
   const cards = c.widgets.map(w => w.id === "pocketpals" ? ppCard(w) : w.id === "wattsmypower" ? wmpCard(w) : "").join("");
   body.innerHTML = `
     <section id="today" class="tile-card" style="padding:22px 26px 16px"></section>
-    ${cards ? `<div class="tile-card" style="padding:10px;display:grid;grid-template-columns:repeat(${c.widgets.length},minmax(0,1fr));gap:10px;flex:1;min-height:300px">${cards}</div>`
+    ${cards ? `<div class="tile-card wgrid" style="padding:10px;display:grid;grid-template-columns:repeat(${c.widgets.length},minmax(0,1fr));gap:10px;flex:1;min-height:300px">${cards}</div>`
             : `<div class="tile-card" style="padding:28px;flex:1;min-height:300px;display:flex;flex-direction:column;justify-content:center;text-align:center"><div style="font-size:30px;font-weight:700;letter-spacing:-.03em">No apps added yet</div><div style="font-size:19px;color:#6b7488;margin-top:6px">Tap the cog to add PocketPals or WattsMyPower.</div></div>`}
-    <section class="tile-card fx" style="gap:18px;padding:18px 26px 18px 18px;background:#ffeadf">
+    <section class="tile-card fx dinner" style="gap:18px;padding:18px 26px 18px 18px;background:#ffeadf">
       <div style="width:64px;height:64px;border-radius:20px;background:#fff;display:flex;align-items:center;justify-content:center;flex:none"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v8M5 3v5a2 2 0 004 0V3M7 11v10M17 3c-2 2-3 4-3 7 0 2 1 3 3 3v8"/></svg></div>
-      <div style="flex:1;min-width:0"><div class="cap" style="color:#9a4a1e">Dinner tonight</div><div style="font-size:34px;font-weight:700;letter-spacing:-.04em;line-height:1.08;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${DEMO ? "Spaghetti bolognese" : "Nothing planned yet"}</div></div>
+      <div style="flex:1;min-width:0"><div class="cap" style="color:#9a4a1e">Dinner tonight</div><div class="dn" style="font-size:34px;font-weight:700;letter-spacing:-.04em;line-height:1.08;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${DEMO ? "Spaghetti bolognese" : "Nothing planned yet"}</div></div>
       ${DEMO ? '<div style="text-align:right"><div class="num" style="font-size:26px;font-weight:700;letter-spacing:-.03em">' + fmtT(new Date(2000, 0, 1, 18, 30)) + '</div><div style="font-size:15px;font-weight:600;color:#9a4a1e;margin-top:2px">Dad cooking</div></div>' : ""}
     </section>`;
   drawToday(); loadOverview(); poll();
