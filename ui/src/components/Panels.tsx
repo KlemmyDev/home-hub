@@ -63,7 +63,7 @@ export function MenuPanel() {
         {thisWeek ? null : <button className="cbtn" style={{ background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={() => setMenuWeek(new Date())}>This week</button>}
       </div>
       <div className="drows">{rows}</div>
-      <div className="fx" style={{ flex: "none", height: 84, padding: "0 4px 0 82px", justifyContent: "space-between", gap: 12 }}>
+      <div className="fx" style={{ flex: "none", height: 140, padding: "8px 4px 0", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
         <span style={{ fontSize: 17, fontWeight: 600, color: "#6b7488" }}>{planned} of 7 planned</span>
         <button className="cbtn" hidden={DEMO} style={{ padding: "0 20px" }} onClick={() => openSheet({ mode: "meals" })}>Dinner ideas{din?.meals.length ? " · " + din.meals.length : ""}</button>
       </div>
@@ -115,7 +115,7 @@ export function ShoppingPanel() {
         )}
         {got.length ? <><div className="cap" style={{ margin: "18px 0 4px" }}>Got it · {got.length}</div>{got.map(row)}</> : null}
       </div>
-      <div className="fx" style={{ flex: "none", height: 84, padding: "0 4px 0 82px", justifyContent: "space-between", gap: 12 }}>
+      <div className="fx" style={{ flex: "none", height: 140, padding: "8px 4px 0", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
         <span style={{ fontSize: 17, fontWeight: 600, color: "#6b7488" }}>{todo.length ? `${todo.length} to get` : ""}</span>
         <button className="cbtn" hidden={!got.length} style={{ padding: "0 20px" }} onClick={async () => { try { await post("/api/shopping/clear"); } catch { /* shown again below */ } reload(); }}>Clear ticked</button>
       </div>

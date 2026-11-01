@@ -67,13 +67,8 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 .sw2{width:84px;height:48px;min-height:0;padding:0;border-radius:999px;border:0;background:#cdd3de;position:relative;transition:background .2s}
 .sw2 i{position:absolute;left:4px;top:4px;width:40px;height:40px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
 .sw2.on{background:#101828}.sw2.on i{transform:translateX(36px)}
-#scrim{position:absolute;inset:0;z-index:5;min-height:0;padding:0;border:0;border-radius:0;background:rgba(16,24,40,.28)}
-#dock{position:absolute;left:28px;bottom:calc(28px + var(--sb, 0px));width:76px;height:76px;border-radius:38px;background:#101828;box-shadow:0 14px 34px rgba(16,24,40,.38);overflow:hidden;z-index:6;transition:left .5s cubic-bezier(.2,.8,.2,1),width .5s cubic-bezier(.2,.8,.2,1)}
-#dock.open{left:calc((var(--W, 800px) - var(--dw, 546px)) / 2);width:var(--dw, 546px)}
-#dk-t{position:absolute;left:6px;top:6px;width:64px;height:64px;min-height:0;padding:0;border:0;border-radius:50%;background:none;color:#fff;display:flex;align-items:center;justify-content:center}
-#dk-t .i-close{display:none}#dock.open #dk-t .i-close{display:flex}#dock.open #dk-t .i-open{display:none}
-#dk-i{position:absolute;left:76px;top:0;bottom:0;display:flex;align-items:center;gap:4px;opacity:0;visibility:hidden;transition:opacity .2s ease,visibility 0s .2s}
-#dock.open #dk-i{opacity:1;visibility:visible;transition:opacity .25s ease .2s}
+#dock{position:absolute;left:calc((var(--W, 800px) - var(--dw, 546px)) / 2);bottom:calc(28px + var(--sb, 0px));width:var(--dw, 546px);height:76px;border-radius:38px;background:#101828;box-shadow:0 14px 34px rgba(16,24,40,.38);overflow:hidden;z-index:6}
+#dk-i{position:absolute;left:10px;top:0;bottom:0;display:flex;align-items:center;gap:4px}
 #dock .dk{min-height:0;height:56px;width:56px;padding:0;border:0;border-radius:50%;background:none;color:#c9d0de;display:flex;align-items:center;justify-content:center;flex:none}
 #dock .dk.on{width:150px;border-radius:999px;background:#fff;color:#101828;gap:8px;font-size:17px;font-weight:700}
 #sheetscrim{position:absolute;inset:0;z-index:9;background:rgba(16,24,40,.4);opacity:0;pointer-events:none;transition:opacity .3s}
@@ -98,12 +93,11 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 .phone .cnav{width:44px;height:44px}
 .phone .cbtn{height:44px;padding:0 16px!important;font-size:16px}
 .phone #c-new{width:44px;padding:0!important;font-size:26px;line-height:1}
-.phone #dock{left:16px;bottom:calc(16px + var(--sb, 0px))}
-.phone #dock.open{left:calc((var(--W, 430px) - var(--dw, 388px)) / 2)}
+.phone #dock{bottom:calc(16px + var(--sb, 0px))}
 .phone #dock .dk{width:48px;height:48px}
 .phone #dock .dk.on{width:48px}
 .phone .lb{display:none}
-.phone #dk-i{gap:2px}
+.phone #dk-i{gap:2px;left:6px}
 .phone .shh{padding:20px 18px 6px}.phone .shb{padding:0 18px 12px}.phone .shf{padding:12px 18px calc(18px + var(--sb, 0px))}
 .phone #sheet button.primary{min-width:0!important}
 #sheet input{min-width:0}

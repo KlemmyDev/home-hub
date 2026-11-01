@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { useHub, type Dim } from "../hub";
 import { useNav, usePage, type Page } from "../nav";
-import { DockIcon, GridIcon, XIcon } from "../lib/icons";
+import { DockIcon } from "../lib/icons";
 import { CalendarPanel } from "./Calendar";
 import { ChoresPanel } from "./Chores";
 import { Overview } from "./Overview";
@@ -51,51 +51,45 @@ function PanelCard({ id, inner, active, from, children }: { id: string; inner: s
   );
 }
 
-function Dock({ open, setOpen }: { open: boolean; setOpen: (b: boolean) => void }) {
-  const { S, dim, ppOn } = useHub();
+/** The floating menu: always open, so every screen is one tap away. */
+function Dock() {
+  const { S, dim, ppOn, cal } = useHub();
   const page = usePage();
   const { go, openCal } = useNav();
-  const { cal } = useHub();
   const url = (id: string) => S.config.widgets.find(w => w.id === id)?.url;
   const items: [string, string, string][] = [["overview", "Overview", "page"], ["calendar", "Calendar", "page"], ["menu", "Dinners", "page"], ["shopping", "Shopping", "page"]];
   if (ppOn) items.push(["chores", "Chores", "page"]); else if (url("pocketpals")) items.push(["chores", "Chores", url("pocketpals")!]);
   if (url("wattsmypower")) items.push(["energy", "Energy", url("wattsmypower")!]);
-  const dw = dim.phone ? 76 + 12 + items.length * 50 : 76 + 8 + 150 + (items.length - 1) * 60 + 12;
+  const dw = dim.phone ? 50 * items.length + 10 : 150 + 60 * (items.length - 1) + 20;
   return (
-    <>
-      <button id="scrim" className={open ? "" : "hidden"} aria-label="Close menu" onClick={() => setOpen(false)} />
-      <nav id="dock" className={open ? "open" : ""} aria-label="Main" style={{ "--dw": dw + "px" } as CSSProperties}>
-        <button id="dk-t" aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} onClick={() => setOpen(!open)}><GridIcon /><span className="i-close"><XIcon /></span></button>
-        <div id="dk-i">
-          {items.map(([id, name, to]) => {
-            const on = to === "page" && id === page;
-            const inner = on ? <><DockIcon name={id} size={22} /><span className="lb">{name}</span></> : <DockIcon name={id} />;
-            return to === "page"
-              ? <button key={id} className={"dk" + (on ? " on" : "")} aria-label={name} aria-current={on ? "page" : undefined} onClick={() => { id === "calendar" ? openCal(cal.mode, cal.date) : go(id as Page); setOpen(false); }}>{inner}</button>
-              : <a key={id} className="dk" href={to} aria-label={name}>{inner}</a>;
-          })}
-        </div>
-      </nav>
-    </>
+    <nav id="dock" aria-label="Main" style={{ "--dw": dw + "px" } as CSSProperties}>
+      <div id="dk-i">
+        {items.map(([id, name, to]) => {
+          const on = to === "page" && id === page;
+          const inner = on ? <><DockIcon name={id} size={22} /><span className="lb">{name}</span></> : <DockIcon name={id} />;
+          return to === "page"
+            ? <button key={id} id={"dk-" + id} className={"dk" + (on ? " on" : "")} aria-label={name} aria-current={on ? "page" : undefined} onClick={() => id === "calendar" ? openCal(cal.mode, cal.date) : go(id as Page)}>{inner}</button>
+            : <a key={id} className="dk" href={to} aria-label={name}>{inner}</a>;
+        })}
+      </div>
+    </nav>
   );
 }
 
 export function Stage() {
   const { dim, sheet, toast, closeSheet } = useHub();
   const page = usePage();
-  const [dock, setDock] = useState(false);
-  useEffect(() => setDock(false), [page]);
   const style = { "--s": dim.s, "--W": dim.W + "px", "--H": dim.H + "px", "--st": dim.st + "px", "--sb": dim.sb + "px" } as CSSProperties;
-  const origin = (id: string) => () => boxIn(document.getElementById(id)) || dockBox(dim);
+  const origin = (id: string, fallback?: string) => () => boxIn(document.getElementById(id)) || boxIn(document.getElementById(fallback || "dock")) || dockBox(dim);
   return (
     <div id="dash">
       <div id="stage" className={(dim.phone ? "phone " : "") + (sheet ? "sheet-on" : "")} style={style}>
         <Overview away={page !== "overview"} />
         <PanelCard id="calcard" inner="calin" active={page === "calendar"} from={origin("today")}><CalendarPanel /></PanelCard>
         <PanelCard id="menucard" inner="menuin" active={page === "menu"} from={origin("dinner")}><MenuPanel /></PanelCard>
-        <PanelCard id="shopcard" inner="shopin" active={page === "shopping"} from={() => dockBox(dim)}><ShoppingPanel /></PanelCard>
-        <PanelCard id="chorecard" inner="chorein" active={page === "chores"} from={origin("chorescard")}><ChoresPanel /></PanelCard>
-        <Dock open={dock} setOpen={setDock} />
+        <PanelCard id="shopcard" inner="shopin" active={page === "shopping"} from={origin("dk-shopping")}><ShoppingPanel /></PanelCard>
+        <PanelCard id="chorecard" inner="chorein" active={page === "chores"} from={origin("chorescard", "dk-chores")}><ChoresPanel /></PanelCard>
+        <Dock />
         <div id="sheetscrim" onClick={closeSheet} />
         <SheetHost />
         <div id="toast" className={"toast" + (toast ? " on" : "")} role="status">{toast || "Coming soon"}</div>

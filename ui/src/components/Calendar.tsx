@@ -281,7 +281,7 @@ export function CalendarPanel() {
         : cal.mode === "week" && P ? <Agenda c={c} />
         : cal.mode === "week" ? <><DayHead days={weekOf} size={44} gutter={52} /><AllDay days={weekOf} gutter={52} c={c} /><Scroller keyed={key} anchorHour={anchor(weekOf)} big={false}><Grid days={weekOf} gutter={52} big={false} c={c} /></Scroller></>
         : <><DayHead days={weekOf} size={P ? 40 : 44} gutter={0} /><AllDay days={[d]} gutter={P ? 48 : 60} c={c} /><Scroller keyed={key} anchorHour={anchor([d])} big><Grid days={[d]} gutter={P ? 48 : 60} big c={c} /></Scroller></>}
-      <div className="fx" style={{ flex: "none", height: 84, padding: "0 4px 0 82px", justifyContent: "space-between", gap: 14 }}>
+      <div className="fx" style={{ flex: "none", height: 140, padding: "8px 4px 0", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
         <div style={{ minWidth: 0 }}>
           {nextEv ? (() => { const m = Math.round((+nextEv.s - +now) / 60000); return (
             <><div className="fx" style={{ gap: 7, fontSize: 15, fontWeight: 650, color: "#1d4ed8" }}><span className="live" style={{ width: 7, height: 7, borderRadius: "50%", background: "#1d4ed8" }} />{m < 60 ? `Next in ${m} min` : `Next at ${fmtT(nextEv.s, h24)}`}</div>

@@ -181,7 +181,7 @@ export function ChoresPanel() {
           </div>
         )}
       </div>
-      <div className="fx" style={{ flex: "none", height: 84, padding: "0 4px 0 82px" }}><span style={{ fontSize: 16, fontWeight: 600, opacity: .85 }}>Ticks wait for a grown-up to check them in PocketPals.</span></div>
+      <div className="fx" style={{ flex: "none", height: 140, padding: "8px 4px 0", alignItems: "flex-start" }}><span style={{ fontSize: 16, fontWeight: 600, opacity: .85 }}>Ticks wait for a grown-up to check them in PocketPals.</span></div>
     </div>
   );
 }
