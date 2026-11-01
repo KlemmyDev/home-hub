@@ -13,6 +13,7 @@ import { FoodIcon } from "../lib/foodicons";
 
 const DAYCODES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
 const DAYNAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const ord = (n: number) => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
 const dot = (c: string) => <i style={{ width: 12, height: 12, borderRadius: "50%", background: c }} />;
 
 export function newEventDraft(day: Date, hour: number | undefined, now: Date, who: string | null): EventDraft {
@@ -53,6 +54,8 @@ function EventSheet({ draft: start }: { draft: EventDraft }) {
   const [busy, setBusy] = useState(false);
   const [custom, setCustom] = useState(() => !start.allDay && !LENGTHS.some(([m]) => m === Math.round((+new Date(`${start.ned}T${start.net}`) - +new Date(`${start.sd}T${start.st}`)) / 60000)) && !!start.id);
   const [quick, setQuick] = useState("");
+  const daysEdited = useRef(!!start.id);       // until the weekdays are picked by hand, a weekly repeat follows the start day
+  const dayOf = (ds: string) => DAYCODES[(fromYmd(ds).getDay() + 6) % 7];
   const titleRef = useRef<HTMLInputElement>(null);
   useEffect(() => {      // the name field is ready for typing once the sheet has finished rising; focusing earlier makes the page behind scroll
     if (start.id) return;
@@ -83,20 +86,21 @@ function EventSheet({ draft: start }: { draft: EventDraft }) {
       if (n.allDay) { if (n.ned < n.sd) n.ned = n.sd; }
       else if (before > 0 && n.sd && n.st) { const e = new Date(+new Date(`${n.sd}T${n.st}`) + before); n.ned = ymd(e); n.net = hmOf(e); }
     }
+    if (!daysEdited.current && (k === "sd")) n.days = [dayOf(n.sd)];
     setT(n);
   };
   const toggle = (list: string[], v: string) => list.includes(v) ? list.filter(x => x !== v) : [...list, v];
   const pick = people.filter(p => t.people.includes(p.id));
   const day0 = ymd(now), day1 = ymd(addDays(now, 1));
   const setLen = (m: number) => { const e = new Date(+startAt() + m * 60000); setCustom(false); set({ allDay: false, ned: ymd(e), net: hmOf(e) }); };
-  const repeatText = !rep ? "" : ` · repeats every ${t.interval > 1 ? t.interval + " " : ""}${unit}${t.interval > 1 ? "s" : ""}${t.freq === "weekly" ? " on " + DAYCODES.filter(c => t.days.includes(c)).map(c => DAYNAMES[DAYCODES.indexOf(c)].slice(0, 3)).join(", ") : ""}${t.untilOn ? " until " + fromYmd(t.until).toLocaleDateString([], { day: "numeric", month: "short" }) : ""}`;
+  const repeatText = !rep ? "" : ` · repeats every ${t.interval > 1 ? t.interval + " " : ""}${unit}${t.interval > 1 ? "s" : ""}${t.freq === "monthly" ? " on the " + ord(fromYmd(t.sd).getDate()) : t.freq === "yearly" ? " on " + fromYmd(t.sd).toLocaleDateString([], { day: "numeric", month: "long" }) : ""}${t.freq === "weekly" ? " on " + DAYCODES.filter(c => t.days.includes(c)).map(c => DAYNAMES[DAYCODES.indexOf(c)].slice(0, 3)).join(", ") : ""}${t.untilOn ? " until " + fromYmd(t.until).toLocaleDateString([], { day: "numeric", month: "short" }) : ""}`;
   const whenText = t.allDay
     ? (t.ned > t.sd ? `${shortDate(fromYmd(t.sd))} to ${shortDate(fromYmd(t.ned))}, all day` : `${shortDate(fromYmd(t.sd))}, all day`)
     : `${shortDate(startAt())}, ${fmtT(startAt(), h24)} to ${fmtT(endAt(), h24)}${t.ned !== t.sd ? " (" + shortDate(endAt()) + ")" : ""}`;
   const body = (
     <>
       {editing ? null : (
-        <form className="qadd" onSubmit={e => { e.preventDefault(); if (!quick.trim()) return; const q = quickAdd(quick, now, people); setCustom(false); setErr(""); setT(x => ({ ...x, ...q, title: q.title || x.title })); setQuick(""); }}>
+        <form className="qadd" onSubmit={e => { e.preventDefault(); if (!quick.trim()) return; const q = quickAdd(quick, now, people); setCustom(false); setErr(""); daysEdited.current = !!q.days; setT(x => ({ ...x, ...q, days: q.days || [dayOf(q.sd!)], title: q.title || x.title })); setQuick(""); }}>
           <input value={quick} onChange={e => setQuick(e.target.value)} placeholder="Or just type it: Football Saturday 9am for 2 hours" aria-label="Quick add" autoComplete="off" enterKeyHint="go" maxLength={120} />
           <button type="submit" className="primary" disabled={!quick.trim()}>Fill in</button>
         </form>
@@ -154,7 +158,7 @@ function EventSheet({ draft: start }: { draft: EventDraft }) {
 
       <Sec n={3} label="Repeats">
         <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>
-          {[["none", "Never"], ["daily", "Daily"], ["weekly", "Weekly"], ["monthly", "Monthly"], ["yearly", "Yearly"]].map(([v, l]) => <Pill key={v} on={t.freq === v} onClick={() => set({ freq: v })}>{l}</Pill>)}
+          {[["none", "Never"], ["daily", "Daily"], ["weekly", "Weekly"], ["monthly", "Monthly"], ["yearly", "Yearly"]].map(([v, l]) => <Pill key={v} on={t.freq === v} onClick={() => set({ freq: v, ...(daysEdited.current ? {} : { days: [dayOf(t.sd)] }) })}>{l}</Pill>)}
         </div>
         <Reveal open={rep}>
           <div style={{ paddingTop: 14 }}>
@@ -167,7 +171,7 @@ function EventSheet({ draft: start }: { draft: EventDraft }) {
             </div>
             <Reveal open={t.freq === "weekly"}>
               <div className="fx" style={{ gap: 8, paddingTop: 14 }}>
-                {DAYCODES.map((c, i) => <button key={c} className={"pill dow" + (t.days.includes(c) ? " on" : "")} aria-label={DAYNAMES[i]} style={{ padding: 0, width: 52, justifyContent: "center" }} onClick={() => set({ days: toggle(t.days, c) })}>{"MTWTFSS"[i]}</button>)}
+                {DAYCODES.map((c, i) => <button key={c} className={"pill dow" + (t.days.includes(c) ? " on" : "")} aria-label={DAYNAMES[i]} style={{ padding: 0, width: 52, justifyContent: "center" }} onClick={() => { daysEdited.current = true; set({ days: toggle(t.days, c) }); }}>{"MTWTFSS"[i]}</button>)}
               </div>
             </Reveal>
             <div className="fx" style={{ gap: 8, paddingTop: 14, flexWrap: "wrap" }}>
