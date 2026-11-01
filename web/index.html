@@ -173,7 +173,31 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 .jchip[data-locked]:not(.done){opacity:.6}
 .jnote{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-size:17px;font-weight:600;color:#6b7488}
 .jnote.ok{color:#14a06c}
+.ppcard,#chorecard{position:relative;color:#fff;font-family:'Figtree','Onest',sans-serif;background:radial-gradient(ellipse 85% 45% at 28% 0%,rgba(196,182,255,.8),rgba(196,182,255,0) 72%),linear-gradient(165deg,#7a5cff 0%,#5a3be8 42%,#4326c9 100%)!important}
+.ppcard{padding:18px 16px 14px;overflow:hidden}
+.ppks{display:flex;flex-direction:column;gap:12px;position:relative}
+.ppk{display:flex;align-items:center;gap:12px;background:#fff;color:#17133a;border-radius:22px;padding:10px 14px 10px 10px;box-shadow:0 5px 0 rgba(20,14,70,.38)}
+.ppav{width:68px;height:68px;border-radius:50%;background:color-mix(in srgb,var(--kc) 22%,#fff);flex:none;overflow:hidden;position:relative}
+.palf{border:0;background:transparent;pointer-events:none;display:block;width:100%;height:100%}
+.ppb{flex:1;min-width:0}
+.ppn{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.ppc{font-size:15px;font-weight:800;color:#6b6890}
+.ppbadge{background:linear-gradient(180deg,#ffe98a,#ffc21a);color:#4a3800;font-size:14px;font-weight:800;border-radius:999px;padding:5px 12px;box-shadow:0 6px 14px rgba(255,194,26,.3)}
+.ppbadge.ok{background:linear-gradient(180deg,#a8f0c8,#3ee08f);color:#06391f;box-shadow:0 6px 14px rgba(62,224,143,.3)}
+.ppbtn{display:inline-flex;align-items:center;gap:6px;height:44px;min-height:0;padding:0 18px;border-radius:999px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;font-size:16px;font-weight:700}
 .dtoggle{min-height:40px;padding:0 16px;border-radius:999px;border:1.5px solid #d5dbe6;background:#fff;font-size:15px;font-weight:650;color:#5a6478}
+.dtoggle.pk{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.28);color:#fff;font-weight:700}
+.ppcard .jnote,.ppk .jnote{color:#6b6890}.ppk .jnote.ok{color:#14a06c}
+.kcard.pk{position:relative;background:#fff;color:#17133a;border:0;border-radius:24px;padding:16px 18px 18px;margin-bottom:62px;box-shadow:0 5px 0 rgba(20,14,70,.38)}
+.kcard.pk:last-child{margin-bottom:12px}
+.kpal{position:absolute;right:10px;top:-50px;width:124px;height:124px;pointer-events:none}
+.kpal .palf{width:100%;height:100%}
+.ptrack{height:12px;border-radius:6px;background:#e9e5fb;margin-bottom:12px;overflow:hidden}
+.ptrack>div{height:100%;border-radius:6px;transition:width .3s}
+.kcard.pk .jchip{box-shadow:0 3px 0 rgba(23,19,58,.14)}
+.phone .ppav{width:56px;height:56px}.phone .ppn{font-size:21px}
+.phone .kpal{width:96px;height:96px;top:-40px}
+.phone .kcard.pk{margin-bottom:50px}
 .kcard{border:1.5px solid #edf0f5;border-radius:22px;padding:14px 16px;margin-bottom:12px}
 .ov::-webkit-scrollbar{display:none}
 .ov>*{flex:none}
@@ -831,10 +855,11 @@ async function loadChores(from, to) {                        // both days inclus
     for (const d of r.days) CH.days[d.date] = d;
   } catch (_) {}
 }
-const kidColor = k => {
-  const p = people().find(x => x.name.toLowerCase() === String(k.name).toLowerCase());
-  return p ? p.color : KIDCOL[Math.max(0, CH.kids.findIndex(x => x.id === k.id)) % KIDCOL.length];
-};
+/* A child's colour is their pal's. PocketPals draws the pal itself (colour, outfit, pet) on a page the hub shows in a frame. */
+const PALACC = {pig: "#F0709F", fox: "#FF8A2B", owl: "#8B5CFF", dino: "#1FB574", cat: "#F09A1A", bunny: "#A98BD8", puppy: "#A66A3C", panda: "#5B6577", frog: "#6DB82B", penguin: "#36427F"};
+const kidColor = k => PALACC[String(k.species || "").split("~")[0]] || KIDCOL[Math.max(0, CH.kids.findIndex(x => x.id === k.id)) % KIDCOL.length];
+const ppBase = () => ((S.config.pocketpals || {}).url || "").replace(/\/$/, "");
+const palFrame = (k, head, cls) => k.pal_url ? `<iframe class="palf ${cls || ""}" src="${esc(ppBase() + k.pal_url + (head ? "&head=1" : ""))}" tabindex="-1" scrolling="no" aria-hidden="true" loading="lazy"></iframe>` : "";
 const jobDone = j => j.status === "pending" || j.status === "approved";
 const jobTally = jobs => [jobs.filter(jobDone).length, jobs.length];
 function jobsByKid(day) {
@@ -919,35 +944,34 @@ async function refreshChores() {
   if (view.page === "chores") loadChoresPanel();
   else if (view.page === "overview") { await loadChores(today, today); drawToday(); }
 }
-/* One day's jobs, a row for each child: what's left to do. Done and waiting ones hide until asked for. */
+/* What's left to do, a block for each child with their pal. Done and waiting jobs hide until asked for. */
 view.showDone = false;
 const jobCounts = day => { let left = 0, done = 0; for (const g of jobsByKid(day)) for (const j of g.jobs) jobDone(j) ? done++ : left++; return {left, done}; };
-function jobRows(day, opts) {
-  const P = DIM.phone, groups = jobsByKid(day), big = opts && opts.big;
-  return groups.map(g => {
+function ppRows(day) {
+  return jobsByKid(day).map(g => {
     const c = kidColor(g.kid), [n, t] = jobTally(g.jobs), todo = g.jobs.filter(j => !jobDone(j)), got = g.jobs.filter(jobDone);
     const shown = view.showDone ? g.jobs : todo;
     const list = g.away ? `<span class="jnote">Away today</span>`
-      : shown.map(j => jobChip(j, day, c, big)).join("") || `<span class="jnote ok">${CHECK} All done${got.length ? ` · ${got.length}` : ""}</span>`;
-    return `<div class="jrow"><span class="jkid" style="--kc:${esc(c)}"><i></i><b>${esc(g.kid.name)}</b>${g.away ? "" : `<small class="num">${n}/${t}</small>`}</span><div class="fx" style="gap:8px;flex-wrap:wrap;flex:1;min-width:${P ? "100%" : "0"}">${list}</div></div>`;
+      : shown.map(j => jobChip(j, day, c, false)).join("") || `<span class="jnote ok">${CHECK} All done${got.length ? ` · ${got.length}` : ""}</span>`;
+    return `<div class="ppk"><span class="ppav" style="--kc:${esc(c)}">${palFrame(g.kid, true)}</span><div class="ppb"><div class="fx" style="gap:8px;align-items:baseline"><b class="ppn">${esc(g.kid.name)}</b>${g.away ? "" : `<small class="num ppc">${n}/${t}</small>`}</div><div class="fx" style="gap:8px;flex-wrap:wrap;margin-top:6px">${list}</div></div></div>`;
   }).join("");
 }
-const doneToggle = (day, id) => { const {done} = jobCounts(day); return done ? `<button class="dtoggle" id="${id}" aria-pressed="${view.showDone}">${view.showDone ? "Hide done" : `Show done · ${done}`}</button>` : ""; };
+const doneToggle = (day, id) => { const {done} = jobCounts(day); return done ? `<button class="dtoggle pk" id="${id}" aria-pressed="${view.showDone}">${view.showDone ? "Hide done" : `Show done · ${done}`}</button>` : ""; };
 
-/* The Overview's Chores card: today's jobs for each child. */
+/* The Overview's Chores card: today's jobs for each child, in the PocketPals look. */
 function drawChoresCard() {
   const el = $("chorescard");
   if (!el) return;
   if (!ppOn()) { el.hidden = true; return; }
   const today = startOfDay(new Date()), {left, done} = jobCounts(today), groups = jobsByKid(today);
   el.hidden = false;
-  const body = groups.length ? jobRows(today, {})
-    : `<div style="padding:14px 0 6px;font-size:19px;font-weight:600;color:#6b7488">${CH.error ? "Can't reach PocketPals" : "No jobs today"}</div>`;
-  el.innerHTML = `<div class="fx" style="justify-content:space-between;gap:12px;margin-bottom:4px">
-      <div class="fx" style="gap:12px;align-items:baseline"><span style="font-size:32px;font-weight:700;letter-spacing:-.04em">Chores</span><span class="num" style="font-size:16px;font-weight:700;color:${left ? "#1d4ed8" : "#14a06c"}">${groups.length ? (left ? `${left} to do` : "All done") : ""}</span></div>
-      <button class="cbtn" id="ch-open" style="background:#fff;color:#101828;border:1.5px solid #d5dbe6;padding:0 18px">All chores${CHEV}</button>
-    </div>${body}
-    ${done ? `<div class="fx" style="margin-top:8px">${doneToggle(today, "ch-done")}</div>` : ""}`;
+  const body = groups.length ? ppRows(today)
+    : `<div style="padding:10px 4px 8px;font-size:19px;font-weight:700;color:rgba(255,255,255,.85)">${CH.error ? "Can't reach PocketPals" : "No jobs today"}</div>`;
+  el.innerHTML = `<div class="fx" style="justify-content:space-between;gap:12px;margin:0 4px 10px;position:relative">
+      <div class="fx" style="gap:12px;align-items:center"><span style="font-size:32px;font-weight:800;letter-spacing:-.03em">Chores</span>${groups.length ? `<span class="ppbadge ${left ? "" : "ok"}">${left ? `${left} to do` : "All done!"}</span>` : ""}</div>
+      <button class="ppbtn" id="ch-open">All chores${CHEV}</button>
+    </div><div class="ppks">${body}</div>
+    ${done ? `<div class="fx" style="margin:10px 4px 0;position:relative">${doneToggle(today, "ch-done")}</div>` : ""}`;
   $("ch-open").onclick = () => openPanel("chores");
   const t = $("ch-done"); if (t) t.onclick = () => { view.showDone = !view.showDone; repaintChores(); };
   bindJobs(el);
@@ -963,22 +987,22 @@ function drawChoresPanel() {
   const groups = jobsByKid(day);
   const label = day.toLocaleDateString([], {weekday: P ? "short" : "long", day: "numeric", month: P ? "short" : "long"});
   const kids = groups.length ? groups.map(g => {
-    const c = kidColor(g.kid), [n, t] = jobTally(g.jobs), slots = {};
+    const c = kidColor(g.kid), [n, t] = jobTally(g.jobs);
     const todo = g.jobs.filter(j => !jobDone(j)), shown = view.showDone ? g.jobs : todo;
-    const body = g.away ? `<div style="font-size:19px;color:#6b7488;padding:6px 0 4px">Away today, so no jobs.</div>` : shown.map(j => jobChip(j, day, c, true)).join("") || `<span class="jnote ok" style="font-size:19px">${CHECK} All done</span>`;
-    return `<section class="kcard"><div class="fx" style="gap:12px;margin-bottom:10px"><i style="width:14px;height:14px;border-radius:50%;background:${esc(c)};flex:none"></i><span style="font-size:${P ? 24 : 30}px;font-weight:700;letter-spacing:-.03em">${esc(g.kid.name)}</span>${g.away ? "" : `<span class="num" style="margin-left:auto;font-size:18px;font-weight:700;color:#5a6478">${n} of ${t}</span>`}</div>${g.away ? "" : `<div style="height:8px;border-radius:4px;background:#e7ebf2;margin-bottom:12px"><div style="width:${t ? Math.round(n / t * 100) : 0}%;height:100%;border-radius:4px;background:${esc(c)};transition:width .3s"></div></div>`}<div class="fx" style="gap:8px;flex-wrap:wrap">${body}</div></section>`;
-  }).join("") : `<div style="padding:50px 0;text-align:center"><div style="font-size:26px;font-weight:700;letter-spacing:-.02em">${CH.error ? "Can't reach PocketPals" : "No jobs this day"}</div><div style="font-size:18px;color:#6b7488;margin-top:6px">${esc(CH.error || "Nothing is set for anyone.")}</div></div>`;
-  el.innerHTML = `<div style="display:flex;flex-direction:column;width:100%;height:100%;padding:${P ? "14px 14px" : "18px 18px"} 0">
+    const body = g.away ? `<div style="font-size:19px;color:#6b6890;padding:6px 0 4px">Away today, so no jobs.</div>` : shown.map(j => jobChip(j, day, c, true)).join("") || `<span class="jnote ok" style="font-size:19px">${CHECK} All done</span>`;
+    return `<section class="kcard pk"><div class="kpal">${palFrame(g.kid, false)}</div><div class="fx" style="gap:12px;margin-bottom:8px;padding-right:${P ? 96 : 130}px"><i style="width:14px;height:14px;border-radius:50%;background:${esc(c)};flex:none"></i><span style="font-size:${P ? 24 : 30}px;font-weight:800;letter-spacing:-.03em">${esc(g.kid.name)}</span>${g.away ? "" : `<span class="num" style="font-size:18px;font-weight:800;color:#6b6890">${n} of ${t}</span>`}</div>${g.away ? "" : `<div class="ptrack"><div style="width:${t ? Math.round(n / t * 100) : 0}%;background:${esc(c)}"></div></div>`}<div class="fx" style="gap:8px;flex-wrap:wrap">${body}</div></section>`;
+  }).join("") : `<div style="padding:50px 0;text-align:center"><div style="font-size:26px;font-weight:800">${CH.error ? "Can't reach PocketPals" : "No jobs this day"}</div><div style="font-size:18px;opacity:.8;margin-top:6px">${esc(CH.error || "Nothing is set for anyone.")}</div></div>`;
+  el.innerHTML = `<div style="display:flex;flex-direction:column;width:100%;height:100%;padding:${P ? "14px 14px" : "18px 18px"} 0;color:#fff;font-family:'Figtree','Onest',sans-serif">
     <div class="fx" style="justify-content:space-between;padding:0 4px 12px;gap:12px">
-      <div class="fx" style="gap:14px"><span class="clk num" style="font-family:'Comfortaa','Onest',sans-serif;font-size:${P ? 44 : 54}px;font-weight:700;letter-spacing:-.07em;line-height:.9;-webkit-text-stroke:1.8px #101828;paint-order:stroke fill">${esc(clockT(now))}</span><span class="cdt" style="font-size:${P ? 16 : 20}px;font-weight:700;letter-spacing:-.03em;line-height:1.1">${esc(now.toLocaleDateString([], {weekday: "short", day: "numeric", month: "short"}))}</span></div>
-      <span style="font-size:${P ? 26 : 32}px;font-weight:700;letter-spacing:-.04em">Chores</span>
+      <div class="fx" style="gap:14px"><span class="clk num" style="font-family:'Comfortaa','Onest',sans-serif;font-size:${P ? 44 : 54}px;font-weight:700;letter-spacing:-.07em;line-height:.9">${esc(clockT(now))}</span><span class="cdt" style="font-size:${P ? 16 : 20}px;font-weight:700;letter-spacing:-.03em;line-height:1.1">${esc(now.toLocaleDateString([], {weekday: "short", day: "numeric", month: "short"}))}</span></div>
+      <span style="font-size:${P ? 26 : 32}px;font-weight:800;letter-spacing:-.03em">Chores</span>
     </div>
-    <div class="fx" style="justify-content:space-between;padding:0 0 12px;gap:10px">
-      <div class="fx" style="gap:10px;min-width:0"><button class="cnav" id="h-prev" aria-label="Back">${CHEV_L}</button><span style="font-size:${P ? 21 : 28}px;font-weight:700;letter-spacing:-.04em;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(label)}</span><button class="cnav" id="h-next" aria-label="Forward">${CHEV_R}</button></div>
-      <div class="fx" style="gap:8px">${doneToggle(day, "h-done")}${isToday ? "" : `<button class="cbtn" id="h-today" style="background:#fff;color:#101828;border:1.5px solid #d5dbe6">Today</button>`}</div>
+    <div class="fx" style="justify-content:space-between;padding:0 0 4px;gap:10px">
+      <div class="fx" style="gap:10px;min-width:0"><button class="cnav" id="h-prev" aria-label="Back">${CHEV_L}</button><span style="font-size:${P ? 21 : 28}px;font-weight:800;letter-spacing:-.03em;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(label)}</span><button class="cnav" id="h-next" aria-label="Forward">${CHEV_R}</button></div>
+      <div class="fx" style="gap:8px">${doneToggle(day, "h-done")}${isToday ? "" : `<button class="ppbtn" id="h-today">Today</button>`}</div>
     </div>
-    <div class="scroll" style="flex:1;min-height:0">${kids}</div>
-    <div class="fx" style="flex:none;height:84px;padding:0 4px 0 82px"><span style="font-size:16px;font-weight:600;color:#6b7488">Ticks wait for a grown-up to check them in PocketPals.</span></div>
+    <div class="scroll" style="flex:1;min-height:0;padding-top:${P ? 44 : 58}px">${kids}</div>
+    <div class="fx" style="flex:none;height:84px;padding:0 4px 0 82px"><span style="font-size:16px;font-weight:600;opacity:.85">Ticks wait for a grown-up to check them in PocketPals.</span></div>
   </div>`;
   const step = n => { view.choreDay = addDays(day, n); loadChoresPanel(); };
   $("h-prev").onclick = () => step(-1); $("h-next").onclick = () => step(1);
@@ -1263,7 +1287,7 @@ function drawBody() {      // the Overview cards (the calendar has its own layer
   body.innerHTML = `
     <button class="tile-card fx dinner" id="dinner" aria-label="Dinner tonight. Open the dinners" style="gap:18px;padding:18px 26px 18px 18px;background:#ffeadf;border:0;min-height:0;width:100%;text-align:left;color:inherit;border-radius:30px"></button>
     <section id="today" class="tile-card" style="padding:22px 26px 16px"></section>
-    <section id="chorescard" class="tile-card" style="padding:20px 26px 16px" hidden></section>
+    <section id="chorescard" class="tile-card ppcard" hidden></section>
     ${cards ? `<div class="wgrid" style="display:grid;grid-template-columns:repeat(${c.widgets.length},minmax(0,1fr));gap:10px">${cards}</div>`
             : `<div class="tile-card" style="padding:22px;display:flex;flex-direction:column;justify-content:center;text-align:center"><div style="font-size:30px;font-weight:700;letter-spacing:-.03em">No apps added yet</div><div style="font-size:19px;color:#6b7488;margin-top:6px">Tap the cog to add PocketPals or WattsMyPower.</div></div>`}
 `;
