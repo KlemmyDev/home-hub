@@ -28,17 +28,31 @@ elif [ -n "$(git status --porcelain --untracked-files=no 2>/dev/null)" ]; then
 fi
 put updater.json "{\"seen_at\": $(date +%s), \"can_update\": $([ -z "$why" ] && echo true || echo false), \"why\": $([ -n "$why" ] && jstr "$why" || echo null)}"
 
+# Cron starts this once a minute. Rather than make a tap on "Update now" wait for the next minute, one copy stays
+# for most of the minute and looks every two seconds (a lock stops two copies doing that; a stale one expires).
+if ! mkdir "$DIR/.watching" 2>/dev/null; then
+  [ -n "$(find "$DIR/.watching" -maxdepth 0 -mmin +3 2>/dev/null)" ] || exit 0
+  rm -rf "$DIR/.watching" && mkdir "$DIR/.watching" || exit 0
+fi
+mine=""
+trap 'rm -rf "$DIR/.watching"; [ -z "$mine" ] || rm -rf "$DIR/.running"' EXIT
+
+for _ in $(seq 1 28); do
+  if [ -f "$DIR/request" ]; then break; fi
+  sleep 2
+done
 [ -f "$DIR/request" ] || exit 0
 
-# One at a time: cron starts another run every minute while an update is going (a lock left by a crash expires).
+# One update at a time (a lock left by a crash expires).
 if ! mkdir "$DIR/.running" 2>/dev/null; then
   [ -n "$(find "$DIR/.running" -maxdepth 0 -mmin +60 2>/dev/null)" ] || exit 0
   rm -rf "$DIR/.running" && mkdir "$DIR/.running" || exit 0
 fi
-trap 'rm -rf "$DIR/.running"' EXIT
+mine=1
 
 # Say it's running before taking the request away, so the hub never sees neither.
-put status.json "{\"state\": \"running\", \"started_at\": $(date +%s)}"
+started="$(date +%s)"
+put status.json "{\"state\": \"running\", \"started_at\": $started, \"step\": \"starting\", \"step_at\": $started}"
 rm -f "$DIR/request"
 
 if [ -n "$why" ]; then
@@ -46,8 +60,11 @@ if [ -n "$why" ]; then
   exit 0
 fi
 
-if bash install.sh >"$DIR/update.log" 2>&1; then
-  put status.json "{\"state\": \"done\", \"finished_at\": $(date +%s)}"
+# install.sh reports its steps (getting the code, tools, building, restarting) into status.json as it goes.
+if HH_PROGRESS="$DIR/status.json" HH_STARTED="$started" bash install.sh >"$DIR/update.log" 2>&1; then
+  finished="$(date +%s)"
+  put last.json "{\"took\": $((finished - started))}"
+  put status.json "{\"state\": \"done\", \"started_at\": $started, \"finished_at\": $finished}"
 else
   put status.json "{\"state\": \"failed\", \"message\": \"the build didn't finish: see data/update/update.log\"}"
 fi

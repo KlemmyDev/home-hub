@@ -10,6 +10,7 @@ import { MenuPanel, ShoppingPanel } from "./Panels";
 import { Settings } from "../screens/Settings";
 import { SheetHost } from "./Sheets";
 import { Reminders } from "./Reminders";
+import { UpdateOverlay } from "./UpdateOverlay";
 
 type Box = { l: number; t: number; w: number; h: number };
 const boxFull = (d: Dim): Box => d.phone ? { l: 10, t: 10 + d.st, w: d.W - 20, h: d.H - 20 - d.st - d.sb } : { l: 20, t: 20, w: d.W - 40, h: d.H - 40 };
@@ -87,6 +88,7 @@ export function Stage() {
         <Dock />
         <div id="sheetscrim" onClick={closeSheet} />
         <SheetHost />
+        <UpdateOverlay />
         <div id="toast" className={"toast" + (toast ? " on" : "") + (toastAct ? " act" : "")} role="status">{toast || "Coming soon"}{toastAct ? <button className="toast-undo" onClick={() => { toastAct(); soon(""); }}>Undo</button> : null}</div>
       </div>
     </div>

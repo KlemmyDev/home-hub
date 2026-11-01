@@ -6,6 +6,7 @@ import { clockIn, deviceZone } from "../lib/dates";
 import { FamilyEditor } from "../components/Family";
 import { useHub } from "../hub";
 import { useNav } from "../nav";
+import { askUpdate } from "../lib/pulse";
 import { ChevL, ChevR, DockIcon } from "../lib/icons";
 
 const TINT: Record<string, [string, string]> = { clock: ["#e6edfb", "#1d4ed8"], chores: ["#ece8fe", "#5b3bf0"], family: ["#fde8ef", "#d6336c"], weather: ["#fff3d6", "#d98a00"], calendar: ["#e1f5ec", "#14a06c"], update: ["#eef1f6", "#101828"] };
@@ -239,12 +240,8 @@ function Calendars() {
 
 function Updates() {
   const [fresh, setFresh] = useState(true);
-  const [waiting, setWaiting] = useState(false);
-  const { data: u, isError, refetch } = useQuery({ queryKey: ["update", fresh], queryFn: () => api("/api/update" + (fresh ? "?fresh=1" : "")), refetchInterval: waiting ? 5000 : false, retry: false });
-  useEffect(() => {      // After asking, wait for the hub to restart on the new version, then reload to pick up the new screen.
-    if (waiting && u?.status?.state === "done" && !u.requested) location.reload();
-    if (waiting && u?.status?.state === "failed") setWaiting(false);
-  }, [u, waiting]);
+  const qc = useQueryClient();
+  const { data: u, isError, refetch } = useQuery({ queryKey: ["update", fresh], queryFn: () => api("/api/update" + (fresh ? "?fresh=1" : "")), retry: false });
   if (isError) return <Box title="Updates" icon="update"><p>Couldn't check for updates.</p></Box>;
   if (!u) return <Box title="Updates" icon="update"><p>Checking…</p></Box>;
   const st = u.status, up = u.updater, alive = up && (Date.now() / 1000 - up.seen_at) < 180;
@@ -258,7 +255,7 @@ function Updates() {
             <p><strong>A new version is ready.</strong></p>
             {!alive ? <p>The updater isn't running on this machine, so run <code>bash install.sh</code> there.</p>
               : up && !up.can_update ? <p>{up.why || "It can't update right now."}</p>
-              : <div className="row"><button className="primary" onClick={async () => { try { await post("/api/update/request"); } catch { /* the check below shows what happened */ } setWaiting(true); refetch(); }}>Update now</button></div>}
+              : <div className="row"><button className="primary" onClick={async () => { try { await askUpdate(); } catch { /* the check below shows what happened */ } refetch(); }}>Update now</button></div>}
           </>
         ) : <p>You're up to date.</p>}
       {st && st.state === "failed" ? <p style={{ color: "var(--bad)" }}>The last update didn't work: {st.message || "see data/update/update.log"}</p> : null}

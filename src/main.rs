@@ -127,6 +127,8 @@ struct App {
     weather: Mutex<Option<(Instant, Value)>>,
     /// Public holidays by country and year, with when they were fetched (a failed fetch is kept too, so it isn't retried every minute).
     holidays: Mutex<HashMap<(String, i32), (Instant, Vec<holidays::Holiday>)>>,
+    /// Names this run of the hub (the version it's on and when it started), so a screen can tell the hub has restarted.
+    boot: String,
 }
 
 const MAX_CALENDARS: usize = 8;
@@ -154,7 +156,8 @@ async fn main() {
         Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
         Err(_) => shopping::Shopping::default(),
     };
-    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), jobs: Mutex::new(HashMap::new()), weather: Mutex::new(None), holidays: Mutex::new(HashMap::new()) });
+    let boot = format!("{}-{}", git(&["rev-parse", "HEAD"]).await.map(|s| short(&s)).unwrap_or_default(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0));
+    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), jobs: Mutex::new(HashMap::new()), weather: Mutex::new(None), holidays: Mutex::new(HashMap::new()), boot });
 
     // Keep the calendars fresh: once now, then every ten minutes.
     let background = app.clone();
@@ -202,6 +205,7 @@ async fn main() {
         .route("/api/status", get(status))
         .route("/api/update", get(update_info))
         .route("/api/update/request", post(update_request))
+        .route("/api/pulse", get(pulse))
         .fallback(serve_web)
         .with_state(app);
 
@@ -1007,6 +1011,20 @@ async fn update_info(State(app): Shared, Query(q): Query<UpdateQuery>) -> Json<V
         "status": read("status.json"),
         "requested": app.data.join("update/request").exists(),
     }))
+}
+
+/// A small, cheap answer every screen asks for every few seconds: which run of the hub this is, and how an update is going
+/// (what the updater last wrote), so every screen can show it and reload itself when the hub comes back on the new version.
+async fn pulse(State(app): Shared) -> impl IntoResponse {
+    let read = |name: &str| std::fs::read(app.data.join("update").join(name)).ok().and_then(|b| serde_json::from_slice::<Value>(&b).ok());
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    ([(axum::http::header::CACHE_CONTROL, "no-store")], Json(json!({
+        "boot": app.boot,
+        "now": now,
+        "status": read("status.json"),
+        "requested": app.data.join("update/request").exists(),
+        "took": read("last.json").and_then(|v| v["took"].as_u64()),
+    })))
 }
 
 /// The hub can only ask: updater.sh (run every minute by cron) sees the note and runs install.sh.

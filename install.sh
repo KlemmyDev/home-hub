@@ -34,6 +34,12 @@ for arg in "$@"; do
 done
 
 say() { printf '\n==> %s\n' "$*"; }
+# When the hub's updater runs this, it says where it is up to, so the screen can show it (steps: pull, tools, build, start).
+progress() {
+  [ -n "${HH_PROGRESS:-}" ] || return 0
+  printf '{"state": "running", "started_at": %s, "step": "%s", "step_at": %s}\n' "${HH_STARTED:-0}" "$1" "$(date +%s)" >"$HH_PROGRESS.tmp" 2>/dev/null \
+    && mv -f "$HH_PROGRESS.tmp" "$HH_PROGRESS" 2>/dev/null || true
+}
 die() { printf '\nSomething went wrong: %s\n' "$*" >&2; exit 1; }
 have() { command -v "$1" >/dev/null 2>&1; }
 OS="$(uname -s)"
@@ -78,13 +84,17 @@ fi
 
 # 1. The latest version.
 if [ "$PULL" = 1 ] && [ -d .git ]; then
+  progress pull
   say "Getting the latest version"
   git pull --ff-only || die "couldn't update: this folder has changes of its own. Undo them (git status shows what), then run this again."
+  # The pull may have changed this very script, which bash is still reading: carry on in the new copy instead.
+  if [ -z "${HH_REEXEC:-}" ]; then HH_REEXEC=1 exec bash "$here/install.sh" --no-pull "$@"; fi
 fi
 
 # 2. A C compiler (Rust needs one to link), then Rust itself, if they aren't here yet.
 as_root() { if [ "$(id -u)" = 0 ]; then "$@"; elif have sudo; then sudo "$@"; else return 1; fi; }
 if ! have cc && ! have gcc && ! have clang; then
+  progress tools
   say "Installing a C compiler (Rust needs one)"
   if [ "$OS" = Darwin ]; then
     die "the Mac's developer tools are missing. Run: xcode-select --install   then run this again."
@@ -97,12 +107,14 @@ fi
 export PATH="$HOME/.cargo/bin:$PATH"
 if ! have cargo; then
   have curl || die "curl isn't installed, and it's needed to fetch Rust."
+  progress tools
   say "Installing Rust (the language the hub is written in)"
   curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --no-modify-path
   export PATH="$HOME/.cargo/bin:$PATH"
 fi
 
 # 3. Build. The old version keeps running until the new one is ready.
+progress build
 say "Building Home Hub (the first time takes a few minutes)"
 cargo build --release --locked 2>/dev/null || cargo build --release
 
@@ -111,6 +123,7 @@ chmod 600 .env
 PORT_NOW="$(sed -n 's/^PORT=//p' .env | tail -n1)"; PORT_NOW="${PORT_NOW:-8787}"
 
 # 4. Start it, now and at every boot.
+progress start
 restart_service() {
   if [ "$OS" = Darwin ]; then
     launchctl kickstart -k "gui/$(id -u)/$LABEL" 2>/dev/null
