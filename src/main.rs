@@ -25,6 +25,13 @@ use tokio::{
 };
 
 const INDEX: &str = include_str!("../web/index.html");
+const MANIFEST: &str = include_str!("../web/manifest.webmanifest");
+const SERVICE_WORKER: &str = include_str!("../web/sw.js");
+const ICON_SVG: &str = include_str!("../web/icon.svg");
+const ICON_192: &[u8] = include_bytes!("../web/icons/icon-192.png");
+const ICON_512: &[u8] = include_bytes!("../web/icons/icon-512.png");
+const ICON_MASKABLE: &[u8] = include_bytes!("../web/icons/icon-maskable-512.png");
+const ICON_APPLE: &[u8] = include_bytes!("../web/icons/apple-touch-icon.png");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const LATEST_CACHE: Duration = Duration::from_secs(300);
 
@@ -100,6 +107,13 @@ async fn main() {
 
     let router = Router::new()
         .route("/", get(|| async { ([(header::CACHE_CONTROL, "no-cache")], Html(INDEX)) }))
+        .route("/manifest.webmanifest", get(|| async { ([(header::CONTENT_TYPE, "application/manifest+json"), (header::CACHE_CONTROL, "no-cache")], MANIFEST) }))
+        .route("/sw.js", get(|| async { ([(header::CONTENT_TYPE, "text/javascript"), (header::CACHE_CONTROL, "no-cache")], SERVICE_WORKER) }))
+        .route("/icon.svg", get(|| async { ([(header::CONTENT_TYPE, "image/svg+xml"), (header::CACHE_CONTROL, "no-cache")], ICON_SVG) }))
+        .route("/icons/icon-192.png", get(|| async { png(ICON_192) }))
+        .route("/icons/icon-512.png", get(|| async { png(ICON_512) }))
+        .route("/icons/icon-maskable-512.png", get(|| async { png(ICON_MASKABLE) }))
+        .route("/icons/apple-touch-icon.png", get(|| async { png(ICON_APPLE) }))
         .route("/api/state", get(state))
         .route("/api/setup", post(setup))
         .route("/api/calendars", post(save_calendars))
@@ -113,6 +127,10 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port)).await.expect("can't use that port");
     println!("Home Hub {VERSION} is running on port {port}");
     axum::serve(listener, router).await.expect("server stopped");
+}
+
+fn png(bytes: &'static [u8]) -> impl IntoResponse {
+    ([(header::CONTENT_TYPE, "image/png"), (header::CACHE_CONTROL, "no-cache")], bytes)
 }
 
 fn catalog_json() -> Value {
