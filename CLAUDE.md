@@ -18,8 +18,9 @@ A private, self-hosted family dashboard for a Samsung Galaxy Tab S10 FE+ mounted
 - The owner self-hosts this. Prefer simple, low-maintenance choices (one small service, file or SQLite storage, no external accounts unless needed).
 - Design for the tablet first: large type, high contrast, no hover-only interactions, screen stays awake.
 - The dashboard is a fixed 800 x 1280 portrait stage (the S10 FE+ in portrait, about 800 x 1280 CSS px: an estimate, check `innerWidth` on the tablet) scaled to fit the screen, so landscape just letterboxes for now. Light theme, Comfortaa for the greeting and clock, Onest for everything else; the widget cards borrow each app's own look (PocketPals violet sky and pals, WattsMyPower dark card and house). Fonts load from Google Fonts and fall back to system fonts.
+- Calendars come from iCal addresses (Google "Secret address in iCal format", Apple public link, Outlook publish link) pasted into Settings. No accounts or sign-in. `src/calendar.rs` downloads them with `curl` every ten minutes, reads the events (time zones, repeats, skipped dates and moved occurrences included) and answers `GET /api/events?from=&to=` (RFC 3339). The addresses are secrets: they live only in `data/config.json` (git-ignored) and are never sent back to the screen. Day, Week and Month views are on the Calendar tab; they only read, nothing is edited on the hub yet.
 - Only show real data. The calendar and dinner cards show an empty state until they're connected; open the hub with `?demo` to see them filled with sample content. Don't put the family's real names in the repo (it is public); the pals and logo are PocketPals brand art, embedded as data in `web/index.html`.
-- The Calendar, Menu and Shopping list tabs and the Week/Month buttons only say "Coming soon" so far.
+- The Menu and Shopping list tabs only say "Coming soon" so far.
 - Keep secrets (API keys, calendar tokens) in `.env`, never in the repo. Keep `.env.example` current.
 - Use plain, calm words in the interface; no jargon.
 - Commit small and often. Ask before pushing, creating PRs or changing the repo's settings.
