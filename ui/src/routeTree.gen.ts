@@ -10,33 +10,115 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as ChoresRouteImport } from './routes/chores'
+import { Route as DinnersRouteImport } from './routes/dinners'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SetupRouteImport } from './routes/setup'
+import { Route as ShoppingRouteImport } from './routes/shopping'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChoresRoute = ChoresRouteImport.update({
+  id: '/chores',
+  path: '/chores',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DinnersRoute = DinnersRouteImport.update({
+  id: '/dinners',
+  path: '/dinners',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShoppingRoute = ShoppingRouteImport.update({
+  id: '/shopping',
+  path: '/shopping',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/calendar': typeof CalendarRoute
+  '/chores': typeof ChoresRoute
+  '/dinners': typeof DinnersRoute
+  '/settings': typeof SettingsRoute
+  '/setup': typeof SetupRoute
+  '/shopping': typeof ShoppingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/calendar': typeof CalendarRoute
+  '/chores': typeof ChoresRoute
+  '/dinners': typeof DinnersRoute
+  '/settings': typeof SettingsRoute
+  '/setup': typeof SetupRoute
+  '/shopping': typeof ShoppingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/calendar': typeof CalendarRoute
+  '/chores': typeof ChoresRoute
+  '/dinners': typeof DinnersRoute
+  '/settings': typeof SettingsRoute
+  '/setup': typeof SetupRoute
+  '/shopping': typeof ShoppingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/calendar'
+    | '/chores'
+    | '/dinners'
+    | '/settings'
+    | '/setup'
+    | '/shopping'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/calendar'
+    | '/chores'
+    | '/dinners'
+    | '/settings'
+    | '/setup'
+    | '/shopping'
+  id:
+    | '__root__'
+    | '/'
+    | '/calendar'
+    | '/chores'
+    | '/dinners'
+    | '/settings'
+    | '/setup'
+    | '/shopping'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CalendarRoute: typeof CalendarRoute
+  ChoresRoute: typeof ChoresRoute
+  DinnersRoute: typeof DinnersRoute
+  SettingsRoute: typeof SettingsRoute
+  SetupRoute: typeof SetupRoute
+  ShoppingRoute: typeof ShoppingRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +130,59 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chores': {
+      id: '/chores'
+      path: '/chores'
+      fullPath: '/chores'
+      preLoaderRoute: typeof ChoresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dinners': {
+      id: '/dinners'
+      path: '/dinners'
+      fullPath: '/dinners'
+      preLoaderRoute: typeof DinnersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shopping': {
+      id: '/shopping'
+      path: '/shopping'
+      fullPath: '/shopping'
+      preLoaderRoute: typeof ShoppingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CalendarRoute: CalendarRoute,
+  ChoresRoute: ChoresRoute,
+  DinnersRoute: DinnersRoute,
+  SettingsRoute: SettingsRoute,
+  SetupRoute: SetupRoute,
+  ShoppingRoute: ShoppingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
