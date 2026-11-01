@@ -129,6 +129,7 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 #sheet input{min-width:0}
 .phone #sheet input{font-size:18px;padding:0 12px}
 @media (max-width:600px){.page{padding:24px 16px}.page h1{font-size:36px}}
+.wrow{display:flex;align-items:center;gap:12px;width:100%;min-height:46px;padding:3px 0;border:0;border-top:1px solid #edf0f5;border-radius:0;background:none;text-align:left;color:inherit}
 .sheet-on #sheetscrim{opacity:1;pointer-events:auto}
 .sheet-on #sheet{transform:none;visibility:visible;transition:transform .4s cubic-bezier(.2,.8,.2,1),visibility 0s}
 .scroll{overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -259,7 +260,7 @@ const CHEV_R = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stro
 
 /* ---------- Events (from the hub, or sample ones with ?demo) ---------- */
 let EV = {list: [], cals: {}};
-const view = {page: "overview", mode: "day", date: new Date(), who: null};
+const view = {page: "overview", mode: "day", date: new Date(), who: null, ovMode: "day"};
 const dateOf = (s, allDay) => { if (allDay) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); } return new Date(s); };
 const prep = e => ({...e, s: dateOf(e.start, e.all_day), e: dateOf(e.end, e.all_day)});
 function onDay(e, day) {
@@ -309,6 +310,17 @@ async function loadOverview() {
   await loadRange(mon, addDays(mon, 7));
   drawToday();
 }
+/* The Overview's week view: one short row per day. */
+function weekRows(mon, now) {
+  const max = DIM.phone ? 2 : 3;
+  return Array.from({length: 7}, (_, i) => {
+    const day = addDays(mon, i), today = sameDay(day, now);
+    const evs = EV.list.filter(e => onDay(e, day)).sort((a, b) => (b.all_day - a.all_day) || a.s - b.s);
+    const chips = evs.slice(0, max).map(e => `<span class="mchip" style="background:${esc(tint(colorsOf(e)[0]))};height:32px;line-height:32px;font-size:${DIM.phone ? 14 : 16}px;padding:0 9px;min-width:0;flex:0 1 auto;max-width:${DIM.phone ? 120 : 190}px;color:#101828">${e.all_day ? "" : `<span class="num" style="font-weight:600;color:#3a4358;margin-right:5px">${esc(fmtT(e.s))}</span>`}${esc(e.title)}</span>`).join("")
+      + (evs.length > max ? `<span style="font-size:15px;font-weight:700;color:#5a6478;flex:none">+${evs.length - max}</span>` : "");
+    return `<button class="wrow" data-wday="${i}" aria-label="${esc(day.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}))}"><span class="fx" style="flex-direction:column;gap:0;width:50px;flex:none"><span style="font-size:12px;font-weight:700;letter-spacing:.06em;color:${today ? "#101828" : "#6b7488"}">${esc(day.toLocaleDateString([], {weekday: "short"}).toUpperCase())}</span><span class="num fx" style="width:34px;height:34px;border-radius:50%;justify-content:center;font-size:18px;font-weight:700;${today ? "background:#101828;color:#fff" : ""}">${day.getDate()}</span></span><span class="fx" style="gap:6px;min-width:0;flex:1;overflow:hidden">${chips || `<span style="font-size:16px;color:#8a93a6">Nothing on</span>`}</span></button>`;
+  }).join("");
+}
 function drawToday() {
   const el = $("today");
   if (!el) return;
@@ -336,19 +348,24 @@ function drawToday() {
     body = `<div style="padding:34px 0 30px;text-align:center"><div style="font-size:26px;font-weight:700;letter-spacing:-.02em">${h}</div><div style="font-size:18px;color:#6b7488;margin-top:6px">${p}</div></div>`;
     later = hasCals ? "" : "No calendars added";
   }
+  const wk = view.ovMode === "week";
+  const weekCount = EV.list.filter(e => { for (let i = 0; i < 7; i++) if (onDay(e, addDays(mon, i))) return true; return false; }).length;
   el.innerHTML = `
     <div class="fx" style="justify-content:space-between">
-      <div class="fx" style="gap:12px;align-items:baseline"><span style="font-size:32px;font-weight:700;letter-spacing:-.04em">Today</span>${nextTxt ? `<span class="fx" style="gap:7px;font-size:15px;font-weight:600;color:#1d4ed8"><span class="live" style="width:7px;height:7px;border-radius:50%;background:#1d4ed8"></span>${nextTxt}</span>` : ""}</div>
-      <div class="fx" style="gap:3px;background:#f1f4f9;border-radius:999px;padding:3px"><button class="sg on" data-open="day">Day</button><button class="sg" data-open="week">Week</button><button class="sg" data-open="month">Month</button></div>
+      <div class="fx" style="gap:12px;align-items:baseline"><span style="font-size:32px;font-weight:700;letter-spacing:-.04em">${wk ? "This week" : "Today"}</span>${nextTxt && !wk ? `<span class="fx" style="gap:7px;font-size:15px;font-weight:600;color:#1d4ed8"><span class="live" style="width:7px;height:7px;border-radius:50%;background:#1d4ed8"></span>${nextTxt}</span>` : ""}</div>
+      <div class="fx" style="gap:3px;background:#f1f4f9;border-radius:999px;padding:3px"><button class="sg${wk ? "" : " on"}" data-ovmode="day">Day</button><button class="sg${wk ? " on" : ""}" data-ovmode="week">Week</button><button class="sg" data-open="month">Month</button></div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;margin-top:14px;padding-bottom:12px;border-bottom:1px solid #edf0f5">${strip}</div>
-    ${body}
+    ${wk ? `<div style="margin-top:8px">${weekRows(mon, now)}</div>`
+         : `<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;margin-top:14px;padding-bottom:12px;border-bottom:1px solid #edf0f5">${strip}</div>
+    ${body}`}
     <div class="fx" style="justify-content:space-between;gap:14px;border-top:1px solid #edf0f5;padding-top:12px;margin-top:2px">
-      <span style="font-size:16px;font-weight:500;color:${bad ? "#b3321f" : "#6b7488"};min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${bad ? "Can't reach " + esc(bad.name) : later}</span>
-      <button data-open="${hasCals ? "day" : "settings"}" class="fx" style="gap:6px;flex:none;height:44px;min-height:0;padding:0 18px;border-radius:999px;border:0;background:#101828;color:#fff;font-size:16px;font-weight:650">${hasCals ? "Open calendar" : "Add a calendar"}${CHEV}</button>
+      <span style="font-size:16px;font-weight:500;color:${bad ? "#b3321f" : "#6b7488"};min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${bad ? "Can't reach " + esc(bad.name) : wk ? (weekCount ? `${weekCount} on this week` : "A quiet week") : later}</span>
+      <button data-open="${wk ? "week" : "day"}" class="fx" style="gap:6px;flex:none;height:44px;min-height:0;padding:0 18px;border-radius:999px;border:0;background:#101828;color:#fff;font-size:16px;font-weight:650">Open calendar${CHEV}</button>
     </div>`;
   el.querySelectorAll("[data-open]").forEach(b => b.onclick = () => b.dataset.open === "settings" ? showSettings() : openCal(b.dataset.open, new Date()));
   el.querySelectorAll("[data-day]").forEach(b => b.onclick = () => openCal("day", addDays(mon, +b.dataset.day)));
+  el.querySelectorAll("[data-wday]").forEach(b => b.onclick = () => openCal("day", addDays(mon, +b.dataset.wday)));
+  el.querySelectorAll("[data-ovmode]").forEach(b => b.onclick = () => { view.ovMode = b.dataset.ovmode; drawToday(); });
 }
 
 /* ---------- Calendar page (Day, Week, Month) ---------- */
