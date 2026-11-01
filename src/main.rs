@@ -3,6 +3,7 @@
 mod calendar;
 mod dinners;
 mod family;
+mod pocketpals;
 mod shopping;
 
 use axum::{
@@ -70,6 +71,13 @@ struct Config {
     /// Show times like 15:30 instead of 3:30pm.
     #[serde(default)]
     hour24: bool,
+    /// The key from PocketPals' You page (Developers). A secret: never sent back to the screen. It works with the
+    /// PocketPals widget's address.
+    #[serde(default)]
+    pocketpals_key: String,
+    /// Whether that key may tick jobs, or only read them.
+    #[serde(default)]
+    pocketpals_tick: bool,
 }
 
 /// What the last fetch of one calendar found.
@@ -88,6 +96,8 @@ struct App {
     family: RwLock<family::Family>,
     dinners: RwLock<dinners::Dinners>,
     shopping: RwLock<shopping::Shopping>,
+    /// The last jobs PocketPals sent, for a few seconds, so a screen asking twice doesn't ask PocketPals twice.
+    jobs: Mutex<HashMap<String, (Instant, Value)>>,
 }
 
 const MAX_CALENDARS: usize = 8;
@@ -115,7 +125,7 @@ async fn main() {
         Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
         Err(_) => shopping::Shopping::default(),
     };
-    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping) });
+    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), jobs: Mutex::new(HashMap::new()) });
 
     // Keep the calendars fresh: once now, then every ten minutes.
     let background = app.clone();
@@ -140,6 +150,10 @@ async fn main() {
         .route("/api/calendars", post(save_calendars))
         .route("/api/clock", post(save_clock))
         .route("/api/events", get(events))
+        .route("/api/pocketpals/connect", post(pp_connect))
+        .route("/api/pocketpals/disconnect", post(pp_disconnect))
+        .route("/api/chores", get(pp_chores))
+        .route("/api/chores/tick", post(pp_tick))
         .route("/api/shopping", get(get_shopping))
         .route("/api/shopping/add", post(shopping_add))
         .route("/api/shopping/update", post(shopping_update))
@@ -183,7 +197,7 @@ async fn state(State(app): Shared) -> Json<Value> {
     Json(json!({
         "version": VERSION,
         "people": people,
-        "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars, "hour24": config.hour24},
+        "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars, "hour24": config.hour24, "pocketpals": pocketpals_json(&config)},
         "catalog": catalog_json(),
     }))
 }
@@ -382,6 +396,120 @@ async fn edit_dinners<T>(app: &App, change: impl FnOnce(&mut dinners::Dinners) -
 
 async fn edit_shopping<T>(app: &App, change: impl FnOnce(&mut shopping::Shopping) -> Result<T, &'static str>) -> Result<T, (StatusCode, String)> {
     edit_json(&app.shopping, app.data.join("shopping.json"), change).await
+}
+
+/// The PocketPals link as the screen may see it: whether it's set up, and whether kids can tick. Never the key.
+fn pocketpals_json(c: &Config) -> Value {
+    let url = pp_url(c);
+    json!({"connected": url.is_some() && !c.pocketpals_key.is_empty(), "tick": c.pocketpals_tick, "url": url})
+}
+
+fn pp_url(c: &Config) -> Option<String> {
+    c.widgets.iter().find(|w| w.id == "pocketpals").map(|w| w.url.clone()).filter(|u| !u.is_empty())
+}
+
+#[derive(Deserialize)]
+struct ConnectBody {
+    url: String,
+    key: Option<String>,
+}
+
+/// Connect to PocketPals with its address and a key (or keep the key already saved), after checking they work.
+async fn pp_connect(State(app): Shared, Json(body): Json<ConnectBody>) -> impl IntoResponse {
+    let url = body.url.trim().trim_end_matches('/').to_string();
+    if url.len() > 200 || url.contains(char::is_whitespace) || host_port(&url).is_none() {
+        return (StatusCode::BAD_REQUEST, "A web address should look like https://pocketpals.example.com or http://192.168.1.20:8080").into_response();
+    }
+    let old = app.config.read().await.clone();
+    let key = body.key.as_deref().map(str::trim).filter(|k| !k.is_empty()).map(str::to_string).unwrap_or_else(|| old.pocketpals_key.clone());
+    if !key.starts_with("pp_") || key.len() > 120 || key.contains(char::is_whitespace) {
+        return (StatusCode::BAD_REQUEST, "Paste the key from PocketPals (You, then Developers). It starts with pp_").into_response();
+    }
+    let hello = match pocketpals::ping(&url, &key).await {
+        Ok(v) => v,
+        Err(why) => return (StatusCode::BAD_REQUEST, why).into_response(),
+    };
+    let tick = hello["scopes"].as_array().is_some_and(|s| s.iter().any(|x| x == "chores:tick"));
+    let mut widgets: Vec<Widget> = old.widgets.iter().filter(|w| w.id != "pocketpals").cloned().collect();
+    widgets.insert(0, Widget { id: "pocketpals".into(), url });
+    let config = Config { widgets, pocketpals_key: key, pocketpals_tick: tick, ..old };
+    if save(&app, config).await.is_err() {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
+    }
+    app.jobs.lock().await.clear();
+    Json(json!({"kids": hello["kids"], "tick": tick})).into_response()
+}
+
+async fn pp_disconnect(State(app): Shared) -> impl IntoResponse {
+    let config = Config { pocketpals_key: String::new(), pocketpals_tick: false, ..app.config.read().await.clone() };
+    if save(&app, config).await.is_err() {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
+    }
+    app.jobs.lock().await.clear();
+    StatusCode::NO_CONTENT.into_response()
+}
+
+#[derive(Deserialize)]
+struct RangeQuery {
+    from: String,
+    to: String,
+}
+
+const JOBS_FRESH: Duration = Duration::from_secs(8);
+
+/// The kids' jobs from PocketPals for a stretch of days, or why they aren't here.
+async fn pp_chores(State(app): Shared, Query(q): Query<RangeQuery>) -> impl IntoResponse {
+    let config = app.config.read().await.clone();
+    let (Some(url), false) = (pp_url(&config), config.pocketpals_key.is_empty()) else {
+        return Json(json!({"connected": false})).into_response();
+    };
+    if !pocketpals::is_day(&q.from) || !pocketpals::is_day(&q.to) {
+        return (StatusCode::BAD_REQUEST, "from and to should be days like 2026-11-02").into_response();
+    }
+    let cache_key = format!("{}..{}", q.from, q.to);
+    if let Some((at, v)) = app.jobs.lock().await.get(&cache_key) {
+        if at.elapsed() < JOBS_FRESH {
+            return Json(v.clone()).into_response();
+        }
+    }
+    let out = match pocketpals::chores(&url, &config.pocketpals_key, &q.from, &q.to).await {
+        Ok(mut v) => {
+            v["connected"] = json!(true);
+            v["tick"] = json!(config.pocketpals_tick);
+            app.jobs.lock().await.insert(cache_key, (Instant::now(), v.clone()));
+            v
+        }
+        Err(why) => json!({"connected": true, "error": why}),
+    };
+    Json(out).into_response()
+}
+
+#[derive(Deserialize)]
+struct TickBody {
+    kid_id: i64,
+    chore_id: i64,
+    day: String,
+    done: bool,
+}
+
+/// Tick a job off in PocketPals (or take the tick back), as the child would.
+async fn pp_tick(State(app): Shared, Json(body): Json<TickBody>) -> impl IntoResponse {
+    let config = app.config.read().await.clone();
+    let (Some(url), false) = (pp_url(&config), config.pocketpals_key.is_empty()) else {
+        return (StatusCode::BAD_REQUEST, "PocketPals isn't connected.").into_response();
+    };
+    if !config.pocketpals_tick {
+        return (StatusCode::FORBIDDEN, "This PocketPals key can only show jobs. Make one that can tick them.").into_response();
+    }
+    if !pocketpals::is_day(&body.day) {
+        return (StatusCode::BAD_REQUEST, "That day doesn't look right.").into_response();
+    }
+    let done = pocketpals::tick(&url, &config.pocketpals_key, body.kid_id, body.chore_id, &body.day, body.done).await;
+    app.jobs.lock().await.clear();
+    match done {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(why) => (StatusCode::BAD_REQUEST, why).into_response(),
+    }
 }
 
 /// The shopping list.
