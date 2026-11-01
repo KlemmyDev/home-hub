@@ -69,7 +69,50 @@ function Time() {
         <Seg items={[["12", "12-hour (3:30pm)"], ["24", "24-hour (15:30)"]]} value={h24 ? "24" : "12"} onPick={async v => { try { await post("/api/clock", { hour24: v === "24" }); await refreshState(); } catch { /* keep the old choice */ } }} />
       </Box>
       <Zone />
+      <Reminders />
+      <Holidays />
     </>
+  );
+}
+
+const LEADS: [string, string][] = [["0", "Off"], ["5", "5 min"], ["15", "15 min"], ["30", "30 min"], ["60", "1 hour"]];
+/** How long before an event the screen shows a banner about it. */
+function Reminders() {
+  const { S, refreshState } = useHub();
+  const now = String(S.config.remind_min ?? 15);
+  return (
+    <Box title="Reminders" icon="calendar">
+      <p>Show a banner on the screen this long before an event starts, so nobody is late.</p>
+      <Seg items={LEADS.some(([v]) => v === now) ? LEADS : [...LEADS, [now, now + " min"]]} value={now} onPick={async v => { try { await post("/api/remind", { minutes: Number(v) }); await refreshState(); } catch { /* keep the old choice */ } }} />
+    </Box>
+  );
+}
+
+const COUNTRIES: [string, string][] = [["AU", "Australia"], ["NZ", "New Zealand"], ["GB", "United Kingdom"], ["IE", "Ireland"], ["US", "United States"], ["CA", "Canada"], ["ZA", "South Africa"], ["SG", "Singapore"], ["DE", "Germany"], ["FR", "France"], ["ES", "Spain"], ["IT", "Italy"]];
+/** Public holidays from Nager.Date (no account). They appear in the calendar as all-day events. */
+function Holidays() {
+  const { S, refreshState } = useHub();
+  const h = S.config.holidays || { country: "", region: "" }, [region, setRegion] = useState(h.region.split("-")[1] || ""), [err, setErr] = useState("");
+  const save = async (country: string, reg: string) => {
+    try { await post("/api/holidays", { country, region: country && reg ? `${country}-${reg.toUpperCase()}` : "" }); setErr(""); await refreshState(); qcInvalidate(); }
+    catch (e: any) { setErr(e.message || "Couldn't save that."); }
+  };
+  const qc = useQueryClient(), qcInvalidate = () => qc.invalidateQueries({ queryKey: ["events"] });
+  return (
+    <Box title="Public holidays" icon="calendar">
+      <p>Show your country's public holidays in the calendar. They come from Nager.Date, which needs no account.</p>
+      <div className="fx" style={{ gap: 10, flexWrap: "wrap" }}>
+        <button className={"pill" + (!h.country ? " on" : "")} style={{ height: 52 }} onClick={() => save("", "")}>None</button>
+        {COUNTRIES.map(([c, n]) => <button key={c} className={"pill" + (h.country === c ? " on" : "")} style={{ height: 52 }} onClick={() => save(c, c === h.country ? region : "")}>{n}</button>)}
+      </div>
+      {h.country ? (
+        <div style={{ marginTop: 16 }}>
+          <p style={{ margin: "0 0 8px" }}>State or region (optional). Some holidays only apply in one state; type it like <em>QLD</em> or <em>ENG</em> to include those.</p>
+          <input value={region} onChange={e => setRegion(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 4))} onBlur={() => save(h.country, region)} placeholder="Leave empty for national holidays only" autoComplete="off" autoCapitalize="characters" aria-label="State or region" />
+        </div>
+      ) : null}
+      {err ? <div className="err" role="alert">{err}</div> : null}
+    </Box>
   );
 }
 

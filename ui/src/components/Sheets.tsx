@@ -4,6 +4,7 @@ import { api, post } from "../lib/api";
 import { addDays, dayDiff, fmtT, fromYmd, hmOf, longDay, shortDate, ymd } from "../lib/dates";
 import type { Ev } from "../lib/events";
 import { useDinners } from "../data";
+import { quickAdd } from "../lib/quickadd";
 import { useHub, type EventDraft, type Sheet } from "../hub";
 import { FamilyEditor } from "./Family";
 import { Lab, Pill, SheetFrame } from "./SheetFrame";
@@ -51,6 +52,7 @@ function EventSheet({ draft: start }: { draft: EventDraft }) {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [custom, setCustom] = useState(() => !start.allDay && !LENGTHS.some(([m]) => m === Math.round((+new Date(`${start.ned}T${start.net}`) - +new Date(`${start.sd}T${start.st}`)) / 60000)) && !!start.id);
+  const [quick, setQuick] = useState("");
   const titleRef = useRef<HTMLInputElement>(null);
   useEffect(() => {      // the name field is ready for typing once the sheet has finished rising; focusing earlier makes the page behind scroll
     if (start.id) return;
@@ -93,6 +95,12 @@ function EventSheet({ draft: start }: { draft: EventDraft }) {
     : `${shortDate(startAt())}, ${fmtT(startAt(), h24)} to ${fmtT(endAt(), h24)}${t.ned !== t.sd ? " (" + shortDate(endAt()) + ")" : ""}`;
   const body = (
     <>
+      {editing ? null : (
+        <form className="qadd" onSubmit={e => { e.preventDefault(); if (!quick.trim()) return; const q = quickAdd(quick, now, people); setCustom(false); setErr(""); setT(x => ({ ...x, ...q, title: q.title || x.title })); setQuick(""); }}>
+          <input value={quick} onChange={e => setQuick(e.target.value)} placeholder="Or just type it: Football Saturday 9am for 2 hours" aria-label="Quick add" autoComplete="off" enterKeyHint="go" maxLength={120} />
+          <button type="submit" className="primary" disabled={!quick.trim()}>Fill in</button>
+        </form>
+      )}
       <div className="whobar" aria-hidden>{pick.length ? pick.map(p => <i key={p.id} style={{ background: p.color }} />) : <i style={{ background: "#d5dbe6" }} />}</div>
       <input ref={titleRef} value={t.title} onChange={e => set({ title: e.target.value })} maxLength={80} placeholder="What's happening?" autoComplete="off" style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-.02em", minHeight: 76, marginTop: 14 }} />
 

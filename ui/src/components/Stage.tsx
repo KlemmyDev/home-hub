@@ -9,6 +9,7 @@ import { Overview } from "./Overview";
 import { MenuPanel, ShoppingPanel } from "./Panels";
 import { Settings } from "../screens/Settings";
 import { SheetHost } from "./Sheets";
+import { Reminders } from "./Reminders";
 
 type Box = { l: number; t: number; w: number; h: number };
 const boxFull = (d: Dim): Box => d.phone ? { l: 10, t: 10 + d.st, w: d.W - 20, h: d.H - 20 - d.st - d.sb } : { l: 20, t: 20, w: d.W - 40, h: d.H - 40 };
@@ -82,6 +83,7 @@ export function Stage() {
         <PanelCard id="shopcard" inner="shopin" active={page === "shopping"}><ShoppingPanel /></PanelCard>
         <PanelCard id="chorecard" inner="chorein" active={page === "chores"} edge><ChoresPanel /></PanelCard>
         {page === "settings" ? <div id="setlayer"><Settings /></div> : null}
+        <Reminders />
         <Dock />
         <div id="sheetscrim" onClick={closeSheet} />
         <SheetHost />

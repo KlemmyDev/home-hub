@@ -123,7 +123,7 @@ mod tests {
     use super::*;
 
     fn dad() -> Vec<Person> {
-        vec![Person { id: "p1".into(), name: "Dad".into(), color: "#2f6fe0".into() }]
+        vec![Person { id: "p1".into(), name: "Dad".into(), color: "#2f6fe0".into(), birthday: None }]
     }
 
     #[test]

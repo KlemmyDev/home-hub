@@ -4,10 +4,10 @@ import { addDays, fromZoned, startOfDay, toZoned } from "./dates";
 export const PALETTE = ["#2f6fe0", "#e2523f", "#14a06c", "#e5487f", "#7b5cf0", "#f59e0b", "#0ea5b7"];
 export const tint = (c: string) => c + "2b";
 
-export type Person = { id: string; name: string; color: string };
+export type Person = { id: string; name: string; color: string; birthday?: string };
 export type CalInfo = { id: string; name: string; color: string; ok: boolean; error?: string };
 export type Ev = {
-  id: string; title: string; location: string; all_day: boolean; cal?: string; hub?: boolean; series?: string; people?: string[];
+  id: string; title: string; location: string; all_day: boolean; cal?: string; hub?: boolean; fixed?: boolean; series?: string; people?: string[];
   start?: string; end?: string; s: Date; e: Date;
 };
 export type EvData = { list: Ev[]; cals: Record<string, CalInfo> };

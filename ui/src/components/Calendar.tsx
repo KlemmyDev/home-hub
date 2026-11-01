@@ -22,10 +22,13 @@ const evBg = (c: string) => `color-mix(in srgb, ${c} 17%, #fff)`;
 /** Names events so they can glide from one view to the next while the view transition runs. Hours scrolled out of sight are left unnamed, so nothing flies in across the header. */
 const vtn = (e: Ev, day: Date, c: { vt: boolean; band: [number, number] }, hr?: number): CSSProperties => c.vt && (hr === undefined || (hr >= c.band[0] && hr <= c.band[1])) ? { viewTransitionName: "ev-" + e.id.replace(/[^a-zA-Z0-9_-]/g, "_") + "-" + ymd(day) } : {};
 
-const stepDate = (cal: CalView, n: number) => cal.mode === "day" ? addDays(cal.date, n) : cal.mode === "week" ? addDays(cal.date, 7 * n) : new Date(cal.date.getFullYear(), cal.date.getMonth() + n, 1);
+const stepDate = (cal: CalView, n: number) => cal.mode === "agenda" ? addDays(cal.date, 7 * n) : cal.mode === "day" ? addDays(cal.date, n) : cal.mode === "week" ? addDays(cal.date, 7 * n) : new Date(cal.date.getFullYear(), cal.date.getMonth() + n, 1);
+
+const AGENDA_DAYS = 14;
 
 function calRange(cal: CalView): [Date, Date] {
   const d = startOfDay(cal.date);
+  if (cal.mode === "agenda") return [d, addDays(d, AGENDA_DAYS)];
   if (cal.mode === "day" || cal.mode === "week") { const w = weekStart(d); return [w, addDays(w, 7)]; }
   const first = weekStart(new Date(d.getFullYear(), d.getMonth(), 1));
   return [first, addDays(first, 42)];
@@ -241,6 +244,38 @@ function Month({ c }: { c: Ctx }) {
   );
 }
 
+/** A plain list of what's coming over the next two weeks: only days with something on, so it reads from a metre away. */
+function Upcoming({ c }: { c: Ctx }) {
+  const { now } = useHub();
+  const cal = usePaneCal();
+  const d = startOfDay(cal.date);
+  const days = Array.from({ length: AGENDA_DAYS }, (_, i) => addDays(d, i)).map(day => ({ day, evs: c.list.filter(e => onDay(e, day)).sort((a, b) => (+b.all_day - +a.all_day) || +a.s - +b.s) }));
+  const shown = days.filter(x => x.evs.length || sameDay(x.day, now));
+  const none = !days.some(x => x.evs.length);
+  const name = (day: Date) => sameDay(day, now) ? "Today" : sameDay(day, addDays(now, 1)) ? "Tomorrow" : day.toLocaleDateString([], { weekday: "long" });
+  return (
+    <div className="scroll upc" style={{ flex: 1, minHeight: 0 }}>
+      {shown.map(({ day, evs }) => (
+        <section key={+day} className="upd" aria-label={longDay(day)}>
+          <div className="uph"><b>{name(day)}</b><span>{day.toLocaleDateString([], { day: "numeric", month: "long" })}</span></div>
+          {evs.length ? evs.map(e => {
+            const cs = colorsOf(e, c.data, c.people), ps = peopleOf(e, c.people), who = ps.map(p => p.name).join(" · ") || calOf(e, c.data, c.people).name;
+            return (
+              <button key={e.id} className="upe" onClick={() => c.open(e)} style={{ "--ec": cs[0] } as CSSProperties}>
+                <span className="upt num">{e.all_day ? "All day" : <>{fmtT(e.s, c.h24)}<small>{fmtT(e.e, c.h24)}</small></>}</span>
+                <span className="upb" aria-hidden />
+                <span className="upm"><b>{e.title}</b>{e.location || who ? <small>{[who, e.location].filter(Boolean).join(" · ")}</small> : null}</span>
+                <Avs ps={ps} size={34} max={3} />
+              </button>
+            );
+          }) : <div className="upn">Nothing on today.</div>}
+        </section>
+      ))}
+      {none ? <p className="upn" style={{ padding: "18px 4px" }}>Nothing planned for the next two weeks. Tap + New to add something.</p> : null}
+    </div>
+  );
+}
+
 function Agenda({ c }: { c: Ctx }) {
   const { now } = useHub();
   const cal = usePaneCal();
@@ -332,6 +367,7 @@ function SwipePane({ onStep, api, keyOf, children }: { onStep: (n: number) => vo
 
 function calTitle(cal: CalView, phone: boolean) {
   const d = cal.date, w = phone ? "short" : "long";
+  if (cal.mode === "agenda") { const a = startOfDay(d), b = addDays(a, AGENDA_DAYS - 1), m = (x: Date) => x.toLocaleDateString([], { month: "short" }); return sameDay(a, nowZ()) ? (phone ? "Next 2 weeks" : "Next two weeks") : `${a.getDate()} ${m(a)} to ${b.getDate()} ${m(b)}`; }
   if (cal.mode === "day") return d.toLocaleDateString([], { weekday: w, day: "numeric", month: w });
   if (cal.mode === "week") {
     const a = weekStart(d), b = addDays(a, 6), m = (x: Date) => x.toLocaleDateString([], { month: w });
@@ -340,7 +376,7 @@ function calTitle(cal: CalView, phone: boolean) {
   return d.toLocaleDateString([], { month: "long", year: phone && d.getFullYear() === nowZ().getFullYear() ? undefined : "numeric" });
 }
 
-const MODES = ["day", "week", "month"] as const;
+const MODES = ["day", "week", "month", "agenda"] as const;
 
 type Base = Pick<Ctx, "people" | "h24" | "vt" | "band" | "morph">;
 
@@ -354,7 +390,7 @@ function Pane({ off, pc, k, keep, opening, shared, nonce }: { off: number; pc: C
     ...k, data, list: data.list.filter(e => visibleTo(e, pc.who)), vt: k.vt && !follow,
     open: async e => {
       if (DEMO) return;
-      if (!e.hub) return openSheet({ mode: "view", e, cal: calOf(e, data, k.people) });
+      if (!e.hub || e.fixed) return openSheet({ mode: "view", e, cal: calOf(e, data, k.people) });
       try { openSheet({ mode: "event", draft: await loadEventDraft(e) }); } catch (err: any) { soon(err.message); }
     },
   };
@@ -363,7 +399,8 @@ function Pane({ off, pc, k, keep, opening, shared, nonce }: { off: number; pc: C
   const key = pc.mode + ymd(pc.date) + ":" + nonce;
   return (
     <PaneCal.Provider value={pc}>
-      {pc.mode === "month" ? <Month c={c} />
+      {pc.mode === "agenda" ? <Upcoming c={c} />
+        : pc.mode === "month" ? <Month c={c} />
         : pc.mode === "week" && P ? <Agenda c={c} />
         : pc.mode === "week" ? <><DayHead days={weekOf} size={44} gutter={52} c={c} /><AllDay days={weekOf} gutter={52} c={c} /><Scroller keyed={key} anchorHour={anchor(weekOf)} big={false} opening={opening} keep={keep} shared={shared} follow={follow}><Grid days={weekOf} gutter={52} big={false} c={c} /></Scroller></>
         : <><AllDay days={[d]} gutter={P ? 48 : 60} c={c} /><Scroller keyed={key} anchorHour={anchor([d])} big opening={opening} keep={keep} shared={shared} follow={follow}><Grid days={[d]} gutter={P ? 48 : 60} big c={c} /></Scroller></>}
@@ -405,7 +442,7 @@ export function CalendarPanel() {
     data, list, people, h24, vt, morph, band,
     open: async e => {
       if (DEMO) return;
-      if (!e.hub) return openSheet({ mode: "view", e, cal: calOf(e, data, people) });
+      if (!e.hub || e.fixed) return openSheet({ mode: "view", e, cal: calOf(e, data, people) });
       try { openSheet({ mode: "event", draft: await loadEventDraft(e) }); } catch (err: any) { soon(err.message); }
     },
   };
@@ -424,11 +461,11 @@ export function CalendarPanel() {
       <div className="fx" style={{ justifyContent: "space-between", padding: "0 4px 12px", gap: 12 }}>
         <div className="fx" style={{ gap: 14 }}>
           <span className="clk num" style={{ fontFamily: "'Comfortaa','Onest',sans-serif", fontSize: P ? 44 : 54, fontWeight: 700, letterSpacing: "-.07em", lineHeight: .9, WebkitTextStroke: "1.8px #101828", paintOrder: "stroke fill" }}>{clockT(now, h24)}</span>
-          <span className="cdt" style={{ fontSize: P ? 16 : 20, fontWeight: 700, letterSpacing: "-.03em", lineHeight: 1.1 }}>{shortDate(now)}</span>
+          {P ? null : <span className="cdt" style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-.03em", lineHeight: 1.1 }}>{shortDate(now)}</span>}
         </div>
         <div className="segc" role="tablist" style={{ "--n": MODES.length, "--i": idx } as CSSProperties}>
           <span className="segthumb" aria-hidden />
-          {MODES.map(m => <button key={m} role="tab" aria-selected={cal.mode === m} className={"sg big" + (cal.mode === m ? " on" : "")} onClick={() => cal.mode !== m && morph(x => ({ ...x, mode: m }))}>{m[0].toUpperCase() + m.slice(1)}</button>)}
+          {MODES.map(m => <button key={m} role="tab" aria-selected={cal.mode === m} className={"sg big" + (cal.mode === m ? " on" : "")} onClick={() => cal.mode !== m && morph(x => ({ ...x, mode: m }))}>{P && m === "agenda" ? "List" : m[0].toUpperCase() + m.slice(1)}</button>)}
         </div>
       </div>
       <div className="fx" style={{ justifyContent: "space-between", padding: "0 0 10px", gap: 10 }}>

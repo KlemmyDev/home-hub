@@ -7,7 +7,7 @@ import { DEMO_PEOPLE, type Person } from "./lib/events";
 export const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 15000, retry: false, refetchOnWindowFocus: false } } });
 
 export type Config = {
-  name: string; setup_done: boolean; hour24?: boolean; timezone?: string; widgets: { id: string; url: string }[];
+  name: string; setup_done: boolean; hour24?: boolean; timezone?: string; remind_min?: number; holidays?: { country: string; region: string }; widgets: { id: string; url: string }[];
   calendars: { id: string; name: string; color: string; site?: string }[]; pocketpals?: { connected?: boolean; tick?: boolean; url?: string };
   weather?: { connected: boolean; place: string; fahrenheit: boolean };
 };
@@ -19,7 +19,7 @@ export type HubState = { version: string; config: Config; people: Person[]; cata
 export type Dim = { W: number; H: number; s: number; phone: boolean; st: number; sb: number };
 const DIM0: Dim = { W: 800, H: 1280, s: 1, phone: false, st: 0, sb: 0 };
 
-export type CalView = { mode: "day" | "week" | "month"; date: Date; who: string | null };
+export type CalView = { mode: "day" | "week" | "month" | "agenda"; date: Date; who: string | null };
 export type Sheet =
   | { mode: "event"; draft: EventDraft; occ?: string; back?: boolean }
   | { mode: "view"; e: import("./lib/events").Ev; cal: { name: string; color: string } }

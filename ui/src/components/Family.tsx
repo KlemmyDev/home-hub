@@ -9,18 +9,20 @@ export function FamilyEditor({ onChanged, onAdded }: { onChanged?: () => void; o
   const [color, setColor] = useState(PALETTE[0]);
   const [name, setName] = useState("");
   const [err, setErr] = useState("");
-  const keep = () => people.map(p => ({ id: p.id, name: p.name, color: p.color }));
+  const keep = () => people.map(p => ({ id: p.id, name: p.name, color: p.color, birthday: p.birthday || "" }));
   const save = async (list: any[]) => { await post("/api/people", list); await refreshState(); onChanged?.(); };
   const run = async (f: () => Promise<void>) => { try { await f(); setErr(""); } catch (e: any) { setErr(e.message); } };
   return (
     <div style={{ marginTop: 8 }}>
       {people.length ? people.map(p => (
-        <div className="fx" key={p.id} style={{ gap: 12, padding: "10px 0", borderTop: "1px solid #edf0f5" }}>
+        <div className="fx" key={p.id} style={{ gap: 12, padding: "10px 0", borderTop: "1px solid #edf0f5", flexWrap: "wrap" }}>
           <button aria-label={`Change ${p.name}'s colour`} className="sw" style={{ background: p.color, flex: "none", borderColor: "transparent" }}
             onClick={() => run(() => save(keep().map(x => x.id === p.id ? { ...x, color: PALETTE[(PALETTE.indexOf(x.color) + 1) % PALETTE.length] } : x)))} />
           <input key={p.name} defaultValue={p.name} maxLength={30} aria-label="Name" autoComplete="off" style={{ flex: 1, minWidth: 0 }}
             onBlur={e => e.target.value !== p.name && run(() => save(keep().map(x => x.id === p.id ? { ...x, name: e.target.value } : x)))} />
           <button style={{ minHeight: 52, padding: "0 18px" }} onClick={() => run(() => save(keep().filter(x => x.id !== p.id)))}>Remove</button>
+          <label className="bday"><span>Birthday</span><input type="date" key={p.birthday || ""} defaultValue={p.birthday || ""} aria-label={`${p.name}'s birthday`} max="2100-12-31"
+            onBlur={e => e.target.value !== (p.birthday || "") && run(() => save(keep().map(x => x.id === p.id ? { ...x, birthday: e.target.value } : x)))} /></label>
         </div>
       )) : <p style={{ color: "var(--soft)" }}>No one yet. Add the people in your family and you can give events to them.</p>}
       <div style={{ marginTop: 14, borderTop: "1px solid #edf0f5", paddingTop: 14 }}>

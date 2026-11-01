@@ -3,6 +3,7 @@
 mod calendar;
 mod dinners;
 mod family;
+mod holidays;
 mod pocketpals;
 mod shopping;
 mod weather;
@@ -87,6 +88,18 @@ struct Config {
     /// Show °F instead of °C.
     #[serde(default)]
     weather_f: bool,
+    /// How many minutes before an event the screen warns about it. 0 turns reminders off.
+    #[serde(default = "default_remind")]
+    remind_min: u32,
+    /// Public holidays: a country code like "AU" (empty: none) and an optional region like "AU-QLD".
+    #[serde(default)]
+    holiday_country: String,
+    #[serde(default)]
+    holiday_region: String,
+}
+
+fn default_remind() -> u32 {
+    15
 }
 
 /// What the last fetch of one calendar found.
@@ -109,6 +122,8 @@ struct App {
     jobs: Mutex<HashMap<String, (Instant, Value)>>,
     /// The last weather Open-Meteo sent, for ten minutes.
     weather: Mutex<Option<(Instant, Value)>>,
+    /// Public holidays by country and year, with when they were fetched (a failed fetch is kept too, so it isn't retried every minute).
+    holidays: Mutex<HashMap<(String, i32), (Instant, Vec<holidays::Holiday>)>>,
 }
 
 const MAX_CALENDARS: usize = 8;
@@ -136,7 +151,7 @@ async fn main() {
         Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
         Err(_) => shopping::Shopping::default(),
     };
-    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), jobs: Mutex::new(HashMap::new()), weather: Mutex::new(None) });
+    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), jobs: Mutex::new(HashMap::new()), weather: Mutex::new(None), holidays: Mutex::new(HashMap::new()) });
 
     // Keep the calendars fresh: once now, then every ten minutes.
     let background = app.clone();
@@ -153,6 +168,8 @@ async fn main() {
         .route("/api/calendars", post(save_calendars))
         .route("/api/clock", post(save_clock))
         .route("/api/timezone", post(save_timezone))
+        .route("/api/remind", post(save_remind))
+        .route("/api/holidays", post(save_holidays))
         .route("/api/events", get(events))
         .route("/api/pocketpals/connect", post(pp_connect))
         .route("/api/pocketpals/disconnect", post(pp_disconnect))
@@ -311,7 +328,7 @@ async fn state(State(app): Shared) -> Json<Value> {
     Json(json!({
         "version": VERSION,
         "people": people,
-        "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars, "hour24": config.hour24, "timezone": config.timezone, "pocketpals": pocketpals_json(&config), "weather": {"connected": !config.weather_place.is_empty(), "place": config.weather_place, "fahrenheit": config.weather_f}},
+        "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars, "hour24": config.hour24, "timezone": config.timezone, "remind_min": config.remind_min, "holidays": {"country": config.holiday_country, "region": config.holiday_region}, "pocketpals": pocketpals_json(&config), "weather": {"connected": !config.weather_place.is_empty(), "place": config.weather_place, "fahrenheit": config.weather_f}},
         "catalog": catalog_json(),
     }))
 }
@@ -359,6 +376,47 @@ struct ClockBody {
 
 async fn save_clock(State(app): Shared, Json(body): Json<ClockBody>) -> impl IntoResponse {
     let config = Config { hour24: body.hour24, ..app.config.read().await.clone() };
+    if save(&app, config).await.is_err() {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
+    }
+    StatusCode::NO_CONTENT.into_response()
+}
+
+#[derive(Deserialize)]
+struct RemindBody {
+    minutes: u32,
+}
+
+/// How long before an event the screen warns about it (0 for never).
+async fn save_remind(State(app): Shared, Json(body): Json<RemindBody>) -> impl IntoResponse {
+    if body.minutes > 180 {
+        return (StatusCode::BAD_REQUEST, "Up to three hours before, please.").into_response();
+    }
+    let config = Config { remind_min: body.minutes, ..app.config.read().await.clone() };
+    if save(&app, config).await.is_err() {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
+    }
+    StatusCode::NO_CONTENT.into_response()
+}
+
+#[derive(Deserialize)]
+struct HolidayBody {
+    country: String,
+    #[serde(default)]
+    region: String,
+}
+
+/// Choose which country's public holidays to show (empty for none), and optionally a state or region in it.
+async fn save_holidays(State(app): Shared, Json(body): Json<HolidayBody>) -> impl IntoResponse {
+    let country = body.country.trim().to_ascii_uppercase();
+    let region = body.region.trim().to_ascii_uppercase();
+    if !country.is_empty() && !holidays::is_country(&country) {
+        return (StatusCode::BAD_REQUEST, "Pick a country from the list.").into_response();
+    }
+    if !region.is_empty() && (country.is_empty() || !region.starts_with(&format!("{country}-")) || region.len() > 8 || !region.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')) {
+        return (StatusCode::BAD_REQUEST, "A region looks like AU-QLD.").into_response();
+    }
+    let config = Config { holiday_country: country, holiday_region: region, ..app.config.read().await.clone() };
     if save(&app, config).await.is_err() {
         return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
     }
@@ -503,8 +561,49 @@ async fn events(State(app): Shared, Query(q): Query<EventsQuery>) -> impl IntoRe
         v["repeats"] = json!(h.repeat.freq != "none");
         all.push((e.start.clone(), v));
     }
+    // Birthdays, from the family. They show on the person's colour and can't be edited as events (change them in the family list).
+    let (day_a, day_b) = (from.date_naive(), to.date_naive());
+    for b in family.birthdays(day_a, day_b) {
+        let p = &family.people[b.person];
+        let title = match b.turns {
+            Some(n) => format!("{}'s birthday (turns {n})", p.name),
+            None => format!("{}'s birthday", p.name),
+        };
+        let (start, end) = (b.day.format("%Y-%m-%d").to_string(), (b.day + chrono::Duration::days(1)).format("%Y-%m-%d").to_string());
+        all.push((start.clone(), json!({"id": format!("bday:{}:{start}", p.id), "title": title, "location": "", "start": start, "end": end, "all_day": true, "cal": "birthdays", "hub": true, "fixed": true, "people": [p.id]})));
+    }
+    // Public holidays, once a country is chosen.
+    let config = app.config.read().await.clone();
+    if !config.holiday_country.is_empty() {
+        use chrono::Datelike;
+        for year in day_a.year()..=day_b.year() {
+            for h in holidays_for(&app, &config.holiday_country, year).await {
+                if !holidays::applies(&h, &config.holiday_region) {
+                    continue;
+                }
+                let Some(d) = chrono::NaiveDate::parse_from_str(&h.date, "%Y-%m-%d").ok().filter(|d| *d >= day_a && *d <= day_b) else { continue };
+                let end = (d + chrono::Duration::days(1)).format("%Y-%m-%d").to_string();
+                all.push((h.date.clone(), json!({"id": format!("holiday:{}", h.date), "title": h.name, "location": "", "start": h.date, "end": end, "all_day": true, "cal": "holidays"})));
+            }
+        }
+        info.push(json!({"id": "holidays", "name": "Public holidays", "color": "#8a93a6", "ok": true}));
+    }
     all.sort_by(|a, b| a.0.cmp(&b.0));
     Json(json!({"events": all.into_iter().map(|(_, v)| v).collect::<Vec<_>>(), "calendars": info, "people": family.people})).into_response()
+}
+
+/// A year of public holidays: kept for a day (an hour after a failed try).
+async fn holidays_for(app: &App, country: &str, year: i32) -> Vec<holidays::Holiday> {
+    let key = (country.to_string(), year);
+    if let Some((at, list)) = app.holidays.lock().await.get(&key) {
+        let keep = if list.is_empty() { Duration::from_secs(3600) } else { Duration::from_secs(86400) };
+        if at.elapsed() < keep {
+            return list.clone();
+        }
+    }
+    let list = holidays::fetch(country, year).await.unwrap_or_default();
+    app.holidays.lock().await.insert(key, (Instant::now(), list.clone()));
+    list
 }
 
 /// Change a small saved thing (family, dinners, shopping) and save it whole to its file, or say why not.

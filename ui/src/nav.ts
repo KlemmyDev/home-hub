@@ -12,5 +12,5 @@ export function useNav() {
   const navigate = useNavigate();
   const { setCal, closeSheet } = useHub();
   const go = (page: Page | "setup") => { closeSheet(); navigate({ to: (page === "setup" ? "/setup" : PATHS[page]) as any }); };
-  return { go, openCal: (mode: "day" | "week" | "month", date: Date) => { setCal(c => ({ ...c, mode, date })); navigate({ to: "/calendar" as any }); } };
+  return { go, openCal: (mode: "day" | "week" | "month" | "agenda", date: Date) => { setCal(c => ({ ...c, mode, date })); navigate({ to: "/calendar" as any }); } };
 }
