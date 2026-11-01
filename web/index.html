@@ -129,7 +129,13 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 #sheet input{min-width:0}
 .phone #sheet input{font-size:18px;padding:0 12px}
 @media (max-width:600px){.page{padding:24px 16px}.page h1{font-size:36px}}
-.wrow{display:flex;align-items:center;gap:12px;width:100%;min-height:46px;padding:3px 0;border:0;border-top:1px solid #edf0f5;border-radius:0;background:none;text-align:left;color:inherit}
+.wcols{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:12px;position:relative}
+.wcol{min-height:0;height:300px;padding:8px 3px;border:0;border-radius:18px;background:#f6f8fb;display:flex;flex-direction:column;align-items:stretch;gap:5px;overflow:hidden;text-align:left;color:inherit}
+.wcol.today{background:#e6edfb}
+.wchip{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;border-radius:9px;padding:4px 6px;font-size:14px;font-weight:650;line-height:1.15;color:#101828}
+.wchip .tm{display:block;font-size:12px;font-weight:600;color:#3a4358}
+.phone .wcols{display:flex;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none}
+.phone .wcol{flex:none;width:96px;scroll-snap-align:start}
 .sheet-on #sheetscrim{opacity:1;pointer-events:auto}
 .sheet-on #sheet{transform:none;visibility:visible;transition:transform .4s cubic-bezier(.2,.8,.2,1),visibility 0s}
 .scroll{overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -310,16 +316,17 @@ async function loadOverview() {
   await loadRange(mon, addDays(mon, 7));
   drawToday();
 }
-/* The Overview's week view: one short row per day. */
+/* The Overview's week view: the days side by side, each with its events stacked underneath. */
 function weekRows(mon, now) {
-  const max = DIM.phone ? 2 : 3;
-  return Array.from({length: 7}, (_, i) => {
+  const max = 4;
+  const cols = Array.from({length: 7}, (_, i) => {
     const day = addDays(mon, i), today = sameDay(day, now);
     const evs = EV.list.filter(e => onDay(e, day)).sort((a, b) => (b.all_day - a.all_day) || a.s - b.s);
-    const chips = evs.slice(0, max).map(e => `<span class="mchip" style="background:${esc(tint(colorsOf(e)[0]))};height:32px;line-height:32px;font-size:${DIM.phone ? 14 : 16}px;padding:0 9px;min-width:0;flex:0 1 auto;max-width:${DIM.phone ? 120 : 190}px;color:#101828">${e.all_day ? "" : `<span class="num" style="font-weight:600;color:#3a4358;margin-right:5px">${esc(fmtT(e.s))}</span>`}${esc(e.title)}</span>`).join("")
-      + (evs.length > max ? `<span style="font-size:15px;font-weight:700;color:#5a6478;flex:none">+${evs.length - max}</span>` : "");
-    return `<button class="wrow" data-wday="${i}" aria-label="${esc(day.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}))}"><span class="fx" style="flex-direction:column;gap:0;width:50px;flex:none"><span style="font-size:12px;font-weight:700;letter-spacing:.06em;color:${today ? "#101828" : "#6b7488"}">${esc(day.toLocaleDateString([], {weekday: "short"}).toUpperCase())}</span><span class="num fx" style="width:34px;height:34px;border-radius:50%;justify-content:center;font-size:18px;font-weight:700;${today ? "background:#101828;color:#fff" : ""}">${day.getDate()}</span></span><span class="fx" style="gap:6px;min-width:0;flex:1;overflow:hidden">${chips || `<span style="font-size:16px;color:#8a93a6">Nothing on</span>`}</span></button>`;
+    const chips = evs.slice(0, max).map(e => `<span class="wchip" style="background:${esc(tint(colorsOf(e)[0]))}">${e.all_day ? "" : `<span class="tm num">${esc(fmtT(e.s))}</span>`}${esc(e.title)}</span>`).join("")
+      + (evs.length > max ? `<span style="font-size:14px;font-weight:700;color:#5a6478;text-align:center">+${evs.length - max} more</span>` : "");
+    return `<button class="wcol${today ? " today" : ""}" data-wday="${i}" aria-label="${esc(day.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}))}"><span class="fx" style="flex-direction:column;gap:2px;padding-bottom:4px"><span style="font-size:12px;font-weight:700;letter-spacing:.06em;color:${today ? "#101828" : "#6b7488"}">${esc(day.toLocaleDateString([], {weekday: "short"}).toUpperCase())}</span><span class="num fx" style="width:38px;height:38px;border-radius:50%;justify-content:center;font-size:20px;font-weight:700;${today ? "background:#101828;color:#fff" : ""}">${day.getDate()}</span></span>${chips}</button>`;
   }).join("");
+  return `<div class="wcols">${cols}</div>`;
 }
 function drawToday() {
   const el = $("today");
@@ -365,6 +372,8 @@ function drawToday() {
   el.querySelectorAll("[data-open]").forEach(b => b.onclick = () => b.dataset.open === "settings" ? showSettings() : openCal(b.dataset.open, new Date()));
   el.querySelectorAll("[data-day]").forEach(b => b.onclick = () => openCal("day", addDays(mon, +b.dataset.day)));
   el.querySelectorAll("[data-wday]").forEach(b => b.onclick = () => openCal("day", addDays(mon, +b.dataset.wday)));
+  const wc = el.querySelector(".wcols"), td = el.querySelector(".wcol.today");
+  if (wc && td && DIM.phone) wc.scrollLeft = Math.max(0, td.offsetLeft - 8);
   el.querySelectorAll("[data-ovmode]").forEach(b => b.onclick = () => { view.ovMode = b.dataset.ovmode; drawToday(); });
 }
 
