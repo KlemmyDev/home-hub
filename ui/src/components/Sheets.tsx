@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, post } from "../lib/api";
 import { addDays, dayDiff, fmtT, fromYmd, hmOf, longDay, shortDate, startOfDay, ymd } from "../lib/dates";
 import { calOf, fetchEvents, type Ev, type EvData } from "../lib/events";
-import { useDinners } from "../data";
+import { KINDS, useDinners } from "../data";
+import { clashText, dietClash } from "../lib/dinnerlib";
 import { quickAdd } from "../lib/quickadd";
 import { useHub, type EventDraft, type Sheet } from "../hub";
 import { FamilyEditor } from "./Family";
@@ -12,6 +13,7 @@ import { StepsSheet } from "./Chores";
 import { FoodIcon } from "../lib/foodicons";
 import { FindSheet } from "./Find";
 import { IngredientSheet, PlanMealSheet } from "./Dinners";
+import { RuleSheet } from "./DinnerTools";
 
 const DAYCODES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
 const DAYNAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -324,6 +326,11 @@ function DinnerSheet({ date, cook: startCook }: { date: string; cook: string | n
   const cur = din?.plan[date], curMeal = cur && din?.meals.find(m => m.id === cur.meal);
   const meals = [...(din?.meals || [])].sort((a, b) => a.name.localeCompare(b.name));
   const plan = async (body: any) => { try { await post("/api/dinner-plan", body); await qc.invalidateQueries({ queryKey: ["dinners"] }); closeSheet(); } catch (e: any) { setErr(e.message); } };
+  const keep = async (body: any) => { try { await post("/api/dinner-plan", body); await qc.invalidateQueries({ queryKey: ["dinners"] }); setErr(""); } catch (e: any) { setErr(e.message); } };      // changes that leave the sheet open
+  const night = { date, meal_id: cur?.meal || "", kind: cur?.kind || "", cook };
+  const away = cur?.away || [];
+  const home = people.filter(p => !away.includes(p.id));
+  const clash = clashText(dietClash(curMeal, home));
   const body = (
     <>
       {curMeal ? <div className="planned sheetsec" style={{ "--d": 0 } as React.CSSProperties}><FoodIcon name={curMeal.name} size={72} /><div><div className="cap">Planned for this day</div><div style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-.03em", marginTop: 2 }}>{curMeal.name}</div></div></div> : null}
@@ -334,7 +341,7 @@ function DinnerSheet({ date, cook: startCook }: { date: string; cook: string | n
             return (
               <button key={p.id} className={"wpick" + (on ? " on" : "")} aria-pressed={on} style={{ "--pc": p.color } as React.CSSProperties} onClick={() => {
                 const next = on ? null : p.id; setCook(next);
-                if (cur) plan({ date, meal_id: cur.meal, cook: next });      // changing the cook of a planned day saves at once
+                if (cur?.meal) plan({ date, meal_id: cur.meal, cook: next });      // changing the cook of a planned day saves at once
               }}>
                 <i className="av" style={{ width: 40, height: 40, fontSize: 20, background: p.color }}>{(p.name.trim()[0] || "?").toUpperCase()}</i>
                 <span className="wn">{p.name}</span>
@@ -343,6 +350,23 @@ function DinnerSheet({ date, cook: startCook }: { date: string; cook: string | n
             );
           })}</div>
         ) : <span style={{ color: "var(--soft)", fontSize: 18 }}>Add your family from the Calendar to say who's cooking.</span>}
+      </Sec>
+      {cur ? (
+        <Sec n={2} label="Who's home?">
+          <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>
+            {people.map(p => { const out = away.includes(p.id); return <button key={p.id} className={"pill" + (out ? "" : " on")} aria-pressed={!out} style={{ height: 52 }} onClick={() => keep({ ...night, away: out ? away.filter(x => x !== p.id) : [...away, p.id] })}>{p.name}{out ? " · away" : ""}</button>; })}
+          </div>
+          <div className="fx" style={{ gap: 14, marginTop: 14 }}>
+            <span style={{ fontSize: 19, fontWeight: 650 }}>Cooking for</span>
+            <button className="cnav" aria-label="Fewer" onClick={() => keep({ ...night, serves: Math.max(1, (cur.serves || home.length || 4) - 1) })}>−</button>
+            <span className="num" style={{ fontSize: 26, fontWeight: 700, minWidth: 34, textAlign: "center" }}>{cur.serves || home.length || curMeal?.serves || "–"}</span>
+            <button className="cnav" aria-label="More" onClick={() => keep({ ...night, serves: Math.min(50, (cur.serves || home.length || 4) + 1) })}>+</button>
+          </div>
+          {clash ? <p style={{ margin: "12px 0 0", fontSize: 17, fontWeight: 700, color: "#b45309" }}>⚠ {clash}</p> : null}
+        </Sec>
+      ) : null}
+      <Sec n={2} label="Not from the list?">
+        <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>{Object.entries(KINDS).map(([k, l]) => <Pill key={k} on={cur?.kind === k} onClick={() => plan({ date, kind: k })}>{l}</Pill>)}</div>
       </Sec>
       <Sec n={2} label={meals.length ? "Pick a dinner" : "No dinners yet"}>
         <div className="mgrid">{meals.map(m => <MealCard key={m.id} name={m.name} on={cur?.meal === m.id} onClick={() => plan({ date, meal_id: m.id, cook })} />)}</div>
@@ -365,6 +389,7 @@ function SheetBody({ sheet }: { sheet: Sheet }) {
     case "dinner": return <DinnerSheet date={sheet.date} cook={sheet.cook} />;
     case "ingredient": return <IngredientSheet meal={sheet.meal} ing={sheet.ing} />;
     case "planmeal": return <PlanMealSheet meal={sheet.meal} />;
+    case "rule": return <RuleSheet weekday={sheet.weekday} />;
     case "find": return <FindSheet />;
   }
 }

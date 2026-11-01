@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { post } from "../lib/api";
 import { clockT, shortDate } from "../lib/dates";
-import { Check, XIcon } from "../lib/icons";
+import { Check, ChevL, XIcon } from "../lib/icons";
 import { useShopping } from "../data";
 import { useHub } from "../hub";
 
@@ -20,9 +20,23 @@ export function PanelTop({ title, title2 }: { title: string; title2?: string }) 
     </div>
   );
 }
+/** A back button and a title, along the top of the pages inside Dinners. */
+export function Top({ back, to, title, right }: { back: string; to: import("../hub").DView; title: string; right?: React.ReactNode }) {
+  const { dim, setDview } = useHub();
+  const P = dim.phone;
+  return (
+    <div className="fx dvtop" style={{ gap: 12, padding: "0 4px 14px" }}>
+      <button className="dvback" aria-label={"Back to " + back} onClick={() => setDview(to)}><ChevL /><span>{back}</span></button>
+      <div style={{ flex: 1, minWidth: 0, fontSize: P ? 24 : 30, fontWeight: 700, letterSpacing: "-.04em", textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</div>
+      <div className="fx" style={{ gap: 8, flex: "none", minWidth: P ? 52 : 120, justifyContent: "flex-end" }}>{right}</div>
+    </div>
+  );
+}
+
 export const wrap = (P: boolean) => ({ display: "flex", flexDirection: "column" as const, width: "100%", height: "100%", padding: (P ? "14px 14px" : "18px 18px") + " 0" });
 
 /* ---------- Shopping list ---------- */
+const AISLES = ["Fruit and veg", "Meat and fish", "Dairy and eggs", "Bakery", "Pantry", "Frozen", "Drinks", "Snacks", "Household", "Other"];
 export function ShoppingPanel() {
   const { dim } = useHub();
   const qc = useQueryClient();
@@ -58,7 +72,7 @@ export function ShoppingPanel() {
       </form>
       <div className="err" role="alert" style={{ margin: "0 0 6px", minHeight: 0 }}>{err}</div>
       <div className="scroll" style={{ flex: 1, minHeight: 0 }}>
-        {todo.length ? todo.map(row) : (
+        {todo.length ? AISLES.filter(a => todo.some(x => (x.aisle || "Other") === a)).map(a => <div key={a}><div className="cap aisle">{a}</div>{todo.filter(x => (x.aisle || "Other") === a).map(row)}</div>) : (
           <div style={{ padding: "44px 0", textAlign: "center" }}>
             <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-.02em" }}>{got.length ? "Everything's ticked off" : "Nothing on the list"}</div>
             <div style={{ fontSize: 18, color: "#6b7488", marginTop: 6 }}>{got.length ? "Clear the ticked items when you're done." : "Add what you need above."}</div>

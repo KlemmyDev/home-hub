@@ -15,6 +15,9 @@ pub struct Item {
     pub note: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub barcode: String,
+    /// Which part of the shop it's in, worked out from its name.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub aisle: String,
     /// The dinner it's for, if it came from one.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub from: String,
@@ -30,6 +33,24 @@ pub struct Shopping {
 fn new_id(taken: impl Fn(&str) -> bool) -> String {
     let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
     (0..).map(|n| format!("s{t}x{n}")).find(|id| !taken(id)).unwrap()
+}
+
+/// Which part of the shop something is in, from its name. Anything not recognised is "Other".
+pub fn aisle_of(name: &str) -> &'static str {
+    let n = format!(" {} ", name.to_lowercase());
+    let any = |words: &[&str]| words.iter().any(|w| n.contains(w));
+    // The order matters: "frozen peas" is frozen, not fruit and veg; "chicken stock" is the pantry, not meat.
+    if any(&["toilet", "paper towel", "detergent", "dishwasher", "soap", "shampoo", "nappies", "wipes", "bin bag", "cleaner", "laundry", "sponge"]) { "Household" }
+    else if any(&["eggplant", "sweet potato"]) { "Fruit and veg" }
+    else if any(&["frozen", "ice cream", "icecream", "ice-cream", "fish fingers", "hash brown"]) { "Frozen" }
+    else if any(&["stock", "sauce", "passata", "pasta", "spaghetti", "noodle", " rice", "flour", "sugar", " oil", "vinegar", "tin ", "tinned", "beans", "lentil", "chickpea", "spice", "herb", "salt", "pepper", "cereal", "oats", "honey", "jam", "peanut butter", "taco shell", "tortilla", "wrap", "curry paste", "coconut", "stir fry sauce", "gravy", "breadcrumb", "baking", "cocoa"]) { "Pantry" }
+    else if any(&["milk", "cheese", "butter", "yoghurt", "yogurt", "cream", " egg", "parmesan", "feta", "mozzarella", "margarine"]) { "Dairy and eggs" }
+    else if any(&["mince", "beef", "steak", "chicken", "pork", "lamb", "sausage", "bacon", " ham", "salami", "fish", "salmon", "prawn", "tuna", "mince", "schnitzel", "turkey", "chop", "ribs", "meatball"]) { "Meat and fish" }
+    else if any(&["bread", "roll", "bun", "bagel", "croissant", "muffin", "pita", "naan", "sourdough", "crumpet"]) { "Bakery" }
+    else if any(&["apple", "banana", "orange", "lemon", "lime", "grape", "berry", "berries", "mango", "pear", "melon", "avocado", "tomato", "onion", "garlic", "potato", "carrot", "lettuce", "spinach", "salad", "cucumber", "capsicum", "broccoli", "cauliflower", "mushroom", "zucchini", "pumpkin", "corn", "celery", "ginger", "herbs", "parsley", "coriander", "basil", "cabbage", "kale", "beetroot", "sweet potato", "peas", "leek", "shallot", "eggplant", "fruit", "veg"]) { "Fruit and veg" }
+    else if any(&["juice", "soft drink", "cola", "water", "coffee", "tea ", "wine", "beer", "cordial", "soda"]) { "Drinks" }
+    else if any(&["chips", "biscuit", "chocolate", "lolly", "lollies", "snack", "cracker", "popcorn", "muesli bar", "crisps"]) { "Snacks" }
+    else { "Other" }
 }
 
 fn clean(name: &str) -> Result<String, &'static str> {
@@ -60,7 +81,8 @@ impl Shopping {
             return Err("The list is very long. Clear some ticked items first.");
         }
         let id = new_id(|id| self.items.iter().any(|x| x.id == id));
-        self.items.push(Item { id: id.clone(), name, done: false, ..Default::default() });
+        let aisle = aisle_of(&name).to_string();
+        self.items.push(Item { id: id.clone(), name, done: false, aisle, ..Default::default() });
         Ok(id)
     }
 
@@ -110,6 +132,13 @@ impl Shopping {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn things_are_sorted_into_the_parts_of_the_shop() {
+        for (name, aisle) in [("Frozen peas", "Frozen"), ("Chicken stock", "Pantry"), ("Beef mince", "Meat and fish"), ("Spaghetti", "Pantry"), ("Cheddar cheese", "Dairy and eggs"), ("Sourdough bread", "Bakery"), ("Brown onion", "Fruit and veg"), ("Toilet paper", "Household"), ("Whatsit", "Other")] {
+            assert_eq!(aisle_of(name), aisle, "{name}");
+        }
+    }
 
     #[test]
     fn items_are_added_ticked_and_cleared() {

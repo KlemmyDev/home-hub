@@ -2,6 +2,7 @@ import { useState } from "react";
 import { post } from "../lib/api";
 import { PALETTE } from "../lib/events";
 import { queryClient, useHub } from "../hub";
+import { DIETS } from "../data";
 
 /** Family members: used in the sheet and in Settings. */
 export function FamilyEditor({ onChanged, onAdded }: { onChanged?: () => void; onAdded?: (id: string) => void }) {
@@ -9,7 +10,7 @@ export function FamilyEditor({ onChanged, onAdded }: { onChanged?: () => void; o
   const [color, setColor] = useState(PALETTE[0]);
   const [name, setName] = useState("");
   const [err, setErr] = useState("");
-  const keep = () => people.map(p => ({ id: p.id, name: p.name, color: p.color, birthday: p.birthday || "" }));
+  const keep = () => people.map(p => ({ id: p.id, name: p.name, color: p.color, birthday: p.birthday || "", diet: p.diet || [] }));
   const save = async (list: any[]) => { await post("/api/people", list); await refreshState(); onChanged?.(); };
   const run = async (f: () => Promise<void>) => { try { await f(); setErr(""); } catch (e: any) { setErr(e.message); } };
   return (
@@ -21,6 +22,10 @@ export function FamilyEditor({ onChanged, onAdded }: { onChanged?: () => void; o
           <input key={p.name} defaultValue={p.name} maxLength={30} aria-label="Name" autoComplete="off" style={{ flex: 1, minWidth: 0 }}
             onBlur={e => e.target.value !== p.name && run(() => save(keep().map(x => x.id === p.id ? { ...x, name: e.target.value } : x)))} />
           <button style={{ minHeight: 52, padding: "0 18px" }} onClick={() => run(() => save(keep().filter(x => x.id !== p.id)))}>Remove</button>
+          <div className="fx" style={{ gap: 8, flexWrap: "wrap", width: "100%" }} aria-label={`${p.name}'s diet`}>
+            <span className="dietlab">Needs</span>
+            {DIETS.map(d => { const on = (p.diet || []).includes(d); return <button key={d} className={"pill" + (on ? " on" : "")} aria-pressed={on} style={{ height: 44, fontSize: 15 }} onClick={() => run(() => save(keep().map(x => x.id === p.id ? { ...x, diet: on ? x.diet.filter((y: string) => y !== d) : [...x.diet, d] } : x)))}>{d}</button>; })}
+          </div>
           <label className="bday"><span>Birthday</span><input type="date" key={p.birthday || ""} defaultValue={p.birthday || ""} aria-label={`${p.name}'s birthday`} max="2100-12-31"
             onBlur={e => e.target.value !== (p.birthday || "") && run(() => save(keep().map(x => x.id === p.id ? { ...x, birthday: e.target.value } : x)))} /></label>
         </div>

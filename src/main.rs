@@ -198,6 +198,9 @@ async fn main() {
         .route("/api/products/search", get(product_search))
         .route("/api/shopping/add-many", post(shopping_add_many))
         .route("/api/dinner-plan", post(plan_dinner))
+        .route("/api/dinner-plan/many", post(plan_many))
+        .route("/api/dinner-rule", post(save_rule))
+        .route("/api/pantry", post(save_pantry))
         .route("/api/people", post(save_people))
         .route("/api/hub-event", get(hub_event).post(save_hub_event))
         .route("/api/hub-event/delete", post(delete_hub_event))
@@ -794,7 +797,11 @@ async fn pp_step(State(app): Shared, Json(body): Json<StepBody>) -> impl IntoRes
 
 /// The shopping list.
 async fn get_shopping(State(app): Shared) -> Json<shopping::Shopping> {
-    Json(app.shopping.read().await.clone())
+    let mut list = app.shopping.read().await.clone();
+    for i in list.items.iter_mut().filter(|i| i.aisle.is_empty()) {
+        i.aisle = shopping::aisle_of(&i.name).to_string();      // older items were added before there were aisles
+    }
+    Json(list)
 }
 
 #[derive(Deserialize)]
@@ -934,6 +941,8 @@ async fn delete_meal(State(app): Shared, Json(body): Json<IdBody>) -> impl IntoR
 struct PlanBody {
     date: String,
     meal_id: Option<String>,
+    #[serde(flatten)]
+    extra: dinners::PlanExtra,
     /// A dinner by name; if it's new it's added to the list.
     name: Option<String>,
     cook: Option<String>,
@@ -942,7 +951,49 @@ struct PlanBody {
 /// Plan a dinner for a day (or clear the day when no dinner is given).
 async fn plan_dinner(State(app): Shared, Json(body): Json<PlanBody>) -> impl IntoResponse {
     let people = app.family.read().await.people.clone();
-    match edit_dinners(&app, |d| d.set_plan(&body.date, body.meal_id.as_deref(), body.name.as_deref(), body.cook.as_deref(), &people)).await {
+    match edit_dinners(&app, |d| d.set_plan(&body.date, body.meal_id.as_deref(), body.name.as_deref(), body.cook.as_deref(), &people, body.extra)).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct Night {
+    date: String,
+    #[serde(default)]
+    meal_id: String,
+    #[serde(default)]
+    kind: String,
+}
+
+/// Plan several nights at once; nights that already have something are left alone.
+async fn plan_many(State(app): Shared, Json(body): Json<Vec<Night>>) -> impl IntoResponse {
+    let nights: Vec<(String, String, String)> = body.into_iter().map(|n| (n.date, n.meal_id, n.kind)).collect();
+    match edit_dinners(&app, |d| d.plan_many(&nights)).await {
+        Ok(n) => Json(json!({"added": n})).into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct RuleBody {
+    weekday: u8,
+    meal: Option<String>,
+    kind: Option<String>,
+}
+
+/// Say what a weekday usually is, or clear it.
+async fn save_rule(State(app): Shared, Json(body): Json<RuleBody>) -> impl IntoResponse {
+    let rule = dinners::Rule { meal: body.meal.unwrap_or_default(), kind: body.kind.unwrap_or_default() };
+    match edit_dinners(&app, |d| d.set_rule(body.weekday, Some(rule))).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+/// Replace what the family has at home.
+async fn save_pantry(State(app): Shared, Json(body): Json<Vec<dinners::PantryItem>>) -> impl IntoResponse {
+    match edit_dinners(&app, |d| d.set_pantry(body)).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => e.into_response(),
     }

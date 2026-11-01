@@ -19,9 +19,12 @@ export function usePrefetchEvents() {
 export const EMPTY_EVENTS: EvData = { list: [], cals: {} };
 
 export type Product = { code: string; name: string; brand: string; quantity: string; image: string };
-export type Ingredient = { id: string; name: string; amount: string; product: Product | null; staple: boolean };
-export type Meal = { id: string; name: string; ingredients?: Ingredient[]; notes?: string; link?: string; serves?: number; minutes?: number; tags?: string[]; favourite?: boolean };
-export type Dinners = { meals: Meal[]; plan: Record<string, { meal: string; cook?: string }> };
+export type Ingredient = { id: string; name: string; amount: string; product: Product | null; staple: boolean; alt?: Product | null };
+export type Meal = { id: string; name: string; ingredients?: Ingredient[]; notes?: string; link?: string; serves?: number; minutes?: number; tags?: string[]; favourite?: boolean; ratings?: Record<string, number>; suits?: string[] };
+export type Night = { meal: string; cook?: string; kind?: string; away?: string[]; serves?: number };
+export type Dinners = { meals: Meal[]; plan: Record<string, Night>; pantry?: { name: string; low: boolean }[]; rules?: Record<string, { meal: string; kind: string }> };
+export const KINDS: Record<string, string> = { leftovers: "Leftovers", takeaway: "Takeaway", out: "Eating out" };
+export const DIETS = ["Vegetarian", "Vegan", "Dairy-free", "Gluten-free", "Nut-free", "Egg-free"];
 export function useDinners() {
   return useQuery<Dinners>({ queryKey: ["dinners"], queryFn: () => DEMO ? Promise.resolve(demoDinners()) : api("/api/dinners"), refetchInterval: 300000 });
 }
@@ -40,12 +43,13 @@ function demoDinners(): Dinners {
 }
 export function dinnerFor(din: Dinners | undefined, people: { id: string; name: string; color?: string }[], day: Date) {
   const p = din?.plan[ymd(day)], m = p && din?.meals.find(x => x.id === p.meal);
+  if (p?.kind && KINDS[p.kind]) return { name: KINDS[p.kind], cook: "", cookColor: "" };
   if (!m) return null;
   const cook = people.find(x => x.id === p.cook);
   return { name: m.name, cook: cook ? cook.name : "", cookColor: cook?.color || "" };
 }
 
-export type ShopItem = { id: string; name: string; done: boolean; note?: string; barcode?: string; from?: string };
+export type ShopItem = { id: string; name: string; done: boolean; note?: string; barcode?: string; from?: string; aisle?: string };
 export const useShopping = () => useQuery<{ items: ShopItem[] }>({ queryKey: ["shopping"], queryFn: () => api("/api/shopping") });
 
 /* ---------- PocketPals jobs ---------- */

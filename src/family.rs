@@ -17,6 +17,9 @@ pub struct Person {
     /// Their birthday as a date like 2016-05-14 (the year gives their age). Empty: none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub birthday: Option<String>,
+    /// What they need at dinner, like "Vegetarian" or "Nut-free" (up to a few).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diet: Vec<String>,
 }
 
 /// How an event repeats. `freq` is none, daily, weekly, monthly or yearly.
@@ -97,6 +100,8 @@ pub struct PersonIn {
     pub name: String,
     pub color: String,
     pub birthday: Option<String>,
+    #[serde(default)]
+    pub diet: Vec<String>,
 }
 
 fn parse_dt(s: &str) -> Option<NaiveDateTime> {
@@ -260,7 +265,11 @@ impl Family {
                 Some(_) => return Err("That birthday isn't a date we know."),
                 None => None,
             };
-            people.push(Person { id, name, color: p.color, birthday });
+            let diet: Vec<String> = p.diet.iter().map(|d| d.trim().to_string()).filter(|d| !d.is_empty()).collect();
+            if diet.len() > 6 || diet.iter().any(|d| d.chars().count() > 20) {
+                return Err("Diets are short, and up to six each.");
+            }
+            people.push(Person { id, name, color: p.color, birthday, diet });
         }
         for e in &mut self.events {
             e.people.retain(|id| people.iter().any(|p| &p.id == id));
@@ -389,20 +398,20 @@ mod tests {
 
     fn dad() -> Family {
         let mut f = Family::default();
-        f.set_people(vec![PersonIn { id: None, name: "Dad".into(), color: "#2f6fe0".into(), birthday: None }]).unwrap();
+        f.set_people(vec![PersonIn { id: None, name: "Dad".into(), color: "#2f6fe0".into(), birthday: None, diet: vec![] }]).unwrap();
         f
     }
 
     #[test]
     fn birthdays_come_round_every_year_with_the_age() {
         let mut f = dad();
-        f.set_people(vec![PersonIn { id: None, name: "Kid".into(), color: "#2f6fe0".into(), birthday: Some("2016-11-05".into()) }]).unwrap();
+        f.set_people(vec![PersonIn { id: None, name: "Kid".into(), color: "#2f6fe0".into(), birthday: Some("2016-11-05".into()), diet: vec![] }]).unwrap();
         let d = |y, m, dd| NaiveDate::from_ymd_opt(y, m, dd).unwrap();
         let b = f.birthdays(d(2026, 11, 1), d(2026, 11, 30));
         assert_eq!((b.len(), b[0].day, b[0].turns), (1, d(2026, 11, 5), Some(10)));
         assert!(f.birthdays(d(2026, 11, 6), d(2026, 12, 31)).is_empty());
         assert!(f.birthdays(d(2016, 1, 1), d(2016, 11, 4)).is_empty());
-        assert!(f.set_people(vec![PersonIn { id: None, name: "X".into(), color: "#2f6fe0".into(), birthday: Some("soon".into()) }]).is_err());
+        assert!(f.set_people(vec![PersonIn { id: None, name: "X".into(), color: "#2f6fe0".into(), birthday: Some("soon".into()), diet: vec![] }]).is_err());
     }
 
     #[test]
@@ -499,10 +508,10 @@ mod tests {
         let mut f = dad();
         let id = f.people[0].id.clone();
         f.save_event(ev(&f)).unwrap();
-        assert!(f.set_people(vec![PersonIn { id: Some(id.clone()), name: "Dad".into(), color: "red".into(), birthday: None }]).is_err());
-        let two = |a: &str, b: &str| vec![PersonIn { id: None, name: a.into(), color: "#112233".into(), birthday: None }, PersonIn { id: None, name: b.into(), color: "#112233".into(), birthday: None }];
+        assert!(f.set_people(vec![PersonIn { id: Some(id.clone()), name: "Dad".into(), color: "red".into(), birthday: None, diet: vec![] }]).is_err());
+        let two = |a: &str, b: &str| vec![PersonIn { id: None, name: a.into(), color: "#112233".into(), birthday: None, diet: vec![] }, PersonIn { id: None, name: b.into(), color: "#112233".into(), birthday: None, diet: vec![] }];
         assert!(f.set_people(two("Mum", "mum")).is_err(), "names must differ");
-        f.set_people(vec![PersonIn { id: None, name: "Mum".into(), color: "#e5487f".into(), birthday: None }]).unwrap();
+        f.set_people(vec![PersonIn { id: None, name: "Mum".into(), color: "#e5487f".into(), birthday: None, diet: vec![] }]).unwrap();
         assert!(f.events[0].people.is_empty(), "Dad left, so he's off the event");
     }
 
