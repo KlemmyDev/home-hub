@@ -8,6 +8,7 @@ import { useHub, type EventDraft, type Sheet } from "../hub";
 import { FamilyEditor } from "./Family";
 import { Lab, Pill, SheetFrame } from "./SheetFrame";
 import { StepsSheet } from "./Chores";
+import { FoodIcon } from "../lib/foodicons";
 
 const DAYCODES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
 const DAYNAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -213,6 +214,19 @@ function FamilySheet({ back }: { back?: EventDraft }) {
     foot={<button className="primary" onClick={finish} style={{ marginLeft: "auto", minWidth: 200 }}>Done</button>} />;
 }
 
+/** What a new dinner will look like, shown live as its name is typed. */
+const NewDinner = ({ text, setText, onGo, go, placeholder }: { text: string; setText: (v: string) => void; onGo: () => void; go: string; placeholder: string }) => (
+  <div className="newdin">
+    <FoodIcon name={text} size={64} />
+    <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === "Enter" && text.trim() && onGo()} maxLength={40} placeholder={placeholder} autoComplete="off" style={{ flex: 1, minWidth: 0, background: "#fff" }} />
+    <button className="primary" disabled={!text.trim()} style={{ flex: "none", padding: "0 24px" }} onClick={onGo}>{go}</button>
+  </div>
+);
+/** One dinner idea: its picture and name. */
+const MealCard = ({ name, on, onClick }: { name: string; on?: boolean; onClick: () => void }) => (
+  <button className={"mcard" + (on ? " on" : "")} aria-pressed={on} onClick={onClick}><FoodIcon name={name} size={56} /><span className="mn">{name}</span></button>
+);
+
 function DinnerSheet({ date, cook: startCook }: { date: string; cook: string | null }) {
   const { people, closeSheet } = useHub();
   const qc = useQueryClient();
@@ -225,21 +239,30 @@ function DinnerSheet({ date, cook: startCook }: { date: string; cook: string | n
   const plan = async (body: any) => { try { await post("/api/dinner-plan", body); await qc.invalidateQueries({ queryKey: ["dinners"] }); closeSheet(); } catch (e: any) { setErr(e.message); } };
   const body = (
     <>
-      {curMeal ? <><div className="cap" style={{ marginTop: 14 }}>Planned</div><div style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-.03em", marginTop: 2 }}>{curMeal.name}</div></> : null}
-      <Lab>Who's cooking? (optional)</Lab>
-      <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>
-        {people.length ? people.map(p => <Pill key={p.id} on={cook === p.id} onClick={() => {
-          const next = cook === p.id ? null : p.id; setCook(next);
-          if (cur) plan({ date, meal_id: cur.meal, cook: next });      // changing the cook of a planned day saves at once
-        }}>{dot(p.color)}{p.name}</Pill>) : <span style={{ color: "var(--soft)", fontSize: 18 }}>Add your family from the Calendar to say who's cooking.</span>}
-      </div>
-      <Lab>{meals.length ? "Pick a dinner" : "No dinners yet"}</Lab>
-      <div className="mealgrid">{meals.map(m => <Pill key={m.id} on={cur?.meal === m.id} onClick={() => plan({ date, meal_id: m.id, cook })}>{m.name}</Pill>)}</div>
-      <Lab>{meals.length ? "Or something new" : "Add your first one"}</Lab>
-      <div className="fx" style={{ gap: 10 }}>
-        <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === "Enter" && plan({ date, name: text, cook })} maxLength={40} placeholder="Spaghetti Bolognese, Tacos…" autoComplete="off" style={{ flex: 1, minWidth: 0 }} />
-        <button className="primary" style={{ flex: "none", padding: "0 22px" }} onClick={() => plan({ date, name: text, cook })}>Use it</button>
-      </div>
+      {curMeal ? <div className="planned sheetsec" style={{ "--d": 0 } as React.CSSProperties}><FoodIcon name={curMeal.name} size={72} /><div><div className="cap">Planned for this day</div><div style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-.03em", marginTop: 2 }}>{curMeal.name}</div></div></div> : null}
+      <Sec n={1} label="Who's cooking? (optional)">
+        {people.length ? (
+          <div className="wgrid">{people.map(p => {
+            const on = cook === p.id;
+            return (
+              <button key={p.id} className={"wpick" + (on ? " on" : "")} aria-pressed={on} style={{ "--pc": p.color } as React.CSSProperties} onClick={() => {
+                const next = on ? null : p.id; setCook(next);
+                if (cur) plan({ date, meal_id: cur.meal, cook: next });      // changing the cook of a planned day saves at once
+              }}>
+                <i className="av" style={{ width: 40, height: 40, fontSize: 20, background: p.color }}>{(p.name.trim()[0] || "?").toUpperCase()}</i>
+                <span className="wn">{p.name}</span>
+                <span className="wtick" aria-hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></span>
+              </button>
+            );
+          })}</div>
+        ) : <span style={{ color: "var(--soft)", fontSize: 18 }}>Add your family from the Calendar to say who's cooking.</span>}
+      </Sec>
+      <Sec n={2} label={meals.length ? "Pick a dinner" : "No dinners yet"}>
+        <div className="mgrid">{meals.map(m => <MealCard key={m.id} name={m.name} on={cur?.meal === m.id} onClick={() => plan({ date, meal_id: m.id, cook })} />)}</div>
+      </Sec>
+      <Sec n={3} label={meals.length ? "Or something new" : "Add your first one"}>
+        <NewDinner text={text} setText={setText} go="Use it" placeholder="Spaghetti Bolognese, Tacos…" onGo={() => plan({ date, name: text, cook })} />
+      </Sec>
     </>
   );
   return <SheetFrame title={longDay(fromYmd(date))} body={body} error={err}
@@ -251,29 +274,38 @@ function MealsSheet() {
   const qc = useQueryClient();
   const { data: din } = useDinners();
   const [text, setText] = useState("");
-  const [sure, setSure] = useState<string | null>(null);
+  const [edit, setEdit] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [sure, setSure] = useState(false);
   const [err, setErr] = useState("");
   const meals = [...(din?.meals || [])].sort((a, b) => a.name.localeCompare(b.name));
-  const run = async (f: () => Promise<unknown>) => { try { await f(); await qc.invalidateQueries({ queryKey: ["dinners"] }); setSure(null); setErr(""); } catch (e: any) { setErr(e.message); } };
+  const run = async (f: () => Promise<unknown>) => { try { await f(); await qc.invalidateQueries({ queryKey: ["dinners"] }); setEdit(null); setSure(false); setErr(""); } catch (e: any) { setErr(e.message); } };
   const add = () => run(async () => { await post("/api/meal", { name: text }); setText(""); });
+  const open = (id: string, n: string) => { setEdit(edit === id ? null : id); setName(n); setSure(false); };
+  const cur = meals.find(m => m.id === edit);
   return <SheetFrame title="Dinner ideas" error={err} foot={<button className="primary" onClick={closeSheet} style={{ marginLeft: "auto", minWidth: 200 }}>Done</button>} body={
     <>
-      <p style={{ color: "var(--soft)", fontSize: 18, margin: "10px 0 0" }}>Everything you cook. Pick from this list when you plan a day.</p>
-      <div style={{ marginTop: 8 }}>
-        {meals.length ? meals.map(m => (
-          <div className="fx" key={m.id} style={{ gap: 10, padding: "8px 0", borderTop: "1px solid #edf0f5" }}>
-            <input key={m.name} defaultValue={m.name} maxLength={40} aria-label="Dinner name" autoComplete="off" style={{ flex: 1, minWidth: 0 }} onBlur={e => e.target.value !== m.name && run(() => post("/api/meal", { id: m.id, name: e.target.value }))} />
-            {sure === m.id ? <button className="danger" style={{ minHeight: 52, padding: "0 16px" }} onClick={() => run(() => post("/api/meal/delete", { id: m.id }))}>Yes, remove</button>
-              : <button style={{ minHeight: 52, padding: "0 18px" }} onClick={() => setSure(m.id)}>Remove</button>}
+      <p className="sheetsec" style={{ color: "var(--soft)", fontSize: 18, margin: "10px 0 0", "--d": 0 } as React.CSSProperties}>Everything you cook. Pick from here when you plan a day, and tap one to rename or remove it.</p>
+      <Sec n={1} label="Add a dinner">
+        <NewDinner text={text} setText={setText} go="Add" placeholder="Spaghetti Bolognese, Tacos…" onGo={add} />
+      </Sec>
+      <Sec n={2} label={meals.length ? `${meals.length} ${meals.length === 1 ? "idea" : "ideas"}` : "Your ideas"}>
+        {meals.length ? <div className="mgrid">{meals.map(m => <MealCard key={m.id} name={m.name} on={edit === m.id} onClick={() => open(m.id, m.name)} />)}</div> : <p style={{ color: "var(--soft)", fontSize: 18, margin: 0 }}>No dinners yet. Add your favourites above and they will turn up here with a picture.</p>}
+        <Reveal open={!!cur}>
+          <div className="medit">
+            <div className="fx" style={{ gap: 12 }}>
+              <FoodIcon name={name || cur?.name || ""} size={64} />
+              <input key={edit} value={name} onChange={e => setName(e.target.value)} maxLength={40} aria-label="Dinner name" autoComplete="off" style={{ flex: 1, minWidth: 0, background: "#fff" }} />
+            </div>
+            <div className="fx" style={{ gap: 10, marginTop: 12 }}>
+              {sure ? <button className="danger" style={{ flex: 1 }} onClick={() => run(() => post("/api/meal/delete", { id: edit }))}>Yes, remove it</button>
+                : <button className="danger-o" style={{ flex: 1 }} onClick={() => setSure(true)}>Remove</button>}
+              <button className="primary" style={{ flex: 1 }} disabled={!name.trim() || name.trim() === cur?.name} onClick={() => run(() => post("/api/meal", { id: edit, name }))}>Save name</button>
+            </div>
+            {sure ? <p style={{ fontSize: 16, color: "var(--soft)", margin: "10px 0 0" }}>Removing a dinner also takes it off any days it was planned.</p> : null}
           </div>
-        )) : <p>No dinners yet. Add your favourites below.</p>}
-      </div>
-      <Lab>Add a dinner</Lab>
-      <div className="fx" style={{ gap: 10 }}>
-        <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === "Enter" && add()} maxLength={40} placeholder="Spaghetti Bolognese, Tacos…" autoComplete="off" style={{ flex: 1, minWidth: 0 }} />
-        <button className="primary" style={{ flex: "none", padding: "0 22px" }} onClick={add}>Add</button>
-      </div>
-      {sure ? <p style={{ fontSize: 16, color: "var(--soft)" }}>Removing a dinner also takes it off any days it was planned.</p> : null}
+        </Reveal>
+      </Sec>
     </>
   } />;
 }

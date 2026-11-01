@@ -6,6 +6,7 @@ import { ChevL, ChevR } from "../lib/icons";
 import { DEMO } from "../lib/api";
 import { EMPTY_EVENTS, useEvents, usePrefetchEvents } from "../data";
 import { useHub, type CalView } from "../hub";
+import { usePage } from "../nav";
 import { loadEventDraft, newEventDraft } from "./Sheets";
 
 const HOUR_PX = (big: boolean, phone: boolean) => phone ? 64 : big ? 76 : 64;     // a fixed height for each hour, so the day scrolls
@@ -62,7 +63,7 @@ function Grid({ days, gutter, big, c }: { days: Date[]; gutter: number; big: boo
         {days.map((day, i) => {
           const today = sameDay(day, now), w = 100 / days.length;
           return (
-            <div key={i} className="gcol" style={{ position: "absolute", top: 0, bottom: 0, left: i * w + "%", width: w + "%", borderLeft: "1px solid #edf0f5", ...(today ? { background: "linear-gradient(180deg,rgba(47,111,224,.07),rgba(123,92,240,.035))" } : {}) }}
+            <div key={i} className="gcol" style={{ position: "absolute", top: 0, bottom: 0, left: i * w + "%", width: w + "%", borderLeft: "1px solid #edf0f5", ...(today ? { background: "linear-gradient(180deg,rgba(195,242,63,.16),rgba(109,220,140,.05))" } : {}) }}
               onClick={ev => {
                 if (DEMO) return;
                 const r = ev.currentTarget.getBoundingClientRect();
@@ -104,7 +105,7 @@ function Grid({ days, gutter, big, c }: { days: Date[]; gutter: number; big: boo
             </div>
           );
         })}
-        {showNow ? <div style={{ position: "absolute", left: 0, right: 0, top: top(h) + "%", borderTop: "2px solid #e2523f", zIndex: 2, pointerEvents: "none" }}><span style={{ position: "absolute", left: -5, top: -6, width: 10, height: 10, borderRadius: "50%", background: "#e2523f" }} /></div> : null}
+        {showNow ? <div style={{ position: "absolute", left: 0, right: 0, top: top(h) + "%", borderTop: "2px solid #e2523f", zIndex: 2, pointerEvents: "none" }}><span style={{ position: "absolute", left: -5, top: -6, width: 10, height: 10, borderRadius: "50%", background: "#e2523f" }} /><span className="num" style={{ position: "absolute", right: 6, bottom: 3, padding: "0 7px", borderRadius: 8, background: "rgba(255,255,255,.88)", fontSize: big ? 15 : 13, fontWeight: 800, lineHeight: 1.4, color: "#e2523f" }}>{fmtT(now, c.h24)}</span></div> : null}
       </div>
     </div>
   );
@@ -128,15 +129,16 @@ function Scroller({ keyed, anchorHour, big, opening, keep, shared, follow, child
   const last = useRef({ key: "", top: 0, glideUntil: 0, timer: undefined as ReturnType<typeof setTimeout> | undefined });
   const [day, nonce] = [keyed.split(":")[0], keyed.split(":")[1]];
   const prev = useRef({ day: "", nonce: "" });
+  const wasFollow = useRef(!!follow);
   useLayoutEffect(() => {
     const box = el.current, l = last.current;
     if (!box) return;
-    if (follow) { box.scrollTop = shared.top; return; }           // the panes either side just follow the one in view
-    if (l.key !== keyed && keep.current && l.key) {        // a swipe keeps the hours where they are
-      keep.current = false; l.key = keyed; l.top = box.scrollTop; prev.current = { day, nonce };
+    if (follow) { box.scrollTop = shared.top; wasFollow.current = true; return; }           // the panes either side just follow the one in view
+    if (l.key !== keyed && keep.current && (l.key || wasFollow.current)) {        // a swipe keeps the hours where they are
+      wasFollow.current = false; keep.current = false; l.key = keyed; l.top = box.scrollTop; prev.current = { day, nonce };
     } else if (l.key !== keyed) {
       const top = Math.max(0, (anchorHour - 1) * HOUR_PX(big, dim.phone));
-      const first = l.key === "" && opening.current, glide = (first || (prev.current.day === day && prev.current.nonce !== nonce)) && !matchMedia("(prefers-reduced-motion: reduce)").matches && top > 0;
+      const first = opening.current, glide = (first || (prev.current.day === day && prev.current.nonce !== nonce)) && !matchMedia("(prefers-reduced-motion: reduce)").matches && top > 0;
       opening.current = false;
       l.key = keyed; l.top = top; prev.current = { day, nonce };
       clearTimeout(l.timer);
@@ -310,7 +312,7 @@ function NowStrip({ c }: { c: Ctx }) {
 
 /** Yesterday, today and tomorrow (or the weeks or months either side) sit side by side on one track. Drag and the neighbours slide in already drawn,
     so it reads as one long calendar; let go past a fifth of the way (or flick) and the track settles on the next one. */
-function SwipePane({ onStep, api, children }: { onStep: (n: number) => void; api: { current: (n: number) => void }; children: (off: number) => ReactNode }) {
+function SwipePane({ onStep, api, keyOf, children }: { onStep: (n: number) => void; api: { current: (n: number) => void }; keyOf: (off: number) => string; children: (off: number) => ReactNode }) {
   const { dim } = useHub();
   const box = useRef<HTMLDivElement>(null), track = useRef<HTMLDivElement>(null);
   const g = useRef({ id: -1, x: 0, y: 0, t: 0, dx: 0, lock: false, swiped: false, busy: false, timer: undefined as ReturnType<typeof setTimeout> | undefined });
@@ -353,7 +355,7 @@ function SwipePane({ onStep, api, children }: { onStep: (n: number) => void; api
       onClickCapture={e => { if (g.current.swiped) { e.stopPropagation(); e.preventDefault(); } }}>
       <div ref={track} style={{ position: "absolute", inset: 0, willChange: "transform" }}>
         {[-1, 0, 1].map(off => (
-          <div key={off} inert={off !== 0} aria-hidden={off !== 0} style={{ position: "absolute", top: 0, bottom: 0, left: `${off * 100}%`, width: "100%", display: "flex", flexDirection: "column" }}>{children(off)}</div>
+          <div key={keyOf(off)} inert={off !== 0} aria-hidden={off !== 0} style={{ position: "absolute", top: 0, bottom: 0, left: `${off * 100}%`, width: "100%", display: "flex", flexDirection: "column" }}>{children(off)}</div>
         ))}
       </div>
     </div>
@@ -409,7 +411,12 @@ export function CalendarPanel() {
   const [nonce, setNonce] = useState(0);
   const [vt, setVt] = useState(false);     // true only while views are morphing, so events carry a transition name just then
   const keep = useRef(false);        // set by a swipe, so the hours stay put
-  const opening = useRef(true);      // true until the first screenful has settled, so only opening the calendar glides
+  const opening = useRef(true);      // true until the hours have glided down to now, so only opening the calendar glides
+  const page = usePage(), onPage = useRef(page === "calendar");
+  useEffect(() => {      // coming back to the Calendar from another tab glides down to now again
+    if (page === "calendar" && !onPage.current) { opening.current = true; setNonce(n => n + 1); }
+    onPage.current = page === "calendar";
+  }, [page]);
   const list = data.list.filter(e => visibleTo(e, cal.who));
   const shared = useRef<Shared>({ top: 0, els: new Set() }).current;
   const slide = useRef<(n: number) => void>(() => {});     // set by the swipe track, so the arrows slide it too
@@ -422,6 +429,7 @@ export function CalendarPanel() {
     if (!start || matchMedia("(prefers-reduced-motion: reduce)").matches) return setCal(f);
     flushSync(() => setVt(names));
     const t = start(() => { flushSync(() => setCal(f)); });
+    t.ready?.catch(() => {}); t.updateCallbackDone?.catch(() => {});      // a transition the browser drops is fine: the view still changes
     t.finished.catch(() => {}).finally(() => setVt(false));
   };
   const band: [number, number] = [Math.min(anchor([d]), anchor(weekOf)) - 1, Math.max(anchor([d]), anchor(weekOf)) + 10];
@@ -458,7 +466,7 @@ export function CalendarPanel() {
       <div className="fx" style={{ justifyContent: "space-between", padding: "0 0 10px", gap: 10 }}>
         <div className="fx" style={{ gap: 10, minWidth: 0 }}>
           <button className="cnav" aria-label="Back" onClick={() => slide.current(-1)}><ChevL /></button>
-          <span key={key.split(":")[0]} className="ctitle" style={{ fontSize: P ? 21 : cal.mode === "day" ? 25 : 28, fontWeight: 700, letterSpacing: "-.04em", whiteSpace: "nowrap", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{calTitle(cal, P)}</span>
+          <span key={cal.mode} className="ctitle" style={{ fontSize: P ? 21 : cal.mode === "day" ? 25 : 28, fontWeight: 700, letterSpacing: "-.04em", whiteSpace: "nowrap", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{calTitle(cal, P)}</span>
           <button className="cnav" aria-label="Forward" onClick={() => slide.current(1)}><ChevR /></button>
         </div>
         <div className="fx" style={{ gap: 8, flex: "none" }}>
@@ -471,7 +479,7 @@ export function CalendarPanel() {
         {DEMO ? null : <button className="pill" aria-label="Add or change family members" style={{ height: 44, fontSize: 16, padding: "0 18px" }} onClick={() => openSheet({ mode: "family" })}>+ Family</button>}
       </div>
       {cal.mode === "day" ? <DayHead days={weekOf} size={P ? 40 : 44} gutter={0} c={c} /> : null}
-      <SwipePane api={slide} onStep={n => { keep.current = true; setCal(x => ({ ...x, date: stepDate(x, n) })); }}>
+      <SwipePane api={slide} keyOf={off => cal.mode + ymd(stepDate(cal, off))} onStep={n => { keep.current = true; setCal(x => ({ ...x, date: stepDate(x, n) })); }}>
         {off => <Pane off={off} pc={{ ...cal, date: stepDate(cal, off) }} k={{ people, h24, vt, band, morph }} keep={keep} opening={opening} shared={shared} nonce={nonce} />}
       </SwipePane>
       <div style={{ flex: "none", padding: "10px 0 112px" }}>

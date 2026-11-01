@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, DEMO } from "../lib/api";
 import { addDays, fmtT, clockT, longDay, sameDay, startOfDay, weekStart } from "../lib/dates";
 import { calOf, colorsOf, onDay, tint, type Ev, type EvData } from "../lib/events";
+import { FoodIcon, foodFor } from "../lib/foodicons";
 import { Chev, DinnerIcon, PpLogo, WeatherIcon } from "../lib/icons";
 import { EMPTY_EVENTS, dinnerFor, useDinners, useEvents } from "../data";
 import { useHub } from "../hub";
@@ -54,16 +55,17 @@ function DinnerCard() {
   const t = dinnerFor(din, people, now);
   const name = DEMO ? "Spaghetti bolognese" : t ? t.name : "Nothing planned yet";
   const sub = DEMO ? "Dad cooking" : t && t.cook ? t.cook + " cooking" : "";
+  const bg = t || DEMO ? foodFor(name).bg : "#ffeadf", ink = `color-mix(in srgb, ${bg}, #000 62%)`;      // the banner wears the colour of tonight's dinner
   return (
     <button className="tile-card fx dinner" id="dinner" aria-label="Dinner tonight. Open the dinners" onClick={() => go("menu")}
-      style={{ gap: 18, padding: "18px 26px 18px 18px", background: "#ffeadf", border: 0, minHeight: 0, width: "100%", textAlign: "left", color: "inherit", borderRadius: 30 }}>
-      <div style={{ width: 64, height: 64, borderRadius: 20, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><DinnerIcon color="#c2410c" /></div>
+      style={{ gap: 18, padding: "18px 26px 18px 18px", background: bg, transition: "background-color .5s ease", border: 0, minHeight: 0, width: "100%", textAlign: "left", color: "inherit", borderRadius: 30 }}>
+      {t || DEMO ? <FoodIcon name={DEMO ? "Spaghetti bolognese" : t!.name} size={64} style={{ background: "#fff" }} /> : <div style={{ width: 64, height: 64, borderRadius: 20, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><DinnerIcon color="#c2410c" /></div>}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="cap" style={{ color: "#9a4a1e" }}>Dinner tonight</div>
+        <div className="cap" style={{ color: ink }}>Dinner tonight</div>
         <div className="dn" style={{ fontSize: 34, fontWeight: 700, letterSpacing: "-.04em", lineHeight: 1.08, marginTop: 3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{name}</div>
-        {t || DEMO ? null : <div style={{ fontSize: 16, fontWeight: 600, color: "#9a4a1e", marginTop: 3 }}>Tap to plan the week</div>}
+        {t || DEMO ? null : <div style={{ fontSize: 16, fontWeight: 600, color: ink, marginTop: 3 }}>Tap to plan the week</div>}
       </div>
-      {sub ? <div style={{ textAlign: "right", fontSize: 17, fontWeight: 600, color: "#9a4a1e", flex: "none" }}>{sub}</div> : null}
+      {sub ? <div style={{ textAlign: "right", fontSize: 17, fontWeight: 600, color: ink, flex: "none" }}>{sub}</div> : null}
     </button>
   );
 }
@@ -122,7 +124,7 @@ function TodayCard() {
       <div className="fx" style={{ justifyContent: "space-between" }}>
         <div className="fx" style={{ gap: 12, alignItems: "baseline" }}>
           <span style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-.04em" }}>{wk ? "This week" : "Today"}</span>
-          {nextTxt && !wk ? <span className="fx" style={{ gap: 7, fontSize: 15, fontWeight: 600, color: "#1d4ed8" }}><span className="live" style={{ width: 7, height: 7, borderRadius: "50%", background: "#1d4ed8" }} />{nextTxt}</span> : null}
+          {nextTxt && !wk ? <span className="fx" style={{ gap: 7, fontSize: 15, fontWeight: 600, color: "var(--hub-text)" }}><span className="live" style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--hub-text)" }} />{nextTxt}</span> : null}
         </div>
         <div className="fx" style={{ gap: 3, background: "#f1f4f9", borderRadius: 999, padding: 3 }}>
           <button className={"sg" + (wk ? "" : " on")} onClick={() => setOvMode("day")}>Day</button>
@@ -150,8 +152,8 @@ function TodayCard() {
                 const c = calOf(e, data, people), first = i === 0 && !e.all_day;
                 return (
                   <div className="tl" key={e.id}>
-                    <span className="t num" style={first ? { color: "#1d4ed8" } : undefined}>{e.all_day ? <span style={{ fontSize: 16 }}>All day</span> : fmtT(e.s, h24)}</span>
-                    <span className="dotm" style={{ background: first ? "#1d4ed8" : c.color }} />
+                    <span className="t num" style={first ? { color: "var(--hub-text)" } : undefined}>{e.all_day ? <span style={{ fontSize: 16 }}>All day</span> : fmtT(e.s, h24)}</span>
+                    <span className="dotm" style={{ background: first ? "var(--hub-text)" : c.color }} />
                     <span className="n">{e.title}</span>
                     {c.name ? <span className="pp"><i style={{ background: c.color }} />{c.name}</span> : null}
                   </div>

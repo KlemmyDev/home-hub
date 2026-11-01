@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, DEMO, post } from "./lib/api";
-import { ymd } from "./lib/dates";
+import { addDays, startOfDay, weekStart, ymd } from "./lib/dates";
 import { fetchEvents, type EvData } from "./lib/events";
 import { useHub } from "./hub";
 
@@ -21,13 +21,22 @@ export const EMPTY_EVENTS: EvData = { list: [], cals: {} };
 export type Meal = { id: string; name: string };
 export type Dinners = { meals: Meal[]; plan: Record<string, { meal: string; cook?: string }> };
 export function useDinners() {
-  return useQuery<Dinners>({ queryKey: ["dinners"], queryFn: () => DEMO ? Promise.resolve({ meals: [], plan: {} }) : api("/api/dinners"), refetchInterval: 300000 });
+  return useQuery<Dinners>({ queryKey: ["dinners"], queryFn: () => DEMO ? Promise.resolve(demoDinners()) : api("/api/dinners"), refetchInterval: 300000 });
 }
-export function dinnerFor(din: Dinners | undefined, people: { id: string; name: string }[], day: Date) {
+/** Sample dinners for ?demo: a week of them, starting this Monday. */
+function demoDinners(): Dinners {
+  const names = ["Spaghetti Bolognese", "Fish and chips", "Chicken curry", "Tacos", "Homemade pizza", "Roast chicken", ""];
+  const extra = ["Sausages and mash", "Beef stir fry", "Mac and cheese", "Pumpkin soup", "Pancakes", "Burgers", "Lasagne", "Sushi night"];
+  const meals = [...names.filter(Boolean), ...extra].map((name, i) => ({ id: "m" + i, name }));
+  const w = weekStart(startOfDay(new Date())), plan: Dinners["plan"] = {};
+  names.forEach((n, i) => { if (n) plan[ymd(addDays(w, i))] = { meal: "m" + i, cook: ["d", "m", "a", "d", "m", "d", ""][i] || undefined }; });
+  return { meals, plan };
+}
+export function dinnerFor(din: Dinners | undefined, people: { id: string; name: string; color?: string }[], day: Date) {
   const p = din?.plan[ymd(day)], m = p && din?.meals.find(x => x.id === p.meal);
   if (!m) return null;
   const cook = people.find(x => x.id === p.cook);
-  return { name: m.name, cook: cook ? cook.name : "" };
+  return { name: m.name, cook: cook ? cook.name : "", cookColor: cook?.color || "" };
 }
 
 export type ShopItem = { id: string; name: string; done: boolean };

@@ -60,7 +60,7 @@ function Dock() {
           const on = to === "page" && id === page;
           const inner = on ? <><DockIcon name={id} size={22} /><span className="lb">{name}</span></> : <DockIcon name={id} />;
           return to === "page"
-            ? <button key={id} id={"dk-" + id} className={"dk" + (on ? " on" : "")} aria-label={name} aria-current={on ? "page" : undefined} onClick={() => id === "calendar" ? openCal(cal.mode, cal.date) : go(id as Page | "settings")}>{inner}</button>
+            ? <button key={id} id={"dk-" + id} className={"dk" + (on ? " on" : "")} aria-label={name} aria-current={on ? "page" : undefined} onClick={() => id === "calendar" ? (page === "calendar" ? undefined : openCal(cal.mode, new Date())) : go(id as Page | "settings")}>{inner}</button>
             : <a key={id} className="dk" href={to} aria-label={name}>{inner}</a>;
         })}
       </div>
@@ -77,7 +77,7 @@ export function Stage() {
       <div id="stage" className={(dim.phone ? "phone " : "") + (sheet ? "sheet-on" : "")} style={style}>
         <Overview away={page !== "overview"} />
         <PanelCard id="calcard" inner="calin" active={page === "calendar"} edge><CalendarPanel /></PanelCard>
-        <PanelCard id="menucard" inner="menuin" active={page === "menu"}><MenuPanel /></PanelCard>
+        <PanelCard id="menucard" inner="menuin" active={page === "menu"} edge><MenuPanel /></PanelCard>
         <PanelCard id="shopcard" inner="shopin" active={page === "shopping"}><ShoppingPanel /></PanelCard>
         <PanelCard id="chorecard" inner="chorein" active={page === "chores"}><ChoresPanel /></PanelCard>
         {page === "settings" ? <div id="setlayer"><Settings /></div> : null}

@@ -5,6 +5,7 @@ import { addDays, clockT, longDay, sameDay, shortDate, startOfDay, weekStart, ym
 import { Check, Chev, ChevL, ChevR, XIcon } from "../lib/icons";
 import { dinnerFor, useDinners, useShopping } from "../data";
 import { useHub } from "../hub";
+import { FoodIcon } from "../lib/foodicons";
 
 /** The clock and the screen's name, along the top of Dinners and Shopping. */
 function PanelTop({ title, title2 }: { title: string; title2?: string }) {
@@ -35,19 +36,20 @@ export function MenuPanel() {
     const day = addDays(w, i), today = sameDay(day, now), t = dinnerFor(din, people, day), past = day < startOfDay(now);
     if (t) planned++;
     return (
-      <button key={i} className={"drow" + (today ? " today" : "")} aria-label={longDay(day) + (t ? ": " + t.name : "")} onClick={() => {
+      <button key={i} className={"drow" + (today ? " today" : "") + (t ? " set" : "")} aria-label={longDay(day) + (t ? ": " + t.name : "")} onClick={() => {
         if (DEMO) return;
         const p = din?.plan[ymd(day)];
         openSheet({ mode: "dinner", date: ymd(day), cook: p && p.cook ? p.cook : null });
       }}>
-        <span className="fx" style={{ flexDirection: "column", gap: 0, width: P ? 46 : 62, flex: "none" }}>
-          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".06em", color: today ? "#101828" : "#6b7488" }}>{day.toLocaleDateString([], { weekday: "short" }).toUpperCase()}</span>
-          <span className="num fx" style={{ width: P ? 34 : 40, height: P ? 34 : 40, borderRadius: "50%", justifyContent: "center", fontSize: P ? 18 : 21, fontWeight: 700, ...(today ? { background: "#101828", color: "#fff" } : {}) }}>{day.getDate()}</span>
-        </span>
+        <span className={"dnumbox" + (today ? " now" : "")}><span className="dnum2 num">{day.getDate()}</span></span>
         <span style={{ flex: 1, minWidth: 0 }}>
-          {t ? <><span className="dname">{t.name}</span>{t.cook ? <span className="dcook">{t.cook} cooking</span> : null}</> : <span className="dempty">{past ? "No dinner planned" : "Tap to choose a dinner"}</span>}
+          <span className="dday">{day.toLocaleDateString([], { weekday: "long" })}{today ? <b className="dtoday">Today</b> : null}</span>
+          {t ? <>
+            <span className="dname">{t.name}</span>
+            {t.cook ? <span className="dcook"><i className="av" style={{ width: 22, height: 22, fontSize: 12, background: t.cookColor || "#8a93a6" }}>{t.cook[0].toUpperCase()}</i>{t.cook} cooking</span> : null}
+          </> : <span className="dempty">{past ? "No dinner planned" : "Tap to choose a dinner"}</span>}
         </span>
-        <span className="dplus" aria-hidden="true">{t ? <Chev /> : "+"}</span>
+        {t ? <FoodIcon name={t.name} size={P ? 64 : 84} /> : <span className="dplus" aria-hidden="true">+</span>}
       </button>
     );
   });
@@ -60,12 +62,17 @@ export function MenuPanel() {
           <span style={{ fontSize: P ? 21 : 28, fontWeight: 700, letterSpacing: "-.04em", whiteSpace: "nowrap", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{title}</span>
           <button className="cnav" aria-label="Forward" onClick={() => setMenuWeek(addDays(w, 7))}><ChevR /></button>
         </div>
-        {thisWeek ? null : <button className="cbtn" style={{ background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={() => setMenuWeek(new Date())}>This week</button>}
+        <div className="fx" style={{ gap: 8, flex: "none" }}>
+          {thisWeek ? null : <button className="cbtn" style={{ background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={() => setMenuWeek(new Date())}>This week</button>}
+          <button className="cbtn accent" hidden={DEMO} style={{ padding: "0 20px" }} onClick={() => openSheet({ mode: "meals" })}>{P ? "Ideas" : "Dinner ideas"}{din?.meals.length ? " · " + din.meals.length : ""}</button>
+        </div>
       </div>
       <div className="drows">{rows}</div>
-      <div className="fx" style={{ flex: "none", height: 140, padding: "8px 4px 0", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-        <span style={{ fontSize: 17, fontWeight: 600, color: "#6b7488" }}>{planned} of 7 planned</span>
-        <button className="cbtn" hidden={DEMO} style={{ padding: "0 20px" }} onClick={() => openSheet({ mode: "meals" })}>Dinner ideas{din?.meals.length ? " · " + din.meals.length : ""}</button>
+      <div style={{ flex: "none", height: 140, padding: "10px 4px 0" }}>
+        <div className="pbar" aria-hidden style={{ margin: "0 0 14px" }}>{Array.from({ length: 7 }, (_, i) => <i key={i} className={dinnerFor(din, people, addDays(w, i)) ? "on" : ""} />)}</div>
+        <div className="fx" style={{ justifyContent: "space-between", gap: 12 }}>
+          <span style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-.02em" }}>{planned} of 7 planned</span>
+        </div>
       </div>
     </div>
   );
