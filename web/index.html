@@ -42,16 +42,13 @@ input:focus{outline:3px solid #1d4ed8;outline-offset:2px}
 
 /* the dashboard: a fixed 800 x 1280 portrait stage, scaled to fit the screen */
 #dash{position:fixed;inset:0;overflow:hidden}
-#stage{position:absolute;left:50%;top:50%;width:800px;height:1280px;transform:translate(-50%,-50%) scale(var(--s,1));display:flex;flex-direction:column;gap:18px;padding:48px 44px 40px;color:var(--text)}
+#stage{position:absolute;left:50%;top:50%;width:800px;height:1280px;transform:translate(-50%,-50%) scale(var(--s,1));color:var(--text)}
 #stage a{color:inherit;text-decoration:none}
 .fx{display:flex;align-items:center}
 .num{font-variant-numeric:tabular-nums}
 .cap{font-size:14px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:#6b7488}
 .tile-card{background:#fff;border-radius:30px;box-shadow:0 1px 2px rgba(20,32,70,.05),0 10px 28px rgba(20,32,70,.06)}
 .gear{width:48px;height:48px;min-height:0;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #e1e6ef;color:#5a6478}
-.nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;background:#fff;border:1px solid #e1e6ef;border-radius:999px;padding:5px}
-.nv{display:flex;align-items:center;justify-content:center;gap:7px;height:56px;min-height:0;padding:0;border:0;border-radius:999px;background:none;font-size:17px;font-weight:650;letter-spacing:-.01em;color:#5a6478;white-space:nowrap}
-.nv.on{background:#101828;color:#fff}
 .wd{display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 0;min-height:44px}
 .sg{height:36px;min-height:0;padding:0 15px;display:inline-flex;align-items:center;border:0;border-radius:999px;background:none;font-size:15px;font-weight:650;color:#5a6478}
 .sg.on{background:#fff;color:#101828;box-shadow:0 1px 3px rgba(20,32,70,.14)}
@@ -65,15 +62,40 @@ input:focus{outline:3px solid #1d4ed8;outline-offset:2px}
 .stat{display:inline-flex;align-items:center;gap:7px;font-size:14px;font-weight:600}
 .stat .sd{width:8px;height:8px;border-radius:50%;background:#9a9a9a}
 .stat[data-up="1"] .sd{background:#3ee08f}.stat[data-up="0"] .sd{background:#ff8a80}
-.toast{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);background:#101828;color:#fff;border-radius:999px;padding:14px 26px;font-size:19px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:5}
+.toast{position:absolute;left:50%;bottom:120px;transform:translateX(-50%);background:#101828;color:#fff;border-radius:999px;padding:14px 26px;font-size:19px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:12;white-space:nowrap}
 .toast.on{opacity:1}
 .cnav{width:52px;height:52px;min-height:0;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #e1e6ef;color:#101828}
 .cbtn{height:52px;min-height:0;padding:0 20px;border-radius:999px;background:#101828;color:#fff;border:0;font-size:17px;font-weight:650}
-.chip{display:inline-flex;align-items:stretch;gap:9px;background:#f1f4f9;border-radius:10px;padding:7px 12px 7px 0;overflow:hidden;font-size:17px;font-weight:600;line-height:1.15;max-width:100%}
-.chip s{width:5px;flex:none;text-decoration:none}
-.chip i{font-style:normal;font-weight:500;color:#6b7488;margin-right:5px}
-.wk{display:grid;grid-template-columns:76px 1fr;gap:14px;align-items:center;padding:12px 0;border-top:1px solid #edf0f5;min-height:78px;text-align:left;cursor:pointer}
-.mcell{box-sizing:border-box;height:96px;min-height:0;padding:8px 6px;border-radius:14px;border:1px solid #edf0f5;background:#fff;display:flex;flex-direction:column;gap:6px;align-items:flex-start;font-size:22px;font-weight:700}
+.ov{position:absolute;inset:0;padding:48px 44px 124px;display:flex;flex-direction:column;gap:18px;transition:opacity .45s ease,transform .55s cubic-bezier(.2,.8,.2,1)}
+.ov.away{opacity:0;transform:scale(.97);pointer-events:none}
+#calcard{position:absolute;display:none;overflow:hidden;z-index:3}
+#calcard.show{display:block}
+#calcard.anim{transition:left .55s cubic-bezier(.2,.8,.2,1),top .55s cubic-bezier(.2,.8,.2,1),width .55s cubic-bezier(.2,.8,.2,1),height .55s cubic-bezier(.2,.8,.2,1)}
+#calin{position:absolute;left:0;top:0;width:760px;height:1240px;transition:opacity .3s ease}
+.sg.big{height:40px;font-size:16px;padding:0 17px}
+.evb{position:absolute;box-sizing:border-box;min-height:0;border:0;border-radius:10px;overflow:hidden;text-align:left;color:#101828;display:block;font-family:inherit}
+.mcell{box-sizing:border-box;min-height:0;min-width:0;padding:4px;border:0;border-top:1px solid #edf0f5;border-radius:0;background:none;display:flex;flex-direction:column;gap:3px;align-items:stretch;text-align:left;overflow:hidden;color:#101828}
+.mchip{display:block;height:24px;padding:0 6px;border-radius:7px;font-size:13px;font-weight:650;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill{height:52px;min-height:0;padding:0 20px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-size:18px;font-weight:650;color:#3a4358;display:inline-flex;align-items:center;gap:8px;flex:none}
+.pill.on{background:#101828;color:#fff;border-color:#101828}
+button.danger{background:#c2331f;color:#fff;border-color:#c2331f;font-weight:700}
+button.danger-o{color:#c2331f;border-color:#e8b9b2}
+.sw2{width:84px;height:48px;min-height:0;padding:0;border-radius:999px;border:0;background:#cdd3de;position:relative;transition:background .2s}
+.sw2 i{position:absolute;left:4px;top:4px;width:40px;height:40px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.sw2.on{background:#101828}.sw2.on i{transform:translateX(36px)}
+#scrim{position:absolute;inset:0;z-index:5;min-height:0;padding:0;border:0;border-radius:0;background:rgba(16,24,40,.28)}
+#dock{position:absolute;left:28px;bottom:28px;width:76px;height:76px;border-radius:38px;background:#101828;box-shadow:0 14px 34px rgba(16,24,40,.38);overflow:hidden;z-index:6;transition:left .5s cubic-bezier(.2,.8,.2,1),width .5s cubic-bezier(.2,.8,.2,1)}
+#dock.open{left:calc((800px - var(--dw, 546px)) / 2);width:var(--dw, 546px)}
+#dk-t{position:absolute;left:6px;top:6px;width:64px;height:64px;min-height:0;padding:0;border:0;border-radius:50%;background:none;color:#fff;display:flex;align-items:center;justify-content:center}
+#dk-t .i-close{display:none}#dock.open #dk-t .i-close{display:flex}#dock.open #dk-t .i-open{display:none}
+#dk-i{position:absolute;left:76px;top:0;bottom:0;display:flex;align-items:center;gap:4px;opacity:0;visibility:hidden;transition:opacity .2s ease,visibility 0s .2s}
+#dock.open #dk-i{opacity:1;visibility:visible;transition:opacity .25s ease .2s}
+#dock .dk{min-height:0;height:56px;width:56px;padding:0;border:0;border-radius:50%;background:none;color:#c9d0de;display:flex;align-items:center;justify-content:center;flex:none}
+#dock .dk.on{width:150px;border-radius:999px;background:#fff;color:#101828;gap:8px;font-size:17px;font-weight:700}
+#sheetscrim{position:absolute;inset:0;z-index:9;background:rgba(16,24,40,.4);opacity:0;pointer-events:none;transition:opacity .3s}
+#sheet{position:absolute;left:0;right:0;bottom:0;height:1140px;z-index:10;background:#fff;border-radius:34px 34px 0 0;box-shadow:0 -10px 40px rgba(20,32,70,.25);display:flex;flex-direction:column;transform:translateY(103%);transition:transform .4s cubic-bezier(.2,.8,.2,1),visibility 0s .4s;visibility:hidden}
+.sheet-on #sheetscrim{opacity:1;pointer-events:auto}
+.sheet-on #sheet{transform:none;visibility:visible;transition:transform .4s cubic-bezier(.2,.8,.2,1),visibility 0s}
 .scroll{overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .scroll::-webkit-scrollbar{display:none}
 .sw{width:44px;height:44px;min-height:0;padding:0;border-radius:50%;border:3px solid transparent}
@@ -143,9 +165,10 @@ function tick() {
   if (el) {
     el.innerHTML = `${a}<br>${b}`;
     el.style.fontSize = b.length > 8 ? "56px" : "66px";
-    $("clock").textContent = clockT(d);
     $("date").textContent = d.toLocaleDateString([], {weekday: "long"}) + " · " + d.toLocaleDateString([], {day: "numeric", month: "long"});
   }
+  document.querySelectorAll(".clk").forEach(c => c.textContent = clockT(d));
+  document.querySelectorAll(".cdt").forEach(c => c.textContent = d.toLocaleDateString([], {weekday: "short", day: "numeric", month: "short"}));
   if (new Date().toDateString() !== tick.day) { tick.day = new Date().toDateString(); if (view.page === "overview") loadOverview(); }
   clearTimeout(tick.t);
   tick.t = setTimeout(tick, 60000 - (d.getSeconds() * 1000 + d.getMilliseconds()));
@@ -159,8 +182,9 @@ async function keepAwake() {
 document.addEventListener("visibilitychange", keepAwake);
 
 /* ---------- Dashboard ---------- */
-function soon() {
+function soon(msg) {
   const t = $("toast"); if (!t) return;
+  t.textContent = typeof msg === "string" ? msg : "Coming soon";
   t.classList.add("on");
   clearTimeout(soon.t); soon.t = setTimeout(() => t.classList.remove("on"), 1800);
 }
@@ -182,14 +206,17 @@ const CHEV_R = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stro
 
 /* ---------- Events (from the hub, or sample ones with ?demo) ---------- */
 let EV = {list: [], cals: {}};
-const view = {page: "overview", mode: "day", date: new Date()};
+const view = {page: "overview", mode: "day", date: new Date(), who: null};
 const dateOf = (s, allDay) => { if (allDay) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); } return new Date(s); };
 const prep = e => ({...e, s: dateOf(e.start, e.all_day), e: dateOf(e.end, e.all_day)});
 function onDay(e, day) {
   const a = startOfDay(day), b = addDays(a, 1);
   return e.s < b && (e.e > a || (+e.e === +e.s && e.s >= a));
 }
-const calOf = e => EV.cals[e.cal] || {name: "", color: "#8a93a6", ok: true};
+const calOf = e => {
+  if (e.hub) { const ps = (e.people || []).map(id => (S.people || []).find(p => p.id === id)).filter(Boolean); return {name: ps.map(p => p.name).join(" and "), color: ps.length ? ps[0].color : "#8a93a6", ok: true}; }
+  return EV.cals[e.cal] || {name: "", color: "#8a93a6", ok: true};
+};
 
 function demoData(from, to) {
   const cals = {};
@@ -239,7 +266,7 @@ function drawToday() {
   }).join("");
   const todays = EV.list.filter(e => onDay(e, now) && (e.all_day || e.e > now || (+e.e === +e.s && e.s >= now)));
   const shown = todays.slice(0, 3), rest = todays.slice(3);
-  const hasCals = DEMO || S.config.calendars.length > 0;
+  const hasCals = true;      // events can be added right on the hub, so the calendar is always there
   const bad = Object.values(EV.cals).find(c => !c.ok);
   const next = todays.find(e => !e.all_day && e.s > now);
   let nextTxt = "";
@@ -252,8 +279,7 @@ function drawToday() {
     }).join("") + `</div>`;
     later = rest.length ? `Later: ${esc(rest[0].title)}${rest[0].all_day ? "" : " " + fmtT(rest[0].s)}${rest.length > 1 ? ` and ${rest.length - 1} more` : ""}` : "That's everything for today";
   } else {
-    const [h, p] = !hasCals ? ["No calendars yet", "Add one in settings to see your day here."]
-      : EV.list.some(e => onDay(e, now)) ? ["All done for today", "Nothing else on."] : ["Nothing on today", "Enjoy the quiet."];
+    const [h, p] = EV.list.some(e => onDay(e, now)) ? ["All done for today", "Nothing else on."] : ["Nothing on today", "Open the calendar to add something."];
     body = `<div style="padding:34px 0 30px;text-align:center"><div style="font-size:26px;font-weight:700;letter-spacing:-.02em">${h}</div><div style="font-size:18px;color:#6b7488;margin-top:6px">${p}</div></div>`;
     later = hasCals ? "" : "No calendars added";
   }
@@ -273,9 +299,53 @@ function drawToday() {
 }
 
 /* ---------- Calendar page (Day, Week, Month) ---------- */
+const FULL = {l: 20, t: 20, w: 760, h: 1240};
+const boxIn = el => { let l = 0, t = 0, n = el; const st = $("stage"); while (n && n !== st) { l += n.offsetLeft; t += n.offsetTop; n = n.offsetParent; } return {l, t, w: el.offsetWidth, h: el.offsetHeight}; };
+const setBox = (el, b) => { el.style.left = b.l + "px"; el.style.top = b.t + "px"; el.style.width = b.w + "px"; el.style.height = b.h + "px"; };
+const pad = n => String(n).padStart(2, "0");
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const hmOf = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const dayDiff = (a, b) => Math.round((Date.UTC(a.getFullYear(), a.getMonth(), a.getDate()) - Date.UTC(b.getFullYear(), b.getMonth(), b.getDate())) / DAY_MS);
+const tint = c => c + "2b";
+const people = () => S.people || [];
+const peopleOf = e => (e.people || []).map(id => people().find(p => p.id === id)).filter(Boolean);
+const colorsOf = e => e.hub ? (peopleOf(e).length ? peopleOf(e).map(p => p.color) : ["#8a93a6"]) : [calOf(e).color];
+const visible = e => !view.who || (e.hub && (e.people || []).includes(view.who));
+const shown = () => EV.list.filter(visible);
+
 function openCal(mode, date) {
-  view.page = "calendar"; view.mode = mode; view.date = date;
-  drawNav(); drawBody();
+  view.mode = mode; view.date = date;
+  setDock(false);
+  const card = $("calcard"), fromOverview = view.page !== "calendar";
+  view.page = "calendar";
+  drawDock();
+  if (!fromOverview) { drawCal(); loadCal(); return; }
+  clearTimeout(closeCal.t);
+  card.classList.remove("anim");
+  setBox(card, boxIn($("today")));
+  card.classList.add("show");
+  $("calin").style.transitionDelay = ".3s";
+  $("calin").style.opacity = 0;
+  drawCal(); loadCal();
+  void card.offsetWidth;                       // start from the Today card, then grow
+  card.classList.add("anim");
+  setBox(card, FULL);
+  $("ov").classList.add("away");
+  $("calin").style.opacity = 1;
+}
+function closeCal() {
+  if (view.page !== "calendar") return;
+  view.page = "overview";
+  closeSheet(); setDock(false); drawDock();
+  const card = $("calcard");
+  card.classList.add("anim");
+  setBox(card, boxIn($("today")));             // shrink back onto the Today card
+  $("calin").style.transitionDelay = "0s";
+  $("calin").style.opacity = 0;
+  $("ov").classList.remove("away");
+  loadOverview();
+  clearTimeout(closeCal.t);
+  closeCal.t = setTimeout(() => card.classList.remove("show", "anim"), 600);
 }
 function calRange() {
   const d = startOfDay(view.date);
@@ -292,60 +362,313 @@ function calStep(n) {
 async function loadCal() { await loadRange(...calRange()); drawCal(); }
 function calTitle() {
   const d = view.date;
-  if (view.mode === "day") return [d.toLocaleDateString([], {weekday: "long"}), d.toLocaleDateString([], {day: "numeric", month: "long"})];
+  if (view.mode === "day") return d.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"});
   if (view.mode === "week") {
     const a = weekStart(d), b = addDays(a, 6), m = x => x.toLocaleDateString([], {month: "long"});
-    return [a.getMonth() === b.getMonth() ? `${a.getDate()} to ${b.getDate()} ${m(b)}` : `${a.getDate()} ${m(a)} to ${b.getDate()} ${m(b)}`, ""];
+    return a.getMonth() === b.getMonth() ? `${a.getDate()} to ${b.getDate()} ${m(b)}` : `${a.getDate()} ${m(a)} to ${b.getDate()} ${m(b)}`;
   }
-  return [d.toLocaleDateString([], {month: "long", year: "numeric"}), ""];
+  return d.toLocaleDateString([], {month: "long", year: "numeric"});
 }
-function evChip(e) {
-  const c = calOf(e);
-  return `<span class="chip"><s style="background:${esc(c.color)}"></s><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.all_day ? "" : `<i class="num">${fmtT(e.s)}</i>`}${esc(e.title)}</span></span>`;
+
+/* Timed events on one day, side by side where they overlap. */
+function laneUp(evs) {
+  const out = []; let cluster = [], ends = [], clusterEnd = 0;
+  const flush = () => { const n = ends.length; cluster.forEach(x => x.cols = n); out.push(...cluster); cluster = []; ends = []; };
+  for (const x of evs) {
+    if (cluster.length && +x.s >= clusterEnd) flush();
+    let col = ends.findIndex(t => t <= +x.s);
+    if (col < 0) { col = ends.length; ends.push(0); }
+    ends[col] = +x.e; clusterEnd = Math.max(clusterEnd, +x.e);
+    cluster.push({...x, col});
+  }
+  flush();
+  return out;
+}
+function timedOn(day) {
+  const a = startOfDay(day), b = addDays(a, 1);
+  const list = shown().filter(e => !e.all_day && onDay(e, day)).map(e => {
+    const s = e.s < a ? a : e.s;
+    let en = e.e > b ? b : e.e;
+    if (en - s < 30 * 60000) en = new Date(+s + 30 * 60000);
+    return {ev: e, s, e: en};
+  });
+  return laneUp(list.sort((x, y) => x.s - y.s));
+}
+const hourLabel = h => h24() ? pad(h) : (h % 12 || 12) + (h < 12 ? "am" : "pm");
+function gridHtml(days, gutter, big) {
+  const per = days.map(timedOn);
+  let lo = 7, hi = 20;
+  for (const c of per) for (const x of c) {
+    lo = Math.min(lo, x.s.getHours());
+    const eh = (x.e - startOfDay(x.s)) / 3600000;
+    hi = Math.max(hi, Math.min(24, Math.ceil(eh)));
+  }
+  const tot = hi - lo, top = h => (h - lo) / tot * 100, now = new Date();
+  let html = `<div style="flex:1;min-height:0;position:relative">`;
+  for (let h = lo; h < hi; h++) html += `<div style="position:absolute;left:0;right:0;top:${top(h)}%;border-top:1px solid #edf0f5"><span class="num" style="position:absolute;left:0;top:4px;width:${gutter - 10}px;text-align:right;font-size:${big ? 14 : 13}px;font-weight:600;color:#6b7488">${hourLabel(h)}</span></div>`;
+  html += `<div style="position:absolute;left:${gutter}px;right:0;top:0;bottom:0">`;
+  days.forEach((day, i) => {
+    const today = sameDay(day, now), w = 100 / days.length;
+    const body = per[i].map(x => {
+      const e = x.ev, cs = colorsOf(e), t0 = x.s.getHours() + x.s.getMinutes() / 60, t1 = t0 + (x.e - x.s) / 3600000;
+      const mins = (x.e - x.s) / 60000, n = x.cols, tall = mins >= 55;
+      const left = `calc(${x.col / n * 100}% + 3px)`, width = `calc(${100 / n}% - 6px)`;
+      const who = peopleOf(e).map(p => esc(p.name)).join(" · ");
+      const inner = big
+        ? (tall ? `<div style="font-size:${n > 1 ? 19 : 22}px;font-weight:700;letter-spacing:-.02em;line-height:1.1">${esc(e.title)}</div><div class="num" style="font-size:15px;font-weight:600;color:#3a4358;margin-top:3px">${fmtT(e.s)} to ${fmtT(e.e)}</div>${who ? `<div style="font-size:15px;font-weight:600;color:#3a4358;margin-top:4px">${who}</div>` : ""}`
+                : `<div class="fx" style="justify-content:space-between;gap:10px;height:100%"><span style="font-size:20px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.title)}</span><span class="num" style="font-size:15px;font-weight:600;color:#3a4358;flex:none">${fmtT(e.s)}</span></div>`)
+        : `<div style="font-size:14px;font-weight:700;letter-spacing:-.01em;line-height:1.12">${esc(e.title)}</div>${tall ? `<div class="num" style="font-size:12px;font-weight:600;color:#3a4358;margin-top:1px">${fmtT(e.s)}</div>` : ""}`;
+      const stripe = cs.length > 1 ? `<span style="position:absolute;left:0;top:0;bottom:0;width:6px;background:linear-gradient(${cs.map((c, k) => `${c} ${k / cs.length * 100}% ${(k + 1) / cs.length * 100}%`).join(",")})"></span>` : `<span style="position:absolute;left:0;top:0;bottom:0;width:6px;background:${esc(cs[0])}"></span>`;
+      return `<button class="evb" data-eid="${esc(e.id)}" style="top:calc(${top(t0)}% + 2px);height:calc(${top(t1) - top(t0)}% - 4px);left:${left};width:${width};background:${esc(tint(cs[0]))};padding:${big ? "6px 12px 6px 16px" : "5px 6px 5px 11px"}">${stripe}${inner}</button>`;
+    }).join("");
+    html += `<div class="gcol" data-day="${+day}" data-lo="${lo}" data-tot="${tot}" style="position:absolute;top:0;bottom:0;left:${i * w}%;width:${w}%;border-left:1px solid #edf0f5;${today ? "background:rgba(47,111,224,.045)" : ""}">${body}</div>`;
+  });
+  if (days.some(d => sameDay(d, now))) {
+    const h = now.getHours() + now.getMinutes() / 60;
+    if (h >= lo && h <= hi) html += `<div style="position:absolute;left:0;right:0;top:${top(h)}%;border-top:2px solid #e2523f;z-index:2;pointer-events:none"><span style="position:absolute;left:-5px;top:-6px;width:10px;height:10px;border-radius:50%;background:#e2523f"></span></div>`;
+  }
+  return html + `</div></div>`;
+}
+function alldayHtml(days, gutter) {
+  const first = days[0], n = days.length;
+  const items = shown().filter(e => e.all_day && days.some(d => onDay(e, d))).map(e => ({e, a: Math.max(0, dayDiff(e.s, first)), b: Math.min(n - 1, dayDiff(addDays(e.e, -1), first))}))
+    .sort((x, y) => x.a - y.a || y.b - x.b);
+  if (!items.length) return "";
+  const lanes = [];
+  for (const it of items) {
+    let l = lanes.findIndex(last => last < it.a);
+    if (l < 0) { l = lanes.length; lanes.push(-1); }
+    lanes[l] = it.b; it.l = l;
+  }
+  const keep = items.filter(it => it.l < 3), more = items.length - keep.length;
+  const cells = keep.map(it => {
+    const c = colorsOf(it.e)[0];
+    return `<button class="evb" data-eid="${esc(it.e.id)}" style="position:relative;grid-column:${it.a + 1}/${it.b + 2};grid-row:${it.l + 1};height:30px;margin:0 3px;background:${esc(tint(c))};padding:0 8px 0 13px;font-size:14px;font-weight:650;line-height:30px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left"><span style="position:absolute;left:0;top:0;bottom:0;width:5px;background:${esc(c)}"></span>${esc(it.e.title)}</button>`;
+  }).join("");
+  return `<div class="fx" style="align-items:flex-start;padding:0 0 8px"><span style="width:${gutter - 10}px;text-align:right;font-size:12px;font-weight:700;letter-spacing:.04em;color:#6b7488;flex:none;line-height:30px;white-space:nowrap">ALL DAY</span><div style="flex:1;margin-left:10px;display:grid;grid-template-columns:repeat(${n},minmax(0,1fr));row-gap:4px">${cells}</div></div>${more > 0 ? `<div style="font-size:13px;font-weight:700;color:#5a6478;padding:0 0 6px ${gutter}px">+${more} more all day</div>` : ""}`;
+}
+function dayHead(days, gutter, size) {
+  const now = new Date(), sel = startOfDay(view.date);
+  return `<div style="display:grid;grid-template-columns:repeat(${days.length},minmax(0,1fr));margin-left:${gutter}px;padding:2px 0 8px">${days.map(d => {
+    const today = sameDay(d, now), on = sameDay(d, sel);
+    return `<button data-day="${+d}" aria-label="${esc(d.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}))}" style="border:0;background:none;padding:0;min-height:0;display:flex;flex-direction:column;align-items:center;gap:2px"><span style="font-size:12px;font-weight:700;letter-spacing:.06em;color:${today || on ? "#101828" : "#6b7488"}">${d.toLocaleDateString([], {weekday: "short"}).slice(0, days.length > 7 ? 2 : 3).toUpperCase()}</span><span class="num" style="width:${size}px;height:${size}px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${Math.round(size / 2)}px;font-weight:700;${today ? "background:#101828;color:#fff" : on && view.mode === "day" ? "box-shadow:inset 0 0 0 2.5px #101828" : ""}">${d.getDate()}</span></button>`;
+  }).join("")}</div>`;
+}
+function monthHtml() {
+  const [first] = calRange(), now = new Date(), cur = view.date.getMonth();
+  const head = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map(x => `<span style="text-align:center;font-size:12px;font-weight:700;letter-spacing:.08em;color:#6b7488">${x}</span>`).join("");
+  const cells = Array.from({length: 42}, (_, i) => {
+    const day = addDays(first, i), inM = day.getMonth() === cur, today = sameDay(day, now);
+    const evs = shown().filter(e => onDay(e, day)).sort((a, b) => (b.all_day - a.all_day) || a.s - b.s);
+    const keep = evs.length > 3 ? evs.slice(0, 2) : evs, more = evs.length - keep.length;
+    const chips = keep.map(e => `<span class="mchip" style="background:${esc(tint(colorsOf(e)[0]))};${inM ? "" : "opacity:.55"}">${esc(e.title)}</span>`).join("") + (more > 0 ? `<span style="font-size:13px;font-weight:700;color:#5a6478;padding-left:4px">+${more} more</span>` : "");
+    return `<button class="mcell" data-day="${+day}" aria-label="${esc(day.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}))}" style="${i % 7 ? "border-left:1px solid #edf0f5;" : ""}${today ? "background:rgba(47,111,224,.06)" : ""}"><span class="num" style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex:none;${today ? "background:#101828;color:#fff" : inM ? "" : "color:#8a93a6"}">${day.getDate()}</span>${chips}</button>`;
+  }).join("");
+  return `<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));padding-bottom:8px">${head}</div><div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:repeat(6,minmax(0,1fr))">${cells}</div>`;
+}
+function stripHtml() {
+  const now = new Date();
+  const next = EV.list.filter(e => visible(e) && !e.all_day && e.s > now && sameDay(e.s, now)).sort((a, b) => a.s - b.s)[0];
+  let left = "";
+  if (next) { const m = Math.round((next.s - now) / 60000); left = `<div class="fx" style="gap:7px;font-size:15px;font-weight:650;color:#1d4ed8"><span class="live" style="width:7px;height:7px;border-radius:50%;background:#1d4ed8"></span>${m < 60 ? `Next in ${m} min` : `Next at ${fmtT(next.s)}`}</div><div style="font-size:19px;font-weight:700;letter-spacing:-.02em;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(next.title)} · ${fmtT(next.s)}</div>`; }
+  const legend = [...people().map(p => [p.name, p.color]), ...Object.values(EV.cals).map(c => [c.name + (c.ok ? "" : " (can't reach)"), c.color])].map(([n, c]) => `<span class="pp" style="font-size:15px"><i style="background:${esc(c)}"></i>${esc(n)}</span>`).join("");
+  return `<div class="fx" style="flex:none;height:84px;padding:0 4px 0 82px;justify-content:space-between;gap:14px"><div style="min-width:0">${left}</div><div class="fx" style="gap:14px;flex-wrap:wrap;justify-content:flex-end;max-height:60px;overflow:hidden">${legend}</div></div>`;
 }
 function drawCal() {
-  const el = $("calcard");
+  const el = $("calin");
   if (!el) return;
   const now = new Date(), d = startOfDay(view.date);
-  const [t1, t2] = calTitle();
-  let content;
+  let body;
   if (view.mode === "day") {
-    const evs = EV.list.filter(e => onDay(e, d));
-    content = evs.length ? evs.map(e => {
-      const c = calOf(e);
-      const when = e.all_day ? "All day" : `${fmtT(e.s)} to ${fmtT(e.e)}`;
-      return `<div class="tl" style="grid-template-columns:92px 28px 1fr auto;min-height:84px"><span class="t num">${e.all_day ? '<span style="font-size:16px">All day</span>' : fmtT(e.s)}</span><span class="dotm" style="background:${esc(c.color)}"></span><span style="min-width:0"><span class="n" style="display:block">${esc(e.title)}</span><span style="display:block;font-size:15px;color:#6b7488;margin-top:2px">${e.all_day ? "" : when}${e.location ? (e.all_day ? "" : " · ") + esc(e.location) : ""}</span></span>${tag(e)}</div>`;
-    }).join("") : `<div style="padding:60px 0;text-align:center"><div style="font-size:26px;font-weight:700;letter-spacing:-.02em">Nothing on this day</div><div style="font-size:18px;color:#6b7488;margin-top:6px">${S.config.calendars.length || DEMO ? "A free day." : "Add a calendar in settings."}</div></div>`;
+    body = dayHead(Array.from({length: 7}, (_, i) => addDays(weekStart(d), i)), 0, 44) + alldayHtml([d], 60) + gridHtml([d], 60, true);
   } else if (view.mode === "week") {
-    const w = weekStart(d);
-    content = [0, 1, 2, 3, 4, 5, 6].map(i => {
-      const day = addDays(w, i), evs = EV.list.filter(e => onDay(e, day)), today = sameDay(day, now);
-      const chips = evs.slice(0, 6).map(evChip).join("") + (evs.length > 6 ? `<span class="chip" style="padding-left:12px">+${evs.length - 6} more</span>` : "");
-      return `<button class="wk" data-day="${+day}" style="width:100%;border-left:0;border-right:0;border-bottom:0;background:none;border-radius:0;padding-left:0;padding-right:0;font-weight:inherit"><span style="text-align:center;line-height:1"><span style="display:block;font-size:14px;font-weight:700;letter-spacing:.08em;color:${today ? "#101828" : "#8a93a6"}">${day.toLocaleDateString([], {weekday: "short"}).toUpperCase()}</span><span class="num fx" style="width:48px;height:48px;border-radius:50%;justify-content:center;margin:6px auto 0;font-size:24px;font-weight:700;${today ? "background:#101828;color:#fff" : ""}">${day.getDate()}</span></span><span style="display:flex;flex-wrap:wrap;gap:8px">${chips || '<span style="color:#9aa3b6;font-size:17px">Nothing on</span>'}</span></button>`;
-    }).join("");
-  } else {
-    const [first] = calRange();
-    const head = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(x => `<div style="text-align:center;font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8a93a6">${x}</div>`).join("");
-    const cells = Array.from({length: 42}, (_, i) => {
-      const day = addDays(first, i), inM = day.getMonth() === d.getMonth(), today = sameDay(day, now), n = EV.list.filter(e => onDay(e, day)).length;
-      return `<button class="mcell" data-day="${+day}" style="${today ? "background:#101828;color:#fff;border-color:#101828" : ""}${inM ? "" : ";opacity:.4"}"><span class="num">${day.getDate()}</span><span class="fx" style="gap:4px;flex-wrap:wrap;height:12px">${dotHtml(dotsFor(day))}</span>${n > 3 ? `<span style="font-size:13px;font-weight:600;color:${today ? "#cbd5e1" : "#6b7488"}">+${n - 3}</span>` : ""}</button>`;
-    }).join("");
-    content = `<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px"><div style="display:contents">${head}</div>${cells}</div>`;
-  }
-  const legend = Object.values(EV.cals).map(c => `<span class="pp" style="font-size:15px"><i style="background:${esc(c.color)}"></i>${esc(c.name)}${c.ok ? "" : " (can't reach)"}</span>`).join("");
-  el.innerHTML = `
-    <div class="fx" style="justify-content:space-between;gap:12px">
-      <div style="min-width:0"><div style="font-size:38px;font-weight:700;letter-spacing:-.04em;line-height:1.05;white-space:nowrap">${esc(t1)}</div>${t2 ? `<div style="font-size:19px;font-weight:600;color:#6b7488;margin-top:2px">${esc(t2)}</div>` : ""}</div>
-      <div class="fx" style="gap:8px"><button class="cnav" id="c-prev" aria-label="Back">${CHEV_L}</button><button class="cbtn" id="c-today">Today</button><button class="cnav" id="c-next" aria-label="Forward">${CHEV_R}</button></div>
+    const w = weekStart(d), days = Array.from({length: 7}, (_, i) => addDays(w, i));
+    body = dayHead(days, 52, 44) + alldayHtml(days, 52) + gridHtml(days, 52, false);
+  } else body = monthHtml();
+  const chip = (id, label, color) => `<button class="pill${(view.who || "") === id ? " on" : ""}" data-who="${esc(id)}" style="height:40px;font-size:15px;padding:0 16px">${color ? `<i style="width:10px;height:10px;border-radius:50%;background:${esc(color)}"></i>` : ""}${esc(label)}</button>`;
+  el.innerHTML = `<div style="display:flex;flex-direction:column;width:100%;height:100%;padding:18px 18px 0">
+    <div class="fx" style="justify-content:space-between;padding:0 4px 12px;gap:12px">
+      <div class="fx" style="gap:14px"><span class="clk num" style="font-family:'Comfortaa','Onest',sans-serif;font-size:54px;font-weight:700;letter-spacing:-.07em;line-height:.9;-webkit-text-stroke:1.8px #101828;paint-order:stroke fill">${esc(clockT(now))}</span><span class="cdt" style="font-size:20px;font-weight:700;letter-spacing:-.03em;line-height:1.1">${esc(now.toLocaleDateString([], {weekday: "short", day: "numeric", month: "short"}))}</span></div>
+      <div class="fx" style="gap:3px;background:#f1f4f9;border-radius:999px;padding:3px;flex:none">${["day", "week", "month"].map(m => `<button class="sg big${view.mode === m ? " on" : ""}" data-mode="${m}">${m[0].toUpperCase() + m.slice(1)}</button>`).join("")}</div>
     </div>
-    <div class="fx" style="gap:3px;background:#f1f4f9;border-radius:999px;padding:3px;align-self:flex-start;margin:14px 0 8px">${["day", "week", "month"].map(m => `<button class="sg${view.mode === m ? " on" : ""}" data-mode="${m}" style="height:44px;padding:0 24px;font-size:17px">${m[0].toUpperCase() + m.slice(1)}</button>`).join("")}</div>
-    <div class="scroll" style="flex:1;min-height:0">${content}</div>
-    ${legend ? `<div class="fx" style="gap:16px;flex-wrap:wrap;border-top:1px solid #edf0f5;padding-top:12px;margin-top:8px">${legend}</div>` : ""}`;
+    <div class="fx" style="justify-content:space-between;padding:0 0 10px;gap:10px">
+      <div class="fx" style="gap:10px;min-width:0"><button class="cnav" id="c-prev" aria-label="Back">${CHEV_L}</button><span style="font-size:${view.mode === "day" ? 25 : 28}px;font-weight:700;letter-spacing:-.04em;white-space:nowrap">${esc(calTitle())}</span><button class="cnav" id="c-next" aria-label="Forward">${CHEV_R}</button></div>
+      <div class="fx" style="gap:8px;flex:none">${DEMO ? "" : `<button class="cbtn" id="c-new" style="padding:0 22px">+ New</button>`}<button class="cbtn" id="c-today" style="background:#fff;color:#101828;border:1.5px solid #d5dbe6">Today</button></div>
+    </div>
+    <div class="fx" style="gap:8px;padding:0 0 10px;overflow-x:auto;scrollbar-width:none">${chip("", "Everyone")}${people().map(p => chip(p.id, p.name, p.color)).join("")}${DEMO ? "" : `<button class="pill" id="c-fam" aria-label="Add or change family members" style="height:40px;font-size:15px;padding:0 16px">+ Family</button>`}</div>
+    ${body}
+    ${stripHtml()}
+  </div>`;
   $("c-prev").onclick = () => calStep(-1);
   $("c-next").onclick = () => calStep(1);
   $("c-today").onclick = () => { view.date = new Date(); loadCal(); };
+  const nw = $("c-new"); if (nw) nw.onclick = () => newEvent(startOfDay(view.mode === "month" ? new Date() : view.date));
+  const fam = $("c-fam"); if (fam) fam.onclick = () => openSheet({mode: "family"});
   el.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { view.mode = b.dataset.mode; loadCal(); });
-  el.querySelectorAll("[data-day]").forEach(b => b.onclick = () => { view.date = new Date(+b.dataset.day); view.mode = "day"; loadCal(); });
+  el.querySelectorAll("[data-who]").forEach(b => b.onclick = () => { view.who = b.dataset.who || null; drawCal(); });
+  el.querySelectorAll("[data-day]").forEach(b => {
+    if (b.classList.contains("gcol")) return;
+    b.onclick = () => { view.date = new Date(+b.dataset.day); view.mode = "day"; loadCal(); };
+  });
+  el.querySelectorAll("[data-eid]").forEach(b => b.onclick = ev => { ev.stopPropagation(); const e = EV.list.find(x => x.id === b.dataset.eid); if (e) openEvent(e); });
+  el.querySelectorAll(".gcol").forEach(c => c.onclick = ev => {
+    if (DEMO) return;
+    const r = c.getBoundingClientRect(), lo = +c.dataset.lo, tot = +c.dataset.tot;
+    const h = Math.min(23, Math.floor((lo + (ev.clientY - r.top) / r.height * tot) * 2) / 2);
+    newEvent(new Date(+c.dataset.day), h);
+  });
+}
+
+/* ---------- Adding and changing events ---------- */
+let ed = null;                        // what the sheet is showing
+const DAYCODES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
+const json = body => ({method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify(body)});
+function openSheet(state) { ed = state; $("stage").classList.add("sheet-on"); drawSheet(); }
+function closeSheet() { $("stage").classList.remove("sheet-on"); ed = null; }
+const refresh = () => view.page === "calendar" ? loadCal() : loadOverview();
+function newEvent(day, hour) {
+  const now = new Date();
+  const h = hour !== undefined ? hour : sameDay(day, now) ? Math.min(20, Math.max(8, now.getHours() + 1)) : 9;
+  const s = new Date(day.getFullYear(), day.getMonth(), day.getDate(), Math.floor(h), (h % 1) * 60), e = new Date(+s + 3600000);
+  openSheet({mode: "event", id: "", title: "", location: "", allDay: false, sd: ymd(s), st: hmOf(s), ned: ymd(e), net: hmOf(e), people: view.who ? [view.who] : [], freq: "none", interval: 1, days: [DAYCODES[(s.getDay() + 6) % 7]], untilOn: false, until: ymd(addDays(s, 90))});
+}
+async function openEvent(e) {
+  if (DEMO) return;
+  if (!e.hub) { openSheet({mode: "view", e}); return; }
+  try {
+    const h = await api("/api/hub-event?id=" + encodeURIComponent(e.series));
+    const s = h.all_day ? null : new Date(h.start), en = h.all_day ? null : new Date(h.end);
+    openSheet({mode: "event", id: h.id, occ: e.start, title: h.title, location: h.location, allDay: h.all_day,
+      sd: h.all_day ? h.start : ymd(s), st: h.all_day ? "09:00" : hmOf(s), ned: h.all_day ? h.end : ymd(en), net: h.all_day ? "10:00" : hmOf(en),
+      people: h.people.slice(), freq: h.repeat.freq, interval: h.repeat.interval, days: h.repeat.days.length ? h.repeat.days.slice() : [DAYCODES[((h.all_day ? new Date(h.start + "T00:00") : s).getDay() + 6) % 7]],
+      untilOn: !!h.repeat.until, until: h.repeat.until || ymd(addDays(h.all_day ? new Date(h.start + "T00:00") : s, 90))});
+  } catch (err) { soon(err.message); }
+}
+async function saveEvent() {
+  const t = ed;
+  const body = {id: t.id, title: t.title, location: t.location, all_day: t.allDay,
+    start: t.allDay ? t.sd : `${t.sd}T${t.st}`, end: t.allDay ? t.ned : `${t.ned}T${t.net}`, people: t.people,
+    repeat: {freq: t.freq, interval: t.interval, days: t.freq === "weekly" ? t.days : [], until: t.freq !== "none" && t.untilOn ? t.until : null}};
+  try { await api("/api/hub-event", json(body)); closeSheet(); refresh(); }
+  catch (err) { $("ed-err").textContent = err.message; }
+}
+async function deleteEvent(only) {
+  try { await api("/api/hub-event/delete", json({id: ed.id, only: only ? ed.occ : null})); closeSheet(); refresh(); }
+  catch (err) { $("ed-err").textContent = err.message; }
+}
+const pill = (attr, val, label, on, extra) => `<button class="pill${on ? " on" : ""}" ${attr}="${esc(val)}" ${extra || ""}>${label}</button>`;
+const lab = t => `<div class="cap" style="margin:22px 0 8px">${t}</div>`;
+function sheetFrame(title, body, foot) {
+  $("sheet").innerHTML = `<div class="fx" style="justify-content:space-between;padding:26px 32px 8px"><div style="font-size:34px;font-weight:700;letter-spacing:-.04em">${esc(title)}</div><button class="cnav" id="sh-x" aria-label="Close">${X_ICON}</button></div>
+    <div class="scroll" style="flex:1;min-height:0;padding:0 32px 16px">${body}</div>
+    <div class="err" id="ed-err" role="alert" style="margin:0;padding:0 32px;min-height:0"></div>
+    <div class="fx" style="gap:12px;padding:16px 32px 34px;border-top:1px solid #edf0f5">${foot}</div>`;
+  $("sh-x").onclick = closeSheet;
+}
+function drawSheet() {
+  if (!ed) return;
+  if (ed.mode === "family") return drawFamilySheet();
+  if (ed.mode === "view") return drawViewSheet();
+  const t = ed, editing = !!t.id, rep = t.freq !== "none";
+  const unit = {daily: "day", weekly: "week", monthly: "month", yearly: "year"}[t.freq] || "";
+  const dur = Math.round((new Date(`${t.ned}T${t.net}`) - new Date(`${t.sd}T${t.st}`)) / 60000);
+  const body = `
+    <input id="e-title" data-f="title" maxlength="80" placeholder="What's happening?" value="${esc(t.title)}" autocomplete="off" style="font-size:28px;font-weight:650;min-height:72px;margin-top:8px">
+    <div class="fx" style="justify-content:space-between;margin-top:20px"><span style="font-size:22px;font-weight:650">All day</span><button id="e-all" role="switch" aria-checked="${t.allDay}" class="sw2${t.allDay ? " on" : ""}"><i></i></button></div>
+    ${lab("Starts")}<div class="fx" style="gap:12px"><input type="date" data-d="sd" value="${esc(t.sd)}" ${t.allDay ? "" : 'style="flex:3"'}>${t.allDay ? "" : `<input type="time" data-d="st" value="${esc(t.st)}" style="flex:2">`}</div>
+    ${lab(t.allDay ? "Last day" : "Ends")}<div class="fx" style="gap:12px"><input type="date" data-d="ned" value="${esc(t.ned)}" ${t.allDay ? "" : 'style="flex:3"'}>${t.allDay ? "" : `<input type="time" data-d="net" value="${esc(t.net)}" style="flex:2">`}</div>
+    ${t.allDay ? "" : `<div class="fx" style="gap:8px;margin-top:12px;flex-wrap:wrap">${[[30, "30 min"], [60, "1 hour"], [120, "2 hours"], [180, "3 hours"]].map(([m, l]) => pill("data-dur", m, l, dur === m)).join("")}</div>`}
+    ${lab("Repeats")}<div class="fx" style="gap:8px;flex-wrap:wrap">${[["none", "Never"], ["daily", "Daily"], ["weekly", "Weekly"], ["monthly", "Monthly"], ["yearly", "Yearly"]].map(([v, l]) => pill("data-freq", v, l, t.freq === v)).join("")}</div>
+    ${rep ? `<div class="fx" style="gap:14px;margin-top:14px"><span style="font-size:20px;font-weight:600">Every</span><button class="cnav" id="e-less" aria-label="Fewer">&minus;</button><span class="num" style="font-size:26px;font-weight:700;min-width:34px;text-align:center">${t.interval}</span><button class="cnav" id="e-more" aria-label="More">+</button><span style="font-size:20px;font-weight:600">${unit}${t.interval > 1 ? "s" : ""}</span></div>` : ""}
+    ${t.freq === "weekly" ? `<div class="fx" style="gap:8px;margin-top:14px">${DAYCODES.map((c, i) => `<button class="pill dow${t.days.includes(c) ? " on" : ""}" data-day-code="${c}" aria-label="${["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][i]}" style="padding:0;width:52px;justify-content:center">${"MTWTFSS"[i]}</button>`).join("")}</div>` : ""}
+    ${rep ? `<div class="fx" style="gap:8px;margin-top:14px;flex-wrap:wrap">${pill("data-until", "0", "Carries on", !t.untilOn)}${pill("data-until", "1", "Until a day", t.untilOn)}${t.untilOn ? `<input type="date" data-d="until" value="${esc(t.until)}" style="width:auto;flex:1;min-width:220px">` : ""}</div>` : ""}
+    ${lab("Who is it for?")}<div class="fx" style="gap:8px;flex-wrap:wrap">${people().map(p => pill("data-who-id", p.id, `<i style="width:12px;height:12px;border-radius:50%;background:${esc(p.color)}"></i>${esc(p.name)}`, t.people.includes(p.id))).join("")}<button class="pill" id="e-fam">+ Add someone</button></div>
+    ${lab("Where? (optional)")}<input data-f="location" maxlength="80" placeholder="School, the park…" value="${esc(t.location)}" autocomplete="off">`;
+  let foot;
+  if (t.confirmDel) {
+    foot = rep ? `<button class="danger" id="e-del-one" style="flex:1">Just this day</button><button class="danger" id="e-del-all" style="flex:1">Every one</button><button id="e-keep">Keep it</button>`
+      : `<button class="danger" id="e-del-all" style="flex:1">Yes, delete it</button><button id="e-keep" style="flex:1">Keep it</button>`;
+  } else foot = `${editing ? `<button id="e-del" class="danger-o">Delete</button>` : ""}<button id="e-cancel" style="margin-left:auto">Cancel</button><button class="primary" id="e-save" style="min-width:200px">${editing ? "Save" : "Add to calendar"}</button>`;
+  sheetFrame(editing ? "Change event" : "New event", body + (editing && rep ? `<p style="font-size:16px;color:var(--soft);margin:18px 0 0">Changes apply to every repeat.</p>` : ""), foot);
+  const q = s => $("sheet").querySelector(s), qa = s => $("sheet").querySelectorAll(s);
+  qa("[data-f]").forEach(i => i.oninput = () => { t[i.dataset.f] = i.value; });
+  qa("[data-d]").forEach(i => i.onchange = () => {
+    const k = i.dataset.d, before = new Date(`${t.ned}T${t.net}`) - new Date(`${t.sd}T${t.st}`);
+    t[k] = i.value;
+    if (k === "sd" || k === "st") {      // keep the length when the start moves
+      if (t.allDay) { if (t.ned < t.sd) t.ned = t.sd; }
+      else if (before > 0 && t.sd && t.st) { const e = new Date(+new Date(`${t.sd}T${t.st}`) + before); t.ned = ymd(e); t.net = hmOf(e); }
+    }
+    drawSheet();
+  });
+  q("#e-all").onclick = () => { t.allDay = !t.allDay; if (t.allDay && t.ned < t.sd) t.ned = t.sd; drawSheet(); };
+  qa("[data-dur]").forEach(b => b.onclick = () => { const e = new Date(+new Date(`${t.sd}T${t.st}`) + b.dataset.dur * 60000); t.ned = ymd(e); t.net = hmOf(e); drawSheet(); });
+  qa("[data-freq]").forEach(b => b.onclick = () => { t.freq = b.dataset.freq; drawSheet(); });
+  const less = q("#e-less"), more = q("#e-more");
+  if (less) less.onclick = () => { t.interval = Math.max(1, t.interval - 1); drawSheet(); };
+  if (more) more.onclick = () => { t.interval = Math.min(30, t.interval + 1); drawSheet(); };
+  qa("[data-day-code]").forEach(b => b.onclick = () => { const c = b.dataset.dayCode; t.days = t.days.includes(c) ? t.days.filter(x => x !== c) : [...t.days, c]; drawSheet(); });
+  qa("[data-until]").forEach(b => b.onclick = () => { t.untilOn = b.dataset.until === "1"; drawSheet(); });
+  qa("[data-who-id]").forEach(b => b.onclick = () => { const id = b.dataset.whoId; t.people = t.people.includes(id) ? t.people.filter(x => x !== id) : [...t.people, id]; drawSheet(); });
+  q("#e-fam").onclick = () => { t.back = true; const keep = t; ed = {mode: "family", back: keep}; drawSheet(); };
+  const on = (id, f) => { const b = q(id); if (b) b.onclick = f; };
+  on("#e-save", saveEvent); on("#e-cancel", closeSheet);
+  on("#e-del", () => { t.confirmDel = true; drawSheet(); });
+  on("#e-keep", () => { t.confirmDel = false; drawSheet(); });
+  on("#e-del-all", () => deleteEvent(false)); on("#e-del-one", () => deleteEvent(true));
+}
+function drawViewSheet() {
+  const e = ed.e, c = calOf(e);
+  const when = e.all_day ? (dayDiff(addDays(e.e, -1), e.s) > 0 ? `${e.s.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"})} to ${addDays(e.e, -1).toLocaleDateString([], {day: "numeric", month: "long"})}` : e.s.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}) + " · all day")
+    : `${e.s.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"})}<br>${fmtT(e.s)} to ${fmtT(e.e)}`;
+  sheetFrame("Event", `<div style="font-size:36px;font-weight:700;letter-spacing:-.04em;line-height:1.1;margin-top:12px">${esc(e.title)}</div>
+    <div style="font-size:24px;font-weight:600;margin-top:14px;color:#3a4358">${when}</div>
+    ${e.location ? `<div style="font-size:22px;margin-top:10px;color:#3a4358">${esc(e.location)}</div>` : ""}
+    ${c.name ? `<div class="pp" style="font-size:20px;margin-top:18px"><i style="background:${esc(c.color)}"></i>${esc(c.name)} calendar</div>` : ""}
+    <p style="font-size:18px;color:var(--soft);margin-top:22px">This one comes from a calendar you follow, so change it there.</p>`, `<button class="primary" id="v-ok" style="margin-left:auto;min-width:200px">Done</button>`);
+  $("v-ok").onclick = closeSheet;
+}
+function drawFamilySheet() {
+  sheetFrame("Family", `<div id="fam" style="margin-top:8px"></div>`, `<button class="primary" id="f-ok" style="margin-left:auto;min-width:200px">Done</button>`);
+  drawFamily($("fam"), () => { drawCal(); });
+  $("f-ok").onclick = () => { if (ed.back) { ed = ed.back; ed.people = ed.people.filter(id => people().some(p => p.id === id)); drawSheet(); } else closeSheet(); };
+}
+
+/* Family members: used in the sheet and in Settings. */
+let famColor = PALETTE[0];
+async function savePeople(list) {
+  await api("/api/people", json(list));
+  S = await api("/api/state");
+}
+function drawFamily(box, changed) {
+  const list = people(), keep = () => people().map(p => ({id: p.id, name: p.name, color: p.color}));
+  const say = m => { const e = box.querySelector(".f-err"); if (e) e.textContent = m; };
+  box.innerHTML = (list.length ? list.map(p => `
+      <div class="fx" style="gap:12px;padding:10px 0;border-top:1px solid #edf0f5">
+        <button data-cycle="${esc(p.id)}" aria-label="Change ${esc(p.name)}'s colour" class="sw" style="background:${esc(p.color)};flex:none;border-color:transparent"></button>
+        <input data-name="${esc(p.id)}" maxlength="30" value="${esc(p.name)}" aria-label="Name" autocomplete="off" style="flex:1;min-width:0">
+        <button data-rm="${esc(p.id)}" style="min-height:52px;padding:0 18px">Remove</button></div>`).join("")
+    : `<p style="color:var(--soft)">No one yet. Add the people in your family and you can give events to them.</p>`) + `
+    <div style="margin-top:14px;border-top:1px solid #edf0f5;padding-top:14px">
+      <p style="margin:0 0 8px"><strong>Add someone</strong></p>
+      <input class="f-new" maxlength="30" placeholder="Name" autocomplete="off" style="margin-bottom:12px">
+      <div class="fx" style="gap:10px;margin-bottom:14px;flex-wrap:wrap">${PALETTE.map(c => `<button class="sw${c === famColor ? " on" : ""}" data-pick="${c}" aria-label="Colour ${c}" style="background:${c}"></button>`).join("")}</div>
+      <div class="err f-err" role="alert" style="margin-top:0"></div>
+      <button class="primary f-add">Add to family</button>
+      <p style="font-size:16px;color:var(--soft);margin-top:14px">Taking someone out also takes them off their events.</p>
+    </div>`;
+  const run = async f => { try { await f(); drawFamily(box, changed); changed && changed(); } catch (e) { say(e.message); } };
+  box.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => { famColor = b.dataset.pick; box.querySelectorAll("[data-pick]").forEach(x => x.classList.toggle("on", x === b)); });
+  box.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => run(() => savePeople(keep().filter(p => p.id !== b.dataset.rm))));
+  box.querySelectorAll("[data-cycle]").forEach(b => b.onclick = () => run(() => savePeople(keep().map(p => p.id === b.dataset.cycle ? {...p, color: PALETTE[(PALETTE.indexOf(p.color) + 1) % PALETTE.length]} : p))));
+  box.querySelectorAll("[data-name]").forEach(i => i.onchange = () => run(() => savePeople(keep().map(p => p.id === i.dataset.name ? {...p, name: i.value} : p))));
+  box.querySelector(".f-add").onclick = () => run(async () => {
+    const name = box.querySelector(".f-new").value;
+    await savePeople([...keep(), {name, color: famColor}]);
+    const made = people().find(p => p.name === name.trim());
+    famColor = PALETTE[(PALETTE.indexOf(famColor) + 1) % PALETTE.length];
+    if (made && ed && ed.back) ed.back.people.push(made.id);
+  });
 }
 
 function ppCard(w) {
@@ -378,29 +701,77 @@ function wmpCard(w) {
 }
 
 
-function navHTML() {
-  const nav = [["Overview", '<rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/>', "overview"],
-    ["Calendar", '<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>', "calendar"],
-    ["Menu", '<path d="M7 3v8M5 3v5a2 2 0 004 0V3M7 11v10M17 3c-2 2-3 4-3 7 0 2 1 3 3 3v8"/>', null],
-    ["Shopping list", '<path d="M3 4h2l2.4 11h10.2L20 7H6.2"/><circle cx="9" cy="19.5" r="1.4"/><circle cx="17" cy="19.5" r="1.4"/>', null]];
-  return nav.map(([name, icon, page]) => `<button class="nv${page === view.page ? " on" : ""}" ${page ? `data-page="${page}"` : "data-soon"}${page === view.page ? ' aria-current="page"' : ""}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>${name}</button>`).join("");
+/* ---------- Menu button and dock ---------- */
+const X_ICON = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
+const DOCK_ICONS = {
+  overview: '<rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/>',
+  calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  menu: '<path d="M7 3v8M5 3v5a2 2 0 004 0V3M7 11v10M17 3c-2 2-3 4-3 7 0 2 1 3 3 3v8"/>',
+  shopping: '<path d="M3 4h2l2.4 11h10.2L20 7H6.2"/><circle cx="9" cy="19.5" r="1.4"/><circle cx="17" cy="19.5" r="1.4"/>',
+  chores: '<circle cx="12" cy="12" r="9"/><path d="M7.5 12.5l3 3 6-6.5"/>',
+  energy: '<path d="M13 3L5 14h6l-1 7 8-11h-6l1-7z"/>',
+};
+const dkIcon = (n, s = 24) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${DOCK_ICONS[n]}</svg>`;
+const GRID_ICON = `<svg class="i-open" width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="6" cy="6" r="1.8"/><circle cx="12" cy="6" r="1.8"/><circle cx="18" cy="6" r="1.8"/><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/><circle cx="6" cy="18" r="1.8"/><circle cx="12" cy="18" r="1.8"/><circle cx="18" cy="18" r="1.8"/></svg>`;
+function dockItems() {
+  const url = id => (S.config.widgets.find(w => w.id === id) || {}).url;
+  const items = [["overview", "Overview", "page"], ["calendar", "Calendar", "page"], ["menu", "Menu", "soon"], ["shopping", "Shopping", "soon"]];
+  if (url("pocketpals")) items.push(["chores", "Chores", url("pocketpals")]);
+  if (url("wattsmypower")) items.push(["energy", "Energy", url("wattsmypower")]);
+  return items;
 }
-function drawNav() {
-  const n = $("nav"); if (!n) return;
-  n.innerHTML = navHTML();
-  bindSoon(n);
-  n.querySelectorAll("[data-page]").forEach(b => b.onclick = () => {
-    if (b.dataset.page === "calendar") openCal(view.mode, view.date);
-    else { view.page = "overview"; drawNav(); drawBody(); }
+function setDock(open) {
+  const d = $("dock"); if (!d) return;
+  d.classList.toggle("open", open);
+  $("scrim").classList.toggle("hidden", !open);
+  $("dk-t").setAttribute("aria-expanded", open);
+  $("dk-t").setAttribute("aria-label", open ? "Close menu" : "Open menu");
+}
+function drawDock() {
+  const items = dockItems(), box = $("dk-i");
+  $("dock").style.setProperty("--dw", (76 + 8 + 150 + (items.length - 1) * 60 + 12) + "px");
+  box.innerHTML = items.map(([id, name, to]) => {
+    const on = to === "page" && id === view.page;
+    const inner = on ? `${dkIcon(id, 22)}${name}` : dkIcon(id);
+    return to === "page" || to === "soon"
+      ? `<button class="dk${on ? " on" : ""}" data-go="${id}" ${on ? 'aria-current="page"' : `aria-label="${name}"`}>${inner}</button>`
+      : `<a class="dk" href="${esc(to)}" aria-label="${name}">${inner}</a>`;
+  }).join("");
+  box.querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
+    if (b.dataset.go === "overview") closeCal();
+    else if (b.dataset.go === "calendar") openCal(view.mode, view.date);
+    else soon();
+    if (b.dataset.go === "overview" || b.dataset.go === "calendar") setDock(false);
   });
 }
-function drawBody() {
+function drawDash() {
+  const c = S.config;
+  document.title = c.name || "Home Hub";
+  $("stage").classList.remove("sheet-on");
+  $("stage").innerHTML = `
+    <div id="ov" class="ov">
+    <div class="fx" style="justify-content:space-between;align-items:flex-end;padding:0 8px">
+      <div><div id="date" class="cap"></div><div id="greeting" style="font-family:'Comfortaa','Onest',sans-serif;font-size:66px;font-weight:700;letter-spacing:-.04em;line-height:1.04;margin-top:12px"></div></div>
+      <div style="text-align:right"><div id="clock" class="num clk" style="font-family:'Comfortaa','Onest',sans-serif;font-size:128px;font-weight:700;letter-spacing:-.07em;line-height:.88;-webkit-text-stroke:4px #101828;paint-order:stroke fill"></div>
+        <div class="fx" style="gap:12px;justify-content:flex-end;margin-top:14px"><span style="font-size:19px;font-weight:600;color:#3a4358">${esc(c.name)}</span><button class="gear" id="gear" aria-label="Settings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></button></div></div>
+    </div>
+      <div id="body" style="display:flex;flex-direction:column;gap:18px;flex:1;min-height:0"></div>
+    </div>
+    <section id="calcard" class="tile-card"><div id="calin"></div></section>
+    <button id="scrim" class="hidden" aria-label="Close menu"></button>
+    <nav id="dock" aria-label="Main"><button id="dk-t" aria-label="Open menu" aria-expanded="false">${GRID_ICON}<span class="i-close">${X_ICON}</span></button><div id="dk-i"></div></nav>
+    <div id="sheetscrim"></div><section id="sheet" role="dialog" aria-label="Event"></section>
+    <div id="toast" class="toast" role="status">Coming soon</div>`;
+  $("gear").onclick = showSettings;
+  $("dk-t").onclick = () => setDock(!$("dock").classList.contains("open"));
+  $("scrim").onclick = () => setDock(false);
+  $("sheetscrim").onclick = closeSheet;
+  view.page = "overview"; view.date = new Date(); view.who = null; ed = null;
+  fit(); tick.day = new Date().toDateString(); tick();
+  drawDock(); drawBody();
+}
+function drawBody() {      // the Overview cards (the calendar has its own layer)
   const c = S.config, body = $("body");
-  if (view.page === "calendar") {
-    body.innerHTML = `<section id="calcard" class="tile-card" style="padding:22px 26px 18px;flex:1;min-height:0;display:flex;flex-direction:column"></section>`;
-    drawCal(); loadCal();
-    return;
-  }
   const cards = c.widgets.map(w => w.id === "pocketpals" ? ppCard(w) : w.id === "wattsmypower" ? wmpCard(w) : "").join("");
   body.innerHTML = `
     <section id="today" class="tile-card" style="padding:22px 26px 16px"></section>
@@ -412,23 +783,6 @@ function drawBody() {
       ${DEMO ? '<div style="text-align:right"><div class="num" style="font-size:26px;font-weight:700;letter-spacing:-.03em">' + fmtT(new Date(2000, 0, 1, 18, 30)) + '</div><div style="font-size:15px;font-weight:600;color:#9a4a1e;margin-top:2px">Dad cooking</div></div>' : ""}
     </section>`;
   drawToday(); loadOverview(); poll();
-}
-function drawDash() {
-  const c = S.config;
-  document.title = c.name || "Home Hub";
-  $("stage").innerHTML = `
-    <div class="fx" style="justify-content:space-between;align-items:flex-end;padding:0 8px">
-      <div><div id="date" class="cap"></div><div id="greeting" style="font-family:'Comfortaa','Onest',sans-serif;font-size:66px;font-weight:700;letter-spacing:-.04em;line-height:1.04;margin-top:12px"></div></div>
-      <div style="text-align:right"><div id="clock" class="num" style="font-family:'Comfortaa','Onest',sans-serif;font-size:128px;font-weight:700;letter-spacing:-.07em;line-height:.88;-webkit-text-stroke:4px #101828;paint-order:stroke fill"></div>
-        <div class="fx" style="gap:12px;justify-content:flex-end;margin-top:14px"><span style="font-size:19px;font-weight:600;color:#3a4358">${esc(c.name)}</span><button class="gear" id="gear" aria-label="Settings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></button></div></div>
-    </div>
-    <nav aria-label="Main" id="nav" class="nav"></nav>
-    <div id="body" style="display:flex;flex-direction:column;gap:18px;flex:1;min-height:0"></div>
-    <div id="toast" class="toast" role="status">Coming soon</div>`;
-  $("gear").onclick = showSettings;
-  view.page = "overview"; view.date = new Date();
-  fit(); tick.day = new Date().toDateString(); tick();
-  drawNav(); drawBody();
 }
 async function poll() {
   try {
@@ -446,7 +800,7 @@ function showDash() {
   drawDash();
   pollTimer = setInterval(poll, 30000);
   clearInterval(evTimer);
-  evTimer = setInterval(() => view.page === "calendar" ? loadCal() : loadOverview(), 300000);
+  evTimer = setInterval(() => { if (!ed) refresh(); }, 300000);
 }
 
 /* ---------- Setup (first run, and "change widgets") ---------- */
@@ -541,6 +895,7 @@ async function showSettings() {
   el.innerHTML = `<h1>Settings</h1>
     <div class="box"><h3>Time</h3><p>How should the clock and event times look?</p>
       <div class="fx" id="hours" style="gap:12px;margin-top:12px"><button data-h="0">12-hour (3:30pm)</button><button data-h="1">24-hour (15:30)</button></div></div>
+    <div class="box"><h3>Family</h3><div id="fam"></div></div>
     <div class="box"><h3>Calendars</h3><div id="cals"><p>Checking…</p></div></div>
     <div class="box"><h3>Updates</h3><div id="upd"><p>Checking…</p></div></div>
     <div class="row"><button id="chg">Change widgets</button><button class="primary" id="done">Done</button></div>`;
@@ -553,6 +908,7 @@ async function showSettings() {
     try { await api("/api/clock", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({hour24: want})}); S = await api("/api/state"); paintHours(); }
     catch (_) {}
   });
+  drawFamily($("fam"), null);
   drawCalSettings();
   await drawUpdate(true);
 }
