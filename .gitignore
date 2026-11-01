@@ -1,0 +1,24 @@
+# Dependencies and build output
+node_modules/
+dist/
+build/
+target/
+__pycache__/
+*.pyc
+.venv/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Data and logs
+*.log
+*.sqlite
+*.db
+data/
+
+# OS and editor
+.DS_Store
+.idea/
+.vscode/
