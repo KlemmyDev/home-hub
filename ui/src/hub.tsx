@@ -9,7 +9,7 @@ export const queryClient = new QueryClient({ defaultOptions: { queries: { staleT
 
 export type Config = {
   name: string; setup_done: boolean; hour24?: boolean; timezone?: string; remind_min?: number; share?: boolean; holidays?: { country: string; region: string }; widgets: { id: string; url: string }[];
-  calendars: { id: string; name: string; color: string; site?: string }[]; pocketpals?: { connected?: boolean; tick?: boolean; url?: string };
+  calendars: { id: string; name: string; color: string; site?: string }[]; pocketpals?: { connected?: boolean; tick?: boolean; url?: string }; wattsmypower?: { connected?: boolean; scopes?: string[]; url?: string };
   weather?: { connected: boolean; place: string; fahrenheit: boolean };
 };
 export type HubState = { version: string; config: Config; people: Person[]; catalog: { id: string; name: string; about: string }[] };

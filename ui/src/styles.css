@@ -558,3 +558,14 @@ html.standby *{animation:none!important;transition:none!important}
 .sb-next{margin-top:30px;font-size:clamp(18px,3.6vw,28px);font-weight:600;color:#3f485a}
 .sb-hint{margin-top:56px;font-size:clamp(15px,2.6vw,20px);font-weight:600;color:#2c3342;letter-spacing:.04em}
 #standby.sleep .sb-time{color:#4a5262}#standby.sleep .sb-date{color:#363d4c}
+
+/* energy card on the Overview */
+.engy{display:block;padding:18px 22px 20px;text-decoration:none;color:var(--text)}
+.engy-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}.engy-head b{font-size:28px;font-weight:700;letter-spacing:-.04em}.engy-head span{font-size:17px;font-weight:650;color:var(--hub-text);text-align:right}
+.engy-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.engy-t{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:20px;background:#f6f8fb;min-width:0}
+.engy-t small{font-size:15px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#5a6478}
+.engy-t b{font-size:34px;font-weight:700;letter-spacing:-.04em;line-height:1.1}.engy-t b i{font-style:normal;font-size:17px;font-weight:650;color:#5a6478;margin-left:3px}
+.engy-t span{font-size:15px;font-weight:600;color:#6b7488;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.engy-t.solar{background:#fff6e0}.engy-t.battery{background:#e8f7ee}.engy-t.grid{background:#eef1f8}.engy-t.home{background:#f3eefc}
+.phone .engy-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}

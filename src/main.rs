@@ -8,6 +8,7 @@ mod pantry;
 mod pocketpals;
 mod products;
 mod shopping;
+mod wattsmypower;
 mod weather;
 
 use axum::{
@@ -80,6 +81,12 @@ struct Config {
     /// Whether that key may tick jobs, or only read them.
     #[serde(default)]
     pocketpals_tick: bool,
+    /// The key from WattsMyPower's Settings page (Developers): a secret, never sent back to the screen. It works with the
+    /// WattsMyPower widget's address. `wmp_scopes` is what the key may read.
+    #[serde(default)]
+    wmp_key: String,
+    #[serde(default)]
+    wmp_scopes: Vec<String>,
     /// Where the weather is for: a place's name and rounded coordinates (from the search in Settings). Empty name: no weather.
     #[serde(default)]
     weather_place: String,
@@ -128,6 +135,8 @@ struct App {
     jobs: Mutex<HashMap<String, (Instant, Value)>>,
     /// The last weather Open-Meteo sent, for ten minutes.
     weather: Mutex<Option<(Instant, Value)>>,
+    /// The last readings WattsMyPower gave, for a few seconds, so several screens asking don't each ask it.
+    energy: Mutex<HashMap<String, (Instant, Value)>>,
     /// Public holidays by country and year, with when they were fetched (a failed fetch is kept too, so it isn't retried every minute).
     holidays: Mutex<HashMap<(String, i32), (Instant, Vec<holidays::Holiday>)>>,
     /// Names this run of the hub (the version it's on and when it started), so a screen can tell the hub has restarted.
@@ -176,7 +185,7 @@ async fn main() {
             p
         }
     };
-    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), pantry: RwLock::new(pantry), jobs: Mutex::new(HashMap::new()), weather: Mutex::new(None), holidays: Mutex::new(HashMap::new()), boot });
+    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), pantry: RwLock::new(pantry), jobs: Mutex::new(HashMap::new()), weather: Mutex::new(None), energy: Mutex::new(HashMap::new()), holidays: Mutex::new(HashMap::new()), boot });
 
     sync_restock(&app).await;
 
@@ -203,6 +212,9 @@ async fn main() {
         .route("/api/events", get(events))
         .route("/api/pocketpals/connect", post(pp_connect))
         .route("/api/pocketpals/disconnect", post(pp_disconnect))
+        .route("/api/wattsmypower/connect", post(wmp_connect))
+        .route("/api/wattsmypower/disconnect", post(wmp_disconnect))
+        .route("/api/energy/{what}", get(energy))
         .route("/api/chores", get(pp_chores))
         .route("/api/chores/tick", post(pp_tick))
         .route("/api/chores/step", post(pp_step))
@@ -371,7 +383,7 @@ async fn state(State(app): Shared) -> Json<Value> {
     Json(json!({
         "version": VERSION,
         "people": people,
-        "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars, "hour24": config.hour24, "timezone": config.timezone, "remind_min": config.remind_min, "share": !config.share_token.is_empty(), "holidays": {"country": config.holiday_country, "region": config.holiday_region}, "pocketpals": pocketpals_json(&config), "weather": {"connected": !config.weather_place.is_empty(), "place": config.weather_place, "fahrenheit": config.weather_f}},
+        "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars, "hour24": config.hour24, "timezone": config.timezone, "remind_min": config.remind_min, "share": !config.share_token.is_empty(), "holidays": {"country": config.holiday_country, "region": config.holiday_region}, "pocketpals": pocketpals_json(&config), "wattsmypower": wmp_json(&config), "weather": {"connected": !config.weather_place.is_empty(), "place": config.weather_place, "fahrenheit": config.weather_f}},
         "catalog": catalog_json(),
     }))
 }
@@ -694,6 +706,16 @@ fn pocketpals_json(c: &Config) -> Value {
     json!({"connected": url.is_some() && !c.pocketpals_key.is_empty(), "tick": c.pocketpals_tick, "url": url})
 }
 
+/// The WattsMyPower link as the screen may see it: whether it's set up, and what the key may read. Never the key.
+fn wmp_json(c: &Config) -> Value {
+    let url = wmp_url(c);
+    json!({"connected": url.is_some() && !c.wmp_key.is_empty(), "scopes": c.wmp_scopes, "url": url})
+}
+
+fn wmp_url(c: &Config) -> Option<String> {
+    c.widgets.iter().find(|w| w.id == "wattsmypower").map(|w| w.url.clone()).filter(|u| !u.is_empty())
+}
+
 fn pp_url(c: &Config) -> Option<String> {
     c.widgets.iter().find(|w| w.id == "pocketpals").map(|w| w.url.clone()).filter(|u| !u.is_empty())
 }
@@ -737,6 +759,85 @@ async fn pp_disconnect(State(app): Shared) -> impl IntoResponse {
     }
     app.jobs.lock().await.clear();
     StatusCode::NO_CONTENT.into_response()
+}
+
+#[derive(Deserialize)]
+struct WmpConnect {
+    url: String,
+    key: Option<String>,
+}
+
+/// Connect to WattsMyPower with its address and a key from its Settings, Developers page.
+async fn wmp_connect(State(app): Shared, Json(body): Json<WmpConnect>) -> impl IntoResponse {
+    let url = body.url.trim().trim_end_matches('/').to_string();
+    if url.len() > 200 || url.contains(char::is_whitespace) || host_port(&url).is_none() {
+        return (StatusCode::BAD_REQUEST, "A web address should look like http://192.168.1.50:8080").into_response();
+    }
+    let old = app.config.read().await.clone();
+    let key = body.key.as_deref().map(str::trim).filter(|k| !k.is_empty()).map(str::to_string).unwrap_or_else(|| old.wmp_key.clone());
+    if !key.starts_with("wmp_") || key.len() > 120 || key.contains(char::is_whitespace) {
+        return (StatusCode::BAD_REQUEST, "Paste the key from WattsMyPower (Settings, then Developers). It starts with wmp_").into_response();
+    }
+    let hello = match wattsmypower::ping(&url, &key).await {
+        Ok(v) => v,
+        Err(why) => return (StatusCode::BAD_REQUEST, why).into_response(),
+    };
+    let scopes: Vec<String> = hello["key"]["scopes"].as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default();
+    let mut widgets: Vec<Widget> = old.widgets.iter().filter(|w| w.id != "wattsmypower").cloned().collect();
+    widgets.push(Widget { id: "wattsmypower".into(), url });
+    let config = Config { widgets, wmp_key: key, wmp_scopes: scopes.clone(), ..old };
+    if save(&app, config).await.is_err() {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
+    }
+    app.energy.lock().await.clear();
+    Json(json!({"scopes": scopes, "inverter_fresh": hello["inverter_fresh"]})).into_response()
+}
+
+async fn wmp_disconnect(State(app): Shared) -> impl IntoResponse {
+    let config = Config { wmp_key: String::new(), wmp_scopes: vec![], ..app.config.read().await.clone() };
+    if save(&app, config).await.is_err() {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
+    }
+    app.energy.lock().await.clear();
+    StatusCode::NO_CONTENT.into_response()
+}
+
+#[derive(Deserialize)]
+struct EnergyQuery {
+    start: Option<i64>,
+    end: Option<i64>,
+    points: Option<i64>,
+}
+
+const ENERGY_FRESH: Duration = Duration::from_secs(10);
+
+/// A reading from WattsMyPower for the screen: live, today, history, costs, forecast and so on. The key stays here.
+async fn energy(State(app): Shared, axum::extract::Path(what): axum::extract::Path<String>, Query(q): Query<EnergyQuery>) -> impl IntoResponse {
+    let Some((_, scope)) = wattsmypower::READS.iter().find(|(n, _)| *n == what) else {
+        return (StatusCode::NOT_FOUND, "That isn't something WattsMyPower can be asked.").into_response();
+    };
+    let config = app.config.read().await.clone();
+    let (Some(url), false) = (wmp_url(&config), config.wmp_key.is_empty()) else {
+        return Json(json!({"connected": false})).into_response();
+    };
+    if !config.wmp_scopes.iter().any(|s| s == scope) {
+        return Json(json!({"connected": true, "allowed": false, "needs": scope})).into_response();
+    }
+    let params: Vec<(&str, i64)> = [("start", q.start), ("end", q.end), ("points", q.points.map(|p| p.clamp(10, 3000)))].into_iter().filter_map(|(k, v)| v.map(|v| (k, v))).collect();
+    let cache_key = format!("{what}?{params:?}");
+    if let Some((at, v)) = app.energy.lock().await.get(&cache_key) {
+        if at.elapsed() < ENERGY_FRESH {
+            return Json(v.clone()).into_response();
+        }
+    }
+    let out = match wattsmypower::read(&url, &config.wmp_key, &what, &params).await {
+        Ok(v) => json!({"connected": true, "allowed": true, "data": v}),
+        Err(why) => json!({"connected": true, "allowed": true, "error": why}),
+    };
+    if out.get("error").is_none() {
+        app.energy.lock().await.insert(cache_key, (Instant::now(), out.clone()));
+    }
+    Json(out).into_response()
 }
 
 #[derive(Deserialize)]

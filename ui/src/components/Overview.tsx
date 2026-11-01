@@ -5,7 +5,7 @@ import { addDays, clockT, fmtT, longDay, nowZ, sameDay, startOfDay, weekStart } 
 import { calOf, colorsOf, onDay, peopleOf, tint, type Ev, type EvData } from "../lib/events";
 import { FoodIcon, foodFor } from "../lib/foodicons";
 import { Chev, DinnerIcon, PpLogo, WeatherIcon } from "../lib/icons";
-import { EMPTY_EVENTS, dinnerFor, useDinners, useEvents } from "../data";
+import { EMPTY_EVENTS, dinnerFor, useDinners, useEnergy, useEvents } from "../data";
 import { useHub } from "../hub";
 import { useNav } from "../nav";
 import { ChoresCard } from "./Chores";
@@ -187,6 +187,30 @@ function Status({ id, color }: { id: string; color: string }) {
   const up = data ? !!data[id] : undefined;
   return <span className="stat" data-up={up === undefined ? undefined : up ? "1" : "0"} style={{ color, marginTop: 3 }}><span className="sd" /><span>{up === undefined ? "Checking…" : up ? "Ready" : "Can't reach it"}</span></span>;
 }
+/** The house's power right now and today's total, from WattsMyPower (when it's connected and its key may read live power). */
+function EnergyCard() {
+  const { S } = useHub();
+  const wm = S.config.wattsmypower;
+  const { data: t } = useEnergy("today", "", !!wm?.connected);
+  const e = t?.data, p = e?.live?.snapshot, costs = e?.costs;
+  if (!wm?.connected || !t?.allowed || !p) return null;
+  const kw = (w?: number) => ((w ?? 0) / 1000).toFixed(1), bat = p.battery_power ?? 0, grid = p.grid_power ?? 0;
+  const batNote = bat < -50 ? `charging ${kw(-bat)} kW` : bat > 50 ? `using ${kw(bat)} kW` : "resting", gridNote = grid > 50 ? "buying" : grid < -50 ? "selling" : "not used";
+  const money = (n?: number) => n === undefined || n === null ? "" : `$${Math.abs(n).toFixed(2)}`;
+  const tiles: [string, string, string, string][] = [
+    ["Solar", kw(p.pv_power), "kW", `${(p.daily_pv ?? 0).toFixed(1)} kWh today`],
+    ["Home", kw(p.load_power), "kW", "using now"],
+    ["Battery", String(Math.round(p.battery_soc ?? 0)), "%", batNote],
+    ["Grid", kw(Math.abs(grid)), "kW", gridNote],
+  ];
+  return (
+    <a className="tile-card engy" href={wm.url} aria-label="Energy, open WattsMyPower">
+      <div className="engy-head"><b>Energy</b><span>{costs ? `Saved ${money(costs.saved)} today${costs.net_cost !== undefined ? ` · bill ${money(costs.net_cost)}` : ""}` : "Right now"}</span></div>
+      <div className="engy-tiles">{tiles.map(([l, v, u, n]) => <div key={l} className={"engy-t " + l.toLowerCase()}><small>{l}</small><b className="num">{v}<i>{u}</i></b><span>{n}</span></div>)}</div>
+    </a>
+  );
+}
+
 function WidgetCards() {
   const { S } = useHub();
   const ws = S.config.widgets.filter(w => w.id === "pocketpals" || w.id === "wattsmypower");
@@ -221,6 +245,7 @@ export function Overview({ away }: { away: boolean }) {
         <DinnerCard />
         <TodayCard />
         <ChoresCard />
+        <EnergyCard />
         <WidgetCards />
       </div>
     </div>

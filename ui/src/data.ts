@@ -52,6 +52,12 @@ export function dinnerFor(din: Dinners | undefined, people: { id: string; name: 
 export type ShopItem = { id: string; name: string; done: boolean; note?: string; barcode?: string; from?: string; aisle?: string; store?: string; pantry?: string; qty?: number; unit?: string; auto?: boolean };
 export const useShopping = () => useQuery<{ items: ShopItem[] }>({ queryKey: ["shopping"], queryFn: () => api("/api/shopping"), refetchInterval: 60000 });
 
+/* ---------- WattsMyPower (the house's energy) ---------- */
+export type Energy<T = any> = { connected: boolean; allowed?: boolean; needs?: string; error?: string; data?: T };
+/** A reading from WattsMyPower, through the hub (which holds the key). It's refreshed every half minute while the screen is up. */
+export const useEnergy = <T = any>(what: string, query = "", enabled = true) =>
+  useQuery<Energy<T>>({ queryKey: ["energy", what, query], enabled: enabled && !DEMO, queryFn: () => api(`/api/energy/${what}${query ? "?" + query : ""}`), refetchInterval: 30000, staleTime: 10000 });
+
 /* ---------- the pantry ---------- */
 export type Store = { id: string; name: string; color: string };
 export type PItem = { id: string; name: string; qty: number; unit: string; min: number; want: number; store: string; auto: boolean; product: Product | null; note: string; aisle?: string };

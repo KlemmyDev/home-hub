@@ -13,7 +13,7 @@ import { ChevL, ChevR, DockIcon } from "../lib/icons";
 const TINT: Record<string, [string, string]> = { clock: ["#e6edfb", "#1d4ed8"], chores: ["#ece8fe", "#5b3bf0"], family: ["#fde8ef", "#d6336c"], weather: ["#fff3d6", "#d98a00"], calendar: ["#e1f5ec", "#14a06c"], update: ["#eef1f6", "#101828"] };
 const Box = ({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) => {
   const [bg, fg] = TINT[icon] || TINT.update;
-  return <section className="box"><div className="bh"><span className="bi" style={icon === "chores" ? undefined : { background: bg, color: fg }}><DockIcon name={icon} size={22} /></span><h3>{title}</h3></div>{children}</section>;
+  return <section className="box"><div className="bh"><span className="bi" style={icon === "chores" || icon === "energy" ? undefined : { background: bg, color: fg }}><DockIcon name={icon} size={22} /></span><h3>{title}</h3></div>{children}</section>;
 };
 /** Two or three choices in one rounded track, like the calendar's Day, Week, Month switch. */
 const Seg = ({ items, value, onPick }: { items: [string, string][]; value: string; onPick: (v: string) => void }) => (
@@ -204,6 +204,33 @@ function PocketPals() {
   );
 }
 
+const WMP_ABOUT: Record<string, string> = { "live:read": "live power", "history:read": "history", "costs:read": "costs and savings", "forecast:read": "the forecast", "insights:read": "insights", "system:read": "system details" };
+/** WattsMyPower: the house's energy. In WattsMyPower open Settings, then Developers, make a key and choose what it may read. */
+function WattsMyPower() {
+  const { S, refreshState } = useHub();
+  const qc = useQueryClient();
+  const wm = S.config.wattsmypower || {}, saved = S.config.widgets.find(w => w.id === "wattsmypower")?.url || "";
+  const [url, setUrl] = useState(saved), [key, setKey] = useState("");
+  const [msg, setMsg] = useState<{ text: string; good?: boolean }>({ text: "" });
+  const after = async () => { await refreshState(); qc.removeQueries({ queryKey: ["energy"] }); };
+  const can = (wm.scopes || []).map(x => WMP_ABOUT[x] || x);
+  return (
+    <Box title="WattsMyPower" icon="energy">
+      <p style={{ margin: "0 0 12px" }}>{wm.connected ? (can.length ? `Connected. The hub can read ${can.join(", ")}.` : "Connected, but this key can't read anything.") : "Show how much power the house is using, right on the hub. In WattsMyPower, open Settings, then Developers, make a key and choose what it may read, then paste it here."}</p>
+      <input value={url} onChange={e => setUrl(e.target.value)} inputMode="url" autoCapitalize="off" autoComplete="off" placeholder="WattsMyPower address, like http://192.168.1.50:8080" style={{ marginBottom: 12 }} />
+      <input value={key} onChange={e => setKey(e.target.value)} autoCapitalize="off" autoComplete="off" placeholder={wm.connected ? "Key saved. Leave blank to keep it" : "Paste the key (starts with wmp_)"} style={{ marginBottom: 12 }} />
+      <div className="err" role="alert" style={{ marginTop: 0, ...(msg.good ? { color: "var(--good)" } : {}) }}>{msg.text}</div>
+      <div className="fx" style={{ gap: 12 }}>
+        <button className="primary" onClick={async () => {
+          try { const r = await post("/api/wattsmypower/connect", { url, key }); await after(); setKey(""); setMsg({ good: true, text: r.inverter_fresh ? "Working. The inverter is answering." : "Working, but WattsMyPower says the inverter isn't answering right now." }); }
+          catch (e: any) { setMsg({ text: e.message }); }
+        }}>{wm.connected ? "Save and test" : "Connect"}</button>
+        {wm.connected ? <button onClick={async () => { try { await post("/api/wattsmypower/disconnect"); await after(); setMsg({ text: "" }); } catch (e: any) { setMsg({ text: e.message }); } }}>Disconnect</button> : null}
+      </div>
+    </Box>
+  );
+}
+
 function Weather() {
   const { S, refreshState } = useHub();
   const qc = useQueryClient();
@@ -338,7 +365,7 @@ export function Settings() {
       ) : open === "general" ? <><Time /><Power /><Weather /></>
         : open === "calendar" ? <><Calendars /><Reminders /><Holidays /><Share /></>
         : open === "family" ? <Box title="Family" icon="family"><FamilyEditor /></Box>
-        : open === "apps" ? <><PocketPals /><div className="row"><button onClick={() => go("setup")}>Change widgets</button></div></>
+        : open === "apps" ? <><PocketPals /><WattsMyPower /><div className="row"><button onClick={() => go("setup")}>Change widgets</button></div></>
         : <Updates />}
     </div>
   );
