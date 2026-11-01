@@ -23,9 +23,6 @@ function Greeting() {
       </div>
       <div style={{ textAlign: "right" }}>
         <div id="clock" className="num clk" style={{ fontFamily: "'Comfortaa','Onest',sans-serif", fontSize: 128, fontWeight: 700, letterSpacing: "-.07em", lineHeight: .88, WebkitTextStroke: "4px #101828", paintOrder: "stroke fill" }}>{clockT(now, !!S.config.hour24)}</div>
-        <div className="fx" style={{ gap: 12, justifyContent: "flex-end", marginTop: 14 }}>
-          <span style={{ fontSize: 19, fontWeight: 600, color: "#3a4358" }}>{S.config.name}</span>
-        </div>
       </div>
     </div>
   );
