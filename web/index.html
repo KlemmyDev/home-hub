@@ -68,10 +68,10 @@ input:focus{outline:3px solid #1d4ed8;outline-offset:2px}
 .cbtn{height:52px;min-height:0;padding:0 20px;border-radius:999px;background:#101828;color:#fff;border:0;font-size:17px;font-weight:650}
 .ov{position:absolute;inset:0;padding:48px 44px 124px;display:flex;flex-direction:column;gap:18px;transition:opacity .45s ease,transform .55s cubic-bezier(.2,.8,.2,1)}
 .ov.away{opacity:0;transform:scale(.97);pointer-events:none}
-#calcard{position:absolute;display:none;overflow:hidden;z-index:3}
-#calcard.show{display:block}
-#calcard.anim{transition:left .55s cubic-bezier(.2,.8,.2,1),top .55s cubic-bezier(.2,.8,.2,1),width .55s cubic-bezier(.2,.8,.2,1),height .55s cubic-bezier(.2,.8,.2,1)}
-#calin{position:absolute;left:0;top:0;width:760px;height:1240px;transition:opacity .3s ease}
+#calcard,#menucard{position:absolute;display:none;overflow:hidden;z-index:3}
+#calcard.show,#menucard.show{display:block}
+#calcard.anim,#menucard.anim{transition:left .55s cubic-bezier(.2,.8,.2,1),top .55s cubic-bezier(.2,.8,.2,1),width .55s cubic-bezier(.2,.8,.2,1),height .55s cubic-bezier(.2,.8,.2,1)}
+#calin,#menuin{position:absolute;left:0;top:0;width:760px;height:1240px;transition:opacity .3s ease}
 .sg.big{height:40px;font-size:16px;padding:0 17px}
 .evb{position:absolute;box-sizing:border-box;min-height:0;border:0;border-radius:10px;overflow:hidden;text-align:left;color:#101828;display:block;font-family:inherit}
 .mcell{box-sizing:border-box;min-height:0;min-width:0;padding:4px;border:0;border-top:1px solid #edf0f5;border-radius:0;background:none;display:flex;flex-direction:column;gap:3px;align-items:stretch;text-align:left;overflow:hidden;color:#101828}
@@ -113,7 +113,7 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 .phone .dn{font-size:26px!important}
 .phone .legend{display:none}
 .phone .gscroll .gwrap{flex:none;height:820px;min-height:0}
-.phone #calin{overflow-y:auto;scrollbar-width:none}
+.phone #calin,.phone #menuin{overflow-y:auto;scrollbar-width:none}
 .phone .sg.big{height:36px;padding:0 12px;font-size:15px}
 .phone .cnav{width:44px;height:44px}
 .phone .cbtn{height:44px;padding:0 16px!important;font-size:16px}
@@ -136,6 +136,15 @@ button.danger-o{color:#c2331f;border-color:#e8b9b2}
 .wchip .tm{display:block;font-size:12px;font-weight:600;color:#3a4358}
 .phone .wcols{display:flex;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none}
 .phone .wcol{flex:none;width:96px;scroll-snap-align:start}
+.drows{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;overflow-y:auto;scrollbar-width:none}
+.drow{flex:1 0 66px;display:flex;align-items:center;gap:14px;padding:0 18px;border:0;border-radius:22px;background:#f6f8fb;text-align:left;color:inherit;min-height:0}
+.drow.today{background:#e6edfb}
+.dname{display:block;font-size:28px;font-weight:700;letter-spacing:-.03em;line-height:1.12;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dcook{display:block;font-size:16px;font-weight:600;color:#6b7488;margin-top:2px}
+.dempty{font-size:20px;font-weight:600;color:#8a93a6}
+.dplus{width:44px;height:44px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(20,32,70,.14);display:flex;align-items:center;justify-content:center;flex:none;color:#101828;font-size:26px;font-weight:600}
+.phone .dname{font-size:21px}.phone .drow{padding:0 12px;gap:10px;flex-basis:62px}.phone .dempty{font-size:17px}.phone .dplus{width:38px;height:38px}
+.mealgrid{display:flex;flex-wrap:wrap;gap:8px}
 .sheet-on #sheetscrim{opacity:1;pointer-events:auto}
 .sheet-on #sheet{transform:none;visibility:visible;transition:transform .4s cubic-bezier(.2,.8,.2,1),visibility 0s}
 .scroll{overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -213,7 +222,7 @@ addEventListener("resize", () => {
   fit();
   if (!$("dock")) return;
   drawDock();
-  if (view.page === "calendar") { setBox($("calcard"), fullBox()); drawCal(); }
+  if (PANELS[view.page]) { setBox($(PANELS[view.page].card), fullBox()); PANELS[view.page].draw(); }
 });
 
 /* ---------- Clock, greeting and date ---------- */
@@ -266,7 +275,7 @@ const CHEV_R = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stro
 
 /* ---------- Events (from the hub, or sample ones with ?demo) ---------- */
 let EV = {list: [], cals: {}};
-const view = {page: "overview", mode: "day", date: new Date(), who: null, ovMode: "day"};
+const view = {page: "overview", mode: "day", date: new Date(), who: null, ovMode: "day", menuWeek: new Date()};
 const dateOf = (s, allDay) => { if (allDay) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); } return new Date(s); };
 const prep = e => ({...e, s: dateOf(e.start, e.all_day), e: dateOf(e.end, e.all_day)});
 function onDay(e, day) {
@@ -311,10 +320,32 @@ const dotHtml = cs => cs.map(c => `<i style="width:6px;height:6px;border-radius:
 const tag = e => { const c = calOf(e); return c.name ? `<span class="pp"><i style="background:${esc(c.color)}"></i>${esc(c.name)}</span>` : ""; };
 
 /* ---------- Today card (Overview) ---------- */
+let DIN = {meals: [], plan: {}};           // the family's dinners, and which is planned on which day
+async function loadDinners() {
+  if (DEMO) return;
+  try { DIN = await api("/api/dinners"); } catch (_) {}
+}
+function dinnerFor(day) {
+  const p = DIN.plan[ymd(day)], m = p && DIN.meals.find(x => x.id === p.meal);
+  if (!m) return null;
+  const cook = (S.people || []).find(x => x.id === p.cook);
+  return {name: m.name, cook: cook ? cook.name : ""};
+}
+function drawDinner() {
+  const el = $("dinner");
+  if (!el) return;
+  const t = dinnerFor(new Date());
+  const name = DEMO ? "Spaghetti bolognese" : t ? t.name : "Nothing planned yet";
+  const sub = DEMO ? "Dad cooking" : t && t.cook ? t.cook + " cooking" : "";
+  el.innerHTML = `<div style="width:64px;height:64px;border-radius:20px;background:#fff;display:flex;align-items:center;justify-content:center;flex:none"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v8M5 3v5a2 2 0 004 0V3M7 11v10M17 3c-2 2-3 4-3 7 0 2 1 3 3 3v8"/></svg></div>
+    <div style="flex:1;min-width:0"><div class="cap" style="color:#9a4a1e">Dinner tonight</div><div class="dn" style="font-size:34px;font-weight:700;letter-spacing:-.04em;line-height:1.08;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(name)}</div>${t || DEMO ? "" : '<div style="font-size:16px;font-weight:600;color:#9a4a1e;margin-top:3px">Tap to plan the week</div>'}</div>
+    ${sub ? `<div style="text-align:right;font-size:17px;font-weight:600;color:#9a4a1e;flex:none">${esc(sub)}</div>` : ""}`;
+  el.onclick = openMenu;
+}
 async function loadOverview() {
   const mon = weekStart(new Date());
-  await loadRange(mon, addDays(mon, 7));
-  drawToday();
+  await Promise.all([loadRange(mon, addDays(mon, 7)), loadDinners()]);
+  drawToday(); drawDinner();
 }
 /* The Overview's week view: the days side by side, each with its events stacked underneath. */
 function weekRows(mon, now) {
@@ -392,40 +423,52 @@ const colorsOf = e => e.hub ? (peopleOf(e).length ? peopleOf(e).map(p => p.color
 const visible = e => !view.who || (e.hub && (e.people || []).includes(view.who));
 const shown = () => EV.list.filter(visible);
 
-function openCal(mode, date) {
-  view.mode = mode; view.date = date;
+/* Two full screens grow out of an Overview card: the Calendar (from Today) and Dinners (from Dinner tonight). */
+const PANELS = {
+  calendar: {card: "calcard", inner: "calin", from: "today", draw: () => drawCal(), load: () => loadCal()},
+  menu: {card: "menucard", inner: "menuin", from: "dinner", draw: () => drawMenu(), load: () => loadMenu()},
+};
+function openPanel(name) {
+  const P = PANELS[name];
   setDock(false);
-  const card = $("calcard"), fromOverview = view.page !== "calendar";
-  view.page = "calendar";
-  drawDock();
-  if (!fromOverview) { drawCal(); loadCal(); return; }
-  clearTimeout(closeCal.t);
+  if (view.page === name) { P.draw(); P.load(); return; }
+  if (view.page !== "overview") {              // one at a time: let the open one shrink away first
+    closePanel(); clearTimeout(openPanel.t); openPanel.t = setTimeout(() => openPanel(name), 620);
+    return;
+  }
+  view.page = name; drawDock();
+  const card = $(P.card), inner = $(P.inner);
+  clearTimeout(closePanel.t);
   card.classList.remove("anim");
-  setBox(card, boxIn($("today")));
+  setBox(card, boxIn($(P.from)));
   card.classList.add("show");
-  $("calin").style.transitionDelay = ".3s";
-  $("calin").style.opacity = 0;
-  drawCal(); loadCal();
-  void card.offsetWidth;                       // start from the Today card, then grow
+  inner.style.transitionDelay = ".3s";
+  inner.style.opacity = 0;
+  P.draw(); P.load();
+  void card.offsetWidth;                       // start from the Overview card, then grow
   card.classList.add("anim");
   setBox(card, fullBox());
   $("ov").classList.add("away");
-  $("calin").style.opacity = 1;
+  inner.style.opacity = 1;
 }
-function closeCal() {
-  if (view.page !== "calendar") return;
+function closePanel() {
+  const name = view.page;
+  if (name === "overview") return;
+  const P = PANELS[name];
   view.page = "overview";
   closeSheet(); setDock(false); drawDock();
-  const card = $("calcard");
+  const card = $(P.card), inner = $(P.inner);
   card.classList.add("anim");
-  setBox(card, boxIn($("today")));             // shrink back onto the Today card
-  $("calin").style.transitionDelay = "0s";
-  $("calin").style.opacity = 0;
+  setBox(card, boxIn($(P.from)));              // shrink back onto the card it came from
+  inner.style.transitionDelay = "0s";
+  inner.style.opacity = 0;
   $("ov").classList.remove("away");
   loadOverview();
-  clearTimeout(closeCal.t);
-  closeCal.t = setTimeout(() => card.classList.remove("show", "anim"), 600);
+  clearTimeout(closePanel.t);
+  closePanel.t = setTimeout(() => card.classList.remove("show", "anim"), 600);
 }
+function openCal(mode, date) { view.mode = mode; view.date = date; openPanel("calendar"); }
+const openMenu = () => openPanel("menu");
 function calRange() {
   const d = startOfDay(view.date);
   if (view.mode === "day") return [d, addDays(d, 1)];
@@ -631,7 +674,7 @@ const DAYCODES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
 const json = body => ({method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify(body)});
 function openSheet(state) { ed = state; $("stage").classList.add("sheet-on"); drawSheet(); }
 function closeSheet() { $("stage").classList.remove("sheet-on"); ed = null; }
-const refresh = () => view.page === "calendar" ? loadCal() : loadOverview();
+const refresh = () => PANELS[view.page] ? PANELS[view.page].load() : loadOverview();
 function newEvent(day, hour) {
   const now = new Date();
   const h = hour !== undefined ? hour : sameDay(day, now) ? Math.min(20, Math.max(8, now.getHours() + 1)) : 9;
@@ -675,6 +718,8 @@ function drawSheet() {
   if (!ed) return;
   if (ed.mode === "family") return drawFamilySheet();
   if (ed.mode === "view") return drawViewSheet();
+  if (ed.mode === "dinner") return drawDinnerSheet();
+  if (ed.mode === "meals") return drawMealsSheet();
   const t = ed, editing = !!t.id, rep = t.freq !== "none";
   const unit = {daily: "day", weekly: "week", monthly: "month", yearly: "year"}[t.freq] || "";
   const dur = Math.round((new Date(`${t.ned}T${t.net}`) - new Date(`${t.sd}T${t.st}`)) / 60000);
@@ -738,6 +783,94 @@ function drawFamilySheet() {
   sheetFrame("Family", `<div id="fam" style="margin-top:8px"></div>`, `<button class="primary" id="f-ok" style="margin-left:auto;min-width:200px">Done</button>`);
   drawFamily($("fam"), () => { drawCal(); });
   $("f-ok").onclick = () => { if (ed.back) { ed = ed.back; ed.people = ed.people.filter(id => people().some(p => p.id === id)); drawSheet(); } else closeSheet(); };
+}
+
+/* ---------- Dinners ---------- */
+async function loadMenu() { await loadDinners(); drawMenu(); }
+function drawMenu() {
+  const el = $("menuin");
+  if (!el) return;
+  const fb = fullBox(), P = DIM.phone, now = new Date();
+  el.style.width = fb.w + "px"; el.style.height = fb.h + "px";
+  const w = weekStart(startOfDay(view.menuWeek)), b = addDays(w, 6), m = x => x.toLocaleDateString([], {month: P ? "short" : "long"});
+  const title = w.getMonth() === b.getMonth() ? `${w.getDate()} to ${b.getDate()} ${m(b)}` : `${w.getDate()} ${m(w)} to ${b.getDate()} ${m(b)}`;
+  const thisWeek = sameDay(w, weekStart(now));
+  let planned = 0;
+  const rows = Array.from({length: 7}, (_, i) => {
+    const day = addDays(w, i), today = sameDay(day, now), t = dinnerFor(day), past = day < startOfDay(now);
+    if (t) planned++;
+    return `<button class="drow${today ? " today" : ""}" data-dday="${ymd(day)}" aria-label="${esc(day.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}))}${t ? ": " + esc(t.name) : ""}">
+      <span class="fx" style="flex-direction:column;gap:0;width:${P ? 46 : 62}px;flex:none"><span style="font-size:12px;font-weight:700;letter-spacing:.06em;color:${today ? "#101828" : "#6b7488"}">${esc(day.toLocaleDateString([], {weekday: "short"}).toUpperCase())}</span><span class="num fx" style="width:${P ? 34 : 40}px;height:${P ? 34 : 40}px;border-radius:50%;justify-content:center;font-size:${P ? 18 : 21}px;font-weight:700;${today ? "background:#101828;color:#fff" : ""}">${day.getDate()}</span></span>
+      <span style="flex:1;min-width:0">${t ? `<span class="dname">${esc(t.name)}</span>${t.cook ? `<span class="dcook">${esc(t.cook)} cooking</span>` : ""}` : `<span class="dempty">${past ? "No dinner planned" : "Tap to choose a dinner"}</span>`}</span>
+      <span class="dplus" aria-hidden="true">${t ? CHEV : "+"}</span></button>`;
+  }).join("");
+  el.innerHTML = `<div style="display:flex;flex-direction:column;width:100%;height:100%;padding:${P ? "14px 14px" : "18px 18px"} 0">
+    <div class="fx" style="justify-content:space-between;padding:0 4px 12px;gap:12px">
+      <div class="fx" style="gap:14px"><span class="clk num" style="font-family:'Comfortaa','Onest',sans-serif;font-size:${P ? 44 : 54}px;font-weight:700;letter-spacing:-.07em;line-height:.9;-webkit-text-stroke:1.8px #101828;paint-order:stroke fill">${esc(clockT(now))}</span><span class="cdt" style="font-size:${P ? 16 : 20}px;font-weight:700;letter-spacing:-.03em;line-height:1.1">${esc(now.toLocaleDateString([], {weekday: "short", day: "numeric", month: "short"}))}</span></div>
+      <span style="font-size:${P ? 26 : 32}px;font-weight:700;letter-spacing:-.04em">Dinners</span>
+    </div>
+    <div class="fx" style="justify-content:space-between;padding:0 0 12px;gap:10px">
+      <div class="fx" style="gap:10px;min-width:0"><button class="cnav" id="m-prev" aria-label="Back">${CHEV_L}</button><span style="font-size:${P ? 21 : 28}px;font-weight:700;letter-spacing:-.04em;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(title)}</span><button class="cnav" id="m-next" aria-label="Forward">${CHEV_R}</button></div>
+      ${thisWeek ? "" : `<button class="cbtn" id="m-today" style="background:#fff;color:#101828;border:1.5px solid #d5dbe6">This week</button>`}
+    </div>
+    <div class="drows">${rows}</div>
+    <div class="fx" style="flex:none;height:84px;padding:0 4px 0 82px;justify-content:space-between;gap:12px"><span style="font-size:17px;font-weight:600;color:#6b7488">${planned} of 7 planned</span><button class="cbtn" id="m-ideas" ${DEMO ? "hidden" : ""} style="padding:0 20px">Dinner ideas${DIN.meals.length ? " · " + DIN.meals.length : ""}</button></div>
+  </div>`;
+  $("m-prev").onclick = () => { view.menuWeek = addDays(w, -7); drawMenu(); };
+  $("m-next").onclick = () => { view.menuWeek = addDays(w, 7); drawMenu(); };
+  const t = $("m-today"); if (t) t.onclick = () => { view.menuWeek = new Date(); drawMenu(); };
+  $("m-ideas").onclick = () => openSheet({mode: "meals"});
+  el.querySelectorAll("[data-dday]").forEach(b => b.onclick = () => {
+    if (DEMO) return;
+    const p = DIN.plan[b.dataset.dday];
+    openSheet({mode: "dinner", date: b.dataset.dday, cook: p && p.cook ? p.cook : null, text: ""});
+  });
+}
+async function planDay(body) {
+  try { await api("/api/dinner-plan", json(body)); await loadDinners(); closeSheet(); refresh(); }
+  catch (err) { const e = $("ed-err"); if (e) e.textContent = err.message; }
+}
+function drawDinnerSheet() {
+  const t = ed, cur = DIN.plan[t.date], day = new Date(t.date + "T00:00");
+  const curMeal = cur && DIN.meals.find(m => m.id === cur.meal);
+  const meals = [...DIN.meals].sort((a, b) => a.name.localeCompare(b.name));
+  const body = `
+    ${curMeal ? `<div class="cap" style="margin-top:14px">Planned</div><div style="font-size:30px;font-weight:700;letter-spacing:-.03em;margin-top:2px">${esc(curMeal.name)}</div>` : ""}
+    ${lab("Who's cooking? (optional)")}<div class="fx" style="gap:8px;flex-wrap:wrap">${people().length ? people().map(p => pill("data-cook", p.id, `<i style="width:12px;height:12px;border-radius:50%;background:${esc(p.color)}"></i>${esc(p.name)}`, t.cook === p.id)).join("") : `<span style="color:var(--soft);font-size:18px">Add your family from the Calendar to say who's cooking.</span>`}</div>
+    ${lab(meals.length ? "Pick a dinner" : "No dinners yet")}<div class="mealgrid">${meals.map(m => pill("data-meal", m.id, esc(m.name), cur && cur.meal === m.id)).join("")}</div>
+    ${lab(meals.length ? "Or something new" : "Add your first one")}<div class="fx" style="gap:10px"><input id="d-new" maxlength="40" placeholder="Spaghetti Bolognese, Tacos…" autocomplete="off" value="${esc(t.text)}" style="flex:1;min-width:0"><button class="primary" id="d-add" style="flex:none;padding:0 22px">Use it</button></div>`;
+  sheetFrame(day.toLocaleDateString([], {weekday: "long", day: "numeric", month: "long"}), body,
+    `${cur ? `<button id="d-clear" class="danger-o">Clear this day</button>` : ""}<button id="d-cancel" style="margin-left:auto">Cancel</button>`);
+  const q = s => $("sheet").querySelector(s);
+  q("#d-new").oninput = e => { t.text = e.target.value; };
+  q("#d-new").onkeydown = e => { if (e.key === "Enter") q("#d-add").click(); };
+  q("#d-add").onclick = () => planDay({date: t.date, name: t.text, cook: t.cook});
+  q("#d-cancel").onclick = closeSheet;
+  const clr = q("#d-clear"); if (clr) clr.onclick = () => planDay({date: t.date});
+  $("sheet").querySelectorAll("[data-meal]").forEach(b => b.onclick = () => planDay({date: t.date, meal_id: b.dataset.meal, cook: t.cook}));
+  $("sheet").querySelectorAll("[data-cook]").forEach(b => b.onclick = () => {
+    t.cook = t.cook === b.dataset.cook ? null : b.dataset.cook;
+    if (cur) planDay({date: t.date, meal_id: cur.meal, cook: t.cook}); else drawSheet();   // changing the cook of a planned day saves at once
+  });
+}
+function drawMealsSheet() {
+  const t = ed, meals = [...DIN.meals].sort((a, b) => a.name.localeCompare(b.name));
+  const body = `<p style="color:var(--soft);font-size:18px;margin:10px 0 0">Everything you cook. Pick from this list when you plan a day.</p>
+    <div id="mlist" style="margin-top:8px">${meals.length ? meals.map(m => `
+      <div class="fx" style="gap:10px;padding:8px 0;border-top:1px solid #edf0f5">
+        <input data-rn="${esc(m.id)}" maxlength="40" value="${esc(m.name)}" aria-label="Dinner name" autocomplete="off" style="flex:1;min-width:0">
+        ${t.sure === m.id ? `<button class="danger" data-rm="${esc(m.id)}" style="min-height:52px;padding:0 16px">Yes, remove</button>` : `<button data-ask="${esc(m.id)}" style="min-height:52px;padding:0 18px">Remove</button>`}</div>`).join("") : `<p>No dinners yet. Add your favourites below.</p>`}</div>
+    ${lab("Add a dinner")}<div class="fx" style="gap:10px"><input id="n-new" maxlength="40" placeholder="Spaghetti Bolognese, Tacos…" autocomplete="off" value="${esc(t.text || "")}" style="flex:1;min-width:0"><button class="primary" id="n-add" style="flex:none;padding:0 22px">Add</button></div>
+    ${t.sure ? `<p style="font-size:16px;color:var(--soft)">Removing a dinner also takes it off any days it was planned.</p>` : ""}`;
+  sheetFrame("Dinner ideas", body, `<button class="primary" id="n-ok" style="margin-left:auto;min-width:200px">Done</button>`);
+  const run = async f => { try { await f(); await loadDinners(); t.sure = null; drawSheet(); drawMenu(); } catch (err) { $("ed-err").textContent = err.message; } };
+  $("n-ok").onclick = () => { closeSheet(); refresh(); };
+  $("n-new").oninput = e => { t.text = e.target.value; };
+  $("n-new").onkeydown = e => { if (e.key === "Enter") $("n-add").click(); };
+  $("n-add").onclick = () => run(async () => { await api("/api/meal", json({name: t.text || ""})); t.text = ""; });
+  $("sheet").querySelectorAll("[data-rn]").forEach(i => i.onchange = () => run(() => api("/api/meal", json({id: i.dataset.rn, name: i.value}))));
+  $("sheet").querySelectorAll("[data-ask]").forEach(b => b.onclick = () => { t.sure = b.dataset.ask; drawSheet(); });
+  $("sheet").querySelectorAll("[data-rm]").forEach(b => b.onclick = () => run(() => api("/api/meal/delete", json({id: b.dataset.rm}))));
 }
 
 /* Family members: used in the sheet and in Settings. */
@@ -821,7 +954,7 @@ const dkIcon = (n, s = 24) => `<svg width="${s}" height="${s}" viewBox="0 0 24 2
 const GRID_ICON = `<svg class="i-open" width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="6" cy="6" r="1.8"/><circle cx="12" cy="6" r="1.8"/><circle cx="18" cy="6" r="1.8"/><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/><circle cx="6" cy="18" r="1.8"/><circle cx="12" cy="18" r="1.8"/><circle cx="18" cy="18" r="1.8"/></svg>`;
 function dockItems() {
   const url = id => (S.config.widgets.find(w => w.id === id) || {}).url;
-  const items = [["overview", "Overview", "page"], ["calendar", "Calendar", "page"], ["menu", "Menu", "soon"], ["shopping", "Shopping", "soon"]];
+  const items = [["overview", "Overview", "page"], ["calendar", "Calendar", "page"], ["menu", "Dinners", "page"], ["shopping", "Shopping", "soon"]];
   if (url("pocketpals")) items.push(["chores", "Chores", url("pocketpals")]);
   if (url("wattsmypower")) items.push(["energy", "Energy", url("wattsmypower")]);
   return items;
@@ -844,10 +977,12 @@ function drawDock() {
       : `<a class="dk" href="${esc(to)}" aria-label="${name}">${inner}</a>`;
   }).join("");
   box.querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
-    if (b.dataset.go === "overview") closeCal();
-    else if (b.dataset.go === "calendar") openCal(view.mode, view.date);
+    const go = b.dataset.go;
+    if (go === "overview") closePanel();
+    else if (go === "calendar") openCal(view.mode, view.date);
+    else if (go === "menu") openMenu();
     else soon();
-    if (b.dataset.go === "overview" || b.dataset.go === "calendar") setDock(false);
+    if (go !== "shopping") setDock(false);
   });
 }
 function drawDash() {
@@ -864,6 +999,7 @@ function drawDash() {
       <div id="body" style="display:flex;flex-direction:column;gap:18px;flex:1;min-height:0"></div>
     </div>
     <section id="calcard" class="tile-card"><div id="calin"></div></section>
+    <section id="menucard" class="tile-card"><div id="menuin"></div></section>
     <button id="scrim" class="hidden" aria-label="Close menu"></button>
     <nav id="dock" aria-label="Main"><button id="dk-t" aria-label="Open menu" aria-expanded="false">${GRID_ICON}<span class="i-close">${X_ICON}</span></button><div id="dk-i"></div></nav>
     <div id="sheetscrim"></div><section id="sheet" role="dialog" aria-label="Event"></section>
@@ -883,12 +1019,8 @@ function drawBody() {      // the Overview cards (the calendar has its own layer
     <section id="today" class="tile-card" style="padding:22px 26px 16px"></section>
     ${cards ? `<div class="tile-card wgrid" style="padding:10px;display:grid;grid-template-columns:repeat(${c.widgets.length},minmax(0,1fr));gap:10px;flex:1;min-height:300px">${cards}</div>`
             : `<div class="tile-card" style="padding:28px;flex:1;min-height:300px;display:flex;flex-direction:column;justify-content:center;text-align:center"><div style="font-size:30px;font-weight:700;letter-spacing:-.03em">No apps added yet</div><div style="font-size:19px;color:#6b7488;margin-top:6px">Tap the cog to add PocketPals or WattsMyPower.</div></div>`}
-    <section class="tile-card fx dinner" style="gap:18px;padding:18px 26px 18px 18px;background:#ffeadf">
-      <div style="width:64px;height:64px;border-radius:20px;background:#fff;display:flex;align-items:center;justify-content:center;flex:none"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v8M5 3v5a2 2 0 004 0V3M7 11v10M17 3c-2 2-3 4-3 7 0 2 1 3 3 3v8"/></svg></div>
-      <div style="flex:1;min-width:0"><div class="cap" style="color:#9a4a1e">Dinner tonight</div><div class="dn" style="font-size:34px;font-weight:700;letter-spacing:-.04em;line-height:1.08;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${DEMO ? "Spaghetti bolognese" : "Nothing planned yet"}</div></div>
-      ${DEMO ? '<div style="text-align:right"><div class="num" style="font-size:26px;font-weight:700;letter-spacing:-.03em">' + fmtT(new Date(2000, 0, 1, 18, 30)) + '</div><div style="font-size:15px;font-weight:600;color:#9a4a1e;margin-top:2px">Dad cooking</div></div>' : ""}
-    </section>`;
-  drawToday(); loadOverview(); poll();
+    <button class="tile-card fx dinner" id="dinner" aria-label="Dinner tonight. Open the dinners" style="gap:18px;padding:18px 26px 18px 18px;background:#ffeadf;border:0;min-height:0;width:100%;text-align:left;color:inherit;border-radius:30px"></button>`;
+  drawToday(); drawDinner(); loadOverview(); poll();
 }
 async function poll() {
   try {
