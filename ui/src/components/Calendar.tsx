@@ -11,12 +11,6 @@ import { loadEventDraft, newEventDraft } from "./Sheets";
 
 const HOUR_PX = (big: boolean, phone: boolean) => phone ? 64 : big ? 76 : 64;     // a fixed height for each hour, so the day scrolls
 
-/** The coloured edge of an event: one colour per person, stacked when several people share it. */
-const Stripe = ({ cs, w = 6 }: { cs: string[]; w?: number }) => (
-  <span aria-hidden style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: w, display: "flex", flexDirection: "column" }}>
-    {cs.map((c, i) => <i key={i} style={{ flex: 1, background: c }} />)}
-  </span>
-);
 /** Round initials in each person's colour, so who it is can be read without reading a name. */
 const Avs = ({ ps, size, max = 4 }: { ps: Person[]; size: number; max?: number }) => ps.length ? (
   <span className="avs" aria-hidden>
@@ -74,13 +68,13 @@ function Grid({ days, gutter, big, c }: { days: Date[]; gutter: number; big: boo
                 const e = x.ev, cs = colorsOf(e, c.data, c.people), t0 = x.s.getHours() + x.s.getMinutes() / 60, t1 = t0 + (+x.e - +x.s) / 3600000;
                 const mins = (+x.e - +x.s) / 60000, n = x.cols, tall = mins >= 55, ps = peopleOf(e, c.people);
                 const who = ps.map(p => p.name).join(" · ");
-                const style: CSSProperties = { top: `calc(${top(t0)}% + 2px)`, height: `calc(${top(t1) - top(t0)}% - 4px)`, left: `calc(${x.col / n * 100}% + 3px)`, width: `calc(${100 / n}% - 6px)`, background: evBg(cs[0]), padding: big ? "6px 12px 6px 20px" : "5px 6px 5px 13px", ...vtn(e, day, c, t0) };
+                const style: CSSProperties = { top: `calc(${top(t0)}% + 2px)`, height: `calc(${top(t1) - top(t0)}% - 4px)`, left: `calc(${x.col / n * 100}% + 3px)`, width: `calc(${100 / n}% - 6px)`, background: evBg(cs[0]), padding: big ? "7px 12px" : "5px 6px", ...vtn(e, day, c, t0) };
                 return (
                   <button key={e.id + x.col} className="evb" style={style} onClick={ev => { ev.stopPropagation(); c.open(e); }}>
-                    <Stripe cs={cs} w={big ? 7 : 5} />
+                    
                     {big ? (tall ? (
                       <>
-                        <div style={{ fontSize: n > 1 ? 19 : 23, fontWeight: 700, letterSpacing: "-.02em", lineHeight: 1.1, paddingRight: n > 1 ? 0 : 4 }}>{e.title}</div>
+                        <div style={{ fontSize: n > 1 ? 16 : 19, fontWeight: 700, letterSpacing: "-.02em", lineHeight: 1.1, paddingRight: n > 1 ? 0 : 4 }}>{e.title}</div>
                         <div className="fx" style={{ gap: 10, marginTop: 4, justifyContent: "space-between" }}>
                           <span className="num" style={{ fontSize: 16, fontWeight: 600, color: "#3a4358" }}>{fmtT(e.s, c.h24)} to {fmtT(e.e, c.h24)}</span>
                           {mins < 90 || n > 1 ? <Avs ps={ps} size={24} max={n > 1 ? 2 : 4} /> : null}
@@ -89,14 +83,14 @@ function Grid({ days, gutter, big, c }: { days: Date[]; gutter: number; big: boo
                       </>
                     ) : (
                       <div className="fx" style={{ justifyContent: "space-between", gap: 10, height: "100%" }}>
-                        <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.title}</span>
+                        <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.title}</span>
                         <span className="fx" style={{ gap: 8, flex: "none" }}><Avs ps={ps} size={22} max={3} /><span className="num" style={{ fontSize: 15, fontWeight: 600, color: "#3a4358" }}>{fmtT(e.s, c.h24)}</span></span>
                       </div>
                     )) : (
                       <>
-                        <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-.01em", lineHeight: 1.12 }}>{e.title}</div>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "-.01em", lineHeight: 1.12 }}>{e.title}</div>
                         {tall ? <div className="num" style={{ fontSize: 12, fontWeight: 600, color: "#3a4358", marginTop: 1 }}>{fmtT(e.s, c.h24)}</div> : null}
-                        {mins >= 90 && ps.length ? <div style={{ position: "absolute", left: 13, bottom: 4 }}><Avs ps={ps} size={18} max={3} /></div> : null}
+                        {mins >= 90 && ps.length ? <div style={{ position: "absolute", left: 6, bottom: 4 }}><Avs ps={ps} size={18} max={3} /></div> : null}
                       </>
                     )}
                   </button>
@@ -179,7 +173,7 @@ function AllDay({ days, gutter, c }: { days: Date[]; gutter: number; c: Ctx }) {
         <div style={{ flex: 1, marginLeft: 10, display: "grid", gridTemplateColumns: `repeat(${n},minmax(0,1fr))`, rowGap: 4 }}>
           {keep.map(it => {
             const cs = colorsOf(it.e, c.data, c.people), ps = peopleOf(it.e, c.people);
-            return <button key={it.e.id} className="evb" onClick={() => c.open(it.e)} style={{ position: "relative", gridColumn: `${it.a + 1}/${it.b + 2}`, gridRow: it.l + 1, height: 32, margin: "0 3px", background: evBg(cs[0]), padding: "0 8px 0 16px", fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, ...vtn(it.e, addDays(first, it.a), c) }}><Stripe cs={cs} w={5} /><span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{it.e.title}</span><Avs ps={ps} size={20} max={3} /></button>;
+            return <button key={it.e.id} className="evb" onClick={() => c.open(it.e)} style={{ position: "relative", gridColumn: `${it.a + 1}/${it.b + 2}`, gridRow: it.l + 1, height: 32, margin: "0 3px", background: evBg(cs[0]), padding: "0 8px 0 10px", fontSize: 13.5, fontWeight: 700, whiteSpace: "nowrap", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, ...vtn(it.e, addDays(first, it.a), c) }}><span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{it.e.title}</span><Avs ps={ps} size={20} max={3} /></button>;
           })}
         </div>
       </div>
@@ -234,7 +228,7 @@ function Month({ c }: { c: Ctx }) {
                 <>
                   {keep.map(e => {
                     const cs = colorsOf(e, c.data, c.people), ps = peopleOf(e, c.people);
-                    return <span key={e.id} className="mchip" style={{ background: evBg(cs[0]), opacity: inM ? 1 : .55, ...vtn(e, day, c) }}><Stripe cs={cs} w={4} /><span className="mt">{e.title}</span><Avs ps={ps} size={16} max={2} /></span>;
+                    return <span key={e.id} className="mchip" style={{ background: evBg(cs[0]), opacity: inM ? 1 : .55, ...vtn(e, day, c) }}><span className="mt">{e.title}</span><Avs ps={ps} size={16} max={2} /></span>;
                   })}
                   {more > 0 ? <span className="fx" style={{ gap: 5, fontSize: 13, fontWeight: 700, color: "#5a6478", paddingLeft: 4 }}>+{more} more<span className="fx" style={{ gap: 3 }}>{[...new Set(rest.flatMap(e => colorsOf(e, c.data, c.people)))].slice(0, 4).map(col => <i key={col} className="bz" style={{ background: col }} />)}</span></span> : null}
                 </>
@@ -266,10 +260,10 @@ function Agenda({ c }: { c: Ctx }) {
               {evs.length ? evs.map(e => {
                 const cs = colorsOf(e, c.data, c.people), ps = peopleOf(e, c.people), who = ps.map(p => p.name).join(" · ") || calOf(e, c.data, c.people).name;
                 return (
-                  <button key={e.id} className="evb" onClick={() => c.open(e)} style={{ position: "relative", width: "100%", background: evBg(cs[0]), padding: "8px 12px 8px 20px", marginBottom: 6, ...vtn(e, day, c) }}>
-                    <Stripe cs={cs} w={6} />
+                  <button key={e.id} className="evb" onClick={() => c.open(e)} style={{ position: "relative", width: "100%", background: evBg(cs[0]), padding: "8px 12px", marginBottom: 6, ...vtn(e, day, c) }}>
+                    
                     <div className="fx" style={{ justifyContent: "space-between", gap: 10 }}>
-                      <span style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-.02em", minWidth: 0 }}>{e.title}</span>
+                      <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-.02em", minWidth: 0 }}>{e.title}</span>
                       <span className="num" style={{ fontSize: 15, fontWeight: 600, color: "#3a4358", flex: "none" }}>{e.all_day ? "All day" : fmtT(e.s, c.h24)}</span>
                     </div>
                     {who ? <div className="fx" style={{ gap: 8, marginTop: 4, fontSize: 14, fontWeight: 600, color: "#3a4358" }}><Avs ps={ps} size={22} />{who}</div> : null}
@@ -278,32 +272,6 @@ function Agenda({ c }: { c: Ctx }) {
               }) : <div style={{ fontSize: 16, color: "#6b7488", padding: "12px 0 14px" }}>Nothing on</div>}
             </div>
           </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/** One card a person: what they are doing right now, or what is next. Tap one to see only their day. */
-function NowStrip({ c }: { c: Ctx }) {
-  const { now, cal, setCal, h24 } = useHub();
-  const today = startOfDay(now);
-  const { data = EMPTY_EVENTS } = useEvents(today, addDays(today, 1));      // always today, wherever the calendar is browsing
-  if (!c.people.length) return null;
-  return (
-    <div className="nowstrip">
-      {c.people.map(p => {
-        const mine = data.list.filter(e => e.hub && (e.people || []).includes(p.id) && !e.all_day).sort((a, b) => +a.s - +b.s);
-        const cur = mine.find(e => e.s <= now && e.e > now), nxt = mine.find(e => e.s > now && sameDay(e.s, now));
-        const ev = cur || nxt;
-        return (
-          <button key={p.id} className={"ncard" + (cal.who === p.id ? " on" : "")} aria-pressed={cal.who === p.id} style={{ "--pc": p.color } as CSSProperties} onClick={() => setCal(x => ({ ...x, who: x.who === p.id ? null : p.id }))}>
-            <Avs ps={[p]} size={38} />
-            <span className="nb">
-              <span className="nn">{p.name}{cur ? <i className="live" /> : null}</span>
-              <span className="ns">{ev ? <><b>{cur ? "Now" : fmtT(ev.s, h24)}</b> {ev.title}</> : <span style={{ color: "#5a6478" }}>{mine.some(e => sameDay(e.s, now)) ? "Done for today" : "Nothing on today"}</span>}</span>
-            </span>
-          </button>
         );
       })}
     </div>
@@ -445,8 +413,8 @@ export function CalendarPanel() {
   useEffect(() => { prefetch([-1, 1].map(n => calRange({ ...cal, date: stepDate(cal, n) })).concat([calRange({ ...cal, mode: "month" }), calRange({ ...cal, mode: "week" })])); }, [cal.mode, +startOfDay(cal.date)]);
   const key = cal.mode + ymd(cal.date) + ":" + nonce;
   const chip = (id: string, label: string, color?: string) => (
-    <button key={id} className={"pill" + ((cal.who || "") === id ? " on" : "")} style={{ height: 44, fontSize: 16, padding: "0 18px", ...(color ? { "--pc": color } as CSSProperties : {}) }} onClick={() => setCal(x => ({ ...x, who: id || null }))}>
-      {color ? <i style={{ width: 12, height: 12, borderRadius: "50%", background: color }} /> : null}{label}
+    <button key={id} className={"pill" + ((cal.who || "") === id ? " on" : "")} style={{ height: 48, fontSize: 17, padding: color ? "0 18px 0 8px" : "0 20px", gap: 9, ...(color ? { "--pc": color } as CSSProperties : {}) }} onClick={() => setCal(x => ({ ...x, who: id || null }))}>
+      {color ? <i className="av" style={{ width: 30, height: 30, fontSize: 16, background: color }}>{(label.trim()[0] || "?").toUpperCase()}</i> : null}{label}
     </button>
   );
   const cals = Object.values(data.cals);
@@ -483,7 +451,6 @@ export function CalendarPanel() {
         {off => <Pane off={off} pc={{ ...cal, date: stepDate(cal, off) }} k={{ people, h24, vt, band, morph }} keep={keep} opening={opening} shared={shared} nonce={nonce} />}
       </SwipePane>
       <div style={{ flex: "none", padding: "10px 0 112px" }}>
-        <NowStrip c={c} />
         {cals.length ? <div className="fx legend" style={{ gap: 14, flexWrap: "wrap", padding: "8px 4px 0" }}>{cals.map(x => <span key={x.id} className="pp" style={{ fontSize: 15 }}><i style={{ background: x.color }} />{x.name + (x.ok ? "" : " (can't reach)")}</span>)}</div> : null}
       </div>
     </div>

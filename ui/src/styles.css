@@ -250,7 +250,9 @@ button:has(>.dnum):active .dnum{transform:scale(.88)}
 .cbtn.accent{background:var(--hub-grad);color:#101828}
 .pill{transition:background-color .25s ease,color .25s ease,border-color .25s ease}
 .pill.on{background:var(--pc,#101828);border-color:var(--pc,#101828)}
-.pill.on i{background:#fff!important}
+.pill.on i:not(.av){background:#fff!important}
+.pill .av{box-shadow:none}
+.pill.on .av{background:#fff!important;color:var(--pc)}
 .ctitle{animation:ctin .35s cubic-bezier(.2,.8,.2,1) both}
 @keyframes ctin{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 .dnum.now{background:var(--hub-grad);color:#101828}
@@ -259,18 +261,9 @@ button:has(>.dnum):active .dnum{transform:scale(.88)}
 .mcell.today{background:var(--hub-soft)}
 .mnum{display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700;flex:none}
 .mnum.now{background:var(--hub-grad);color:#101828}
-.mchip{position:relative;display:flex;align-items:center;gap:4px;height:26px;padding:0 5px 0 11px;border-radius:7px;font-size:13px;font-weight:650;line-height:26px;overflow:hidden}
+.mchip{position:relative;display:flex;align-items:center;gap:4px;height:26px;padding:0 5px 0 7px;border-radius:7px;font-size:12px;font-weight:650;line-height:26px;overflow:hidden}
 .mchip .mt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mchip .av{box-shadow:0 0 0 1.5px #fff}
-.nowstrip{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
-.nowstrip::-webkit-scrollbar{display:none}
-.ncard{flex:1 0 170px;min-height:0;height:74px;padding:0 12px 0 10px;border-radius:20px;border:2px solid transparent;background:color-mix(in srgb,var(--pc) 13%,#fff);display:flex;align-items:center;gap:10px;text-align:left;transition:border-color .2s ease,background-color .2s ease,transform .15s ease}
-.ncard.on{border-color:var(--pc);background:color-mix(in srgb,var(--pc) 22%,#fff)}
-.ncard .nb{display:flex;flex-direction:column;min-width:0;gap:1px}
-.ncard .nn{display:flex;align-items:center;gap:6px;font-size:17px;font-weight:800;letter-spacing:-.02em}
-.ncard .nn i{width:8px;height:8px;border-radius:50%;background:var(--pc)}
-.ncard .ns{font-size:15px;font-weight:600;line-height:1.2;color:#101828;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.ncard .ns b{font-weight:800;color:color-mix(in srgb,var(--pc) 75%,#000)}
 .gscroll .evb,.mcell .mchip{transition:transform .15s ease}
 .gscroll .evb:active{transform:scale(.985)}
 ::view-transition-group(*){animation-duration:.55s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
