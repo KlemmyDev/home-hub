@@ -7,7 +7,7 @@ export const Pill = ({ on, onClick, children, style }: { on?: boolean; onClick?:
   <button className={"pill" + (on ? " on" : "")} onClick={onClick} style={style}>{children}</button>;
 
 /** The bottom sheet's header, scrolling body, an error line and a footer of buttons. */
-export function SheetFrame({ title, body, foot, error }: { title: string; body: ReactNode; foot: ReactNode; error?: string }) {
+export function SheetFrame({ title, body, foot, error, sum }: { title: string; body: ReactNode; foot: ReactNode; error?: string; sum?: ReactNode }) {
   const { closeSheet } = useHub();
   return (
     <>
@@ -16,6 +16,7 @@ export function SheetFrame({ title, body, foot, error }: { title: string; body: 
         <button className="cnav" aria-label="Close" onClick={closeSheet}><XIcon /></button>
       </div>
       <div className="scroll shb" style={{ flex: 1, minHeight: 0 }}>{body}</div>
+      {sum}
       <div className="err shb" role="alert" style={{ margin: 0, paddingTop: 0, paddingBottom: 0, minHeight: 0 }}>{error}</div>
       <div className="fx shf" style={{ gap: 12, borderTop: "1px solid #edf0f5" }}>{foot}</div>
     </>

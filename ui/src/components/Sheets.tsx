@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, post } from "../lib/api";
-import { addDays, dayDiff, fmtT, fromYmd, hmOf, longDay, ymd } from "../lib/dates";
+import { addDays, dayDiff, fmtT, fromYmd, hmOf, longDay, shortDate, ymd } from "../lib/dates";
 import type { Ev } from "../lib/events";
 import { useDinners } from "../data";
 import { useHub, type EventDraft, type Sheet } from "../hub";
@@ -31,26 +31,51 @@ export async function loadEventDraft(e: Ev): Promise<EventDraft> {
   };
 }
 
+const joinNames = (n: string[]) => n.length < 2 ? n.join("") : n.slice(0, -1).join(", ") + " and " + n[n.length - 1];
+const QUICK_TIMES: [string, string][] = [["Morning", "09:00"], ["Lunchtime", "12:00"], ["After school", "15:30"], ["Evening", "18:00"]];
+const LENGTHS: [number, string][] = [[30, "30 min"], [60, "1 hour"], [120, "2 hours"], [180, "3 hours"]];
+
+/** Opens and closes a part of the sheet smoothly instead of popping it in. */
+const Reveal = ({ open, children }: { open: boolean; children: React.ReactNode }) => <div className={"xp" + (open ? " open" : "")} inert={!open}><div>{children}</div></div>;
+/** A step of the form: slides up softly as the sheet opens, one after another. */
+const Sec = ({ n, label, children }: { n: number; label: string; children: React.ReactNode }) => (
+  <section className="sheetsec" style={{ "--d": n } as React.CSSProperties}><div className="cap" style={{ margin: "26px 0 10px" }}>{label}</div>{children}</section>
+);
+
 function EventSheet({ draft: start }: { draft: EventDraft }) {
-  const { people, closeSheet, openSheet } = useHub();
+  const { people, closeSheet, openSheet, now, h24 } = useHub();
   const qc = useQueryClient();
   const [t, setT] = useState(start);
   const [confirmDel, setConfirmDel] = useState(false);
   const [err, setErr] = useState("");
-  const set = (p: Partial<EventDraft>) => setT(x => ({ ...x, ...p }));
+  const [busy, setBusy] = useState(false);
+  const [custom, setCustom] = useState(() => !start.allDay && !LENGTHS.some(([m]) => m === Math.round((+new Date(`${start.ned}T${start.net}`) - +new Date(`${start.sd}T${start.st}`)) / 60000)) && !!start.id);
+  const titleRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {      // the name field is ready for typing once the sheet has finished rising; focusing earlier makes the page behind scroll
+    if (start.id) return;
+    const id = setTimeout(() => titleRef.current?.focus({ preventScroll: true }), 450);
+    return () => clearTimeout(id);
+  }, []);
+  const set = (p: Partial<EventDraft>) => { setErr(""); setT(x => ({ ...x, ...p })); };
   const editing = !!t.id, rep = t.freq !== "none";
   const unit = ({ daily: "day", weekly: "week", monthly: "month", yearly: "year" } as any)[t.freq] || "";
   const startAt = () => new Date(`${t.sd}T${t.st}`);
-  const dur = Math.round((+new Date(`${t.ned}T${t.net}`) - +startAt()) / 60000);
+  const endAt = () => new Date(`${t.ned}T${t.net}`);
+  const dur = Math.round((+endAt() - +startAt()) / 60000);
   const done = () => { closeSheet(); qc.invalidateQueries({ queryKey: ["events"] }); };
   const save = async () => {
-    const body = { id: t.id, title: t.title, location: t.location, all_day: t.allDay, start: t.allDay ? t.sd : `${t.sd}T${t.st}`, end: t.allDay ? t.ned : `${t.ned}T${t.net}`, people: t.people,
+    if (!t.title.trim()) { setErr("Give it a name first."); titleRef.current?.focus({ preventScroll: true }); return; }
+    if (t.allDay ? t.ned < t.sd : +endAt() <= +startAt()) { setErr("It ends before it starts. Change the end."); setCustom(true); return; }
+    if (t.freq === "weekly" && !t.days.length) { setErr("Pick at least one day for it to repeat on."); return; }
+    const body = { id: t.id, title: t.title.trim(), location: t.location, all_day: t.allDay, start: t.allDay ? t.sd : `${t.sd}T${t.st}`, end: t.allDay ? t.ned : `${t.ned}T${t.net}`, people: t.people,
       repeat: { freq: t.freq, interval: t.interval, days: t.freq === "weekly" ? t.days : [], until: t.freq !== "none" && t.untilOn ? t.until : null } };
-    try { await post("/api/hub-event", body); done(); } catch (e: any) { setErr(e.message); }
+    setBusy(true);
+    try { await post("/api/hub-event", body); done(); } catch (e: any) { setErr(e.message); setBusy(false); }
   };
-  const del = async (only: boolean) => { try { await post("/api/hub-event/delete", { id: t.id, only: only ? t.occ : null }); done(); } catch (e: any) { setErr(e.message); } };
+  const del = async (only: boolean) => { setBusy(true); try { await post("/api/hub-event/delete", { id: t.id, only: only ? t.occ : null }); done(); } catch (e: any) { setErr(e.message); setBusy(false); } };
   const changeDate = (k: "sd" | "st" | "ned" | "net" | "until", v: string) => {
-    const before = +new Date(`${t.ned}T${t.net}`) - +startAt(), n = { ...t, [k]: v };
+    setErr("");
+    const before = +endAt() - +startAt(), n = { ...t, [k]: v };
     if (k === "sd" || k === "st") {      // keep the length when the start moves
       if (n.allDay) { if (n.ned < n.sd) n.ned = n.sd; }
       else if (before > 0 && n.sd && n.st) { const e = new Date(+new Date(`${n.sd}T${n.st}`) + before); n.ned = ymd(e); n.net = hmOf(e); }
@@ -58,66 +83,109 @@ function EventSheet({ draft: start }: { draft: EventDraft }) {
     setT(n);
   };
   const toggle = (list: string[], v: string) => list.includes(v) ? list.filter(x => x !== v) : [...list, v];
-  const dateRow = (a: "sd" | "ned", b: "st" | "net") => (
-    <div className="fx" style={{ gap: 12 }}>
-      <input type="date" value={t[a]} onChange={e => changeDate(a, e.target.value)} style={t.allDay ? undefined : { flex: 3 }} />
-      {t.allDay ? null : <input type="time" value={t[b]} onChange={e => changeDate(b, e.target.value)} style={{ flex: 2 }} />}
-    </div>
-  );
+  const pick = people.filter(p => t.people.includes(p.id));
+  const day0 = ymd(now), day1 = ymd(addDays(now, 1));
+  const setLen = (m: number) => { const e = new Date(+startAt() + m * 60000); setCustom(false); set({ allDay: false, ned: ymd(e), net: hmOf(e) }); };
+  const repeatText = !rep ? "" : ` · repeats every ${t.interval > 1 ? t.interval + " " : ""}${unit}${t.interval > 1 ? "s" : ""}${t.freq === "weekly" ? " on " + DAYCODES.filter(c => t.days.includes(c)).map(c => DAYNAMES[DAYCODES.indexOf(c)].slice(0, 3)).join(", ") : ""}${t.untilOn ? " until " + fromYmd(t.until).toLocaleDateString([], { day: "numeric", month: "short" }) : ""}`;
+  const whenText = t.allDay
+    ? (t.ned > t.sd ? `${shortDate(fromYmd(t.sd))} to ${shortDate(fromYmd(t.ned))}, all day` : `${shortDate(fromYmd(t.sd))}, all day`)
+    : `${shortDate(startAt())}, ${fmtT(startAt(), h24)} to ${fmtT(endAt(), h24)}${t.ned !== t.sd ? " (" + shortDate(endAt()) + ")" : ""}`;
   const body = (
     <>
-      <input value={t.title} onChange={e => set({ title: e.target.value })} maxLength={80} placeholder="What's happening?" autoComplete="off" style={{ fontSize: 28, fontWeight: 650, minHeight: 72, marginTop: 8 }} />
-      <div className="fx" style={{ justifyContent: "space-between", marginTop: 20 }}>
-        <span style={{ fontSize: 22, fontWeight: 650 }}>All day</span>
-        <button role="switch" aria-checked={t.allDay} className={"sw2" + (t.allDay ? " on" : "")} onClick={() => set({ allDay: !t.allDay, ...(!t.allDay && t.ned < t.sd ? { ned: t.sd } : {}) })}><i /></button>
-      </div>
-      <Lab>Starts</Lab>{dateRow("sd", "st")}
-      <Lab>{t.allDay ? "Last day" : "Ends"}</Lab>{dateRow("ned", "net")}
-      {t.allDay ? null : (
-        <div className="fx" style={{ gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-          {([[30, "30 min"], [60, "1 hour"], [120, "2 hours"], [180, "3 hours"]] as const).map(([m, l]) =>
-            <Pill key={m} on={dur === m} onClick={() => { const e = new Date(+startAt() + m * 60000); set({ ned: ymd(e), net: hmOf(e) }); }}>{l}</Pill>)}
+      <div className="whobar" aria-hidden>{pick.length ? pick.map(p => <i key={p.id} style={{ background: p.color }} />) : <i style={{ background: "#d5dbe6" }} />}</div>
+      <input ref={titleRef} value={t.title} onChange={e => set({ title: e.target.value })} maxLength={80} placeholder="What's happening?" autoComplete="off" style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-.02em", minHeight: 76, marginTop: 14 }} />
+
+      <Sec n={1} label="Who is it for?">
+        <div className="wgrid">
+          {people.map(p => {
+            const on = t.people.includes(p.id);
+            return (
+              <button key={p.id} className={"wpick" + (on ? " on" : "")} aria-pressed={on} style={{ "--pc": p.color } as React.CSSProperties} onClick={() => set({ people: toggle(t.people, p.id) })}>
+                <i className="av" style={{ width: 40, height: 40, fontSize: 20, background: p.color }}>{(p.name.trim()[0] || "?").toUpperCase()}</i>
+                <span className="wn">{p.name}</span>
+                <span className="wtick" aria-hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></span>
+              </button>
+            );
+          })}
+          {people.length > 1 ? <button className={"wpick all" + (pick.length === people.length ? " on" : "")} onClick={() => set({ people: pick.length === people.length ? [] : people.map(p => p.id) })}>Everyone</button> : null}
+          <button className="wpick add" onClick={() => openSheet({ mode: "family", back: t })}>+ Add someone</button>
         </div>
-      )}
-      <Lab>Repeats</Lab>
-      <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>
-        {[["none", "Never"], ["daily", "Daily"], ["weekly", "Weekly"], ["monthly", "Monthly"], ["yearly", "Yearly"]].map(([v, l]) => <Pill key={v} on={t.freq === v} onClick={() => set({ freq: v })}>{l}</Pill>)}
-      </div>
-      {rep ? (
-        <div className="fx" style={{ gap: 14, marginTop: 14 }}>
-          <span style={{ fontSize: 20, fontWeight: 600 }}>Every</span>
-          <button className="cnav" aria-label="Fewer" onClick={() => set({ interval: Math.max(1, t.interval - 1) })}>&minus;</button>
-          <span className="num" style={{ fontSize: 26, fontWeight: 700, minWidth: 34, textAlign: "center" }}>{t.interval}</span>
-          <button className="cnav" aria-label="More" onClick={() => set({ interval: Math.min(30, t.interval + 1) })}>+</button>
-          <span style={{ fontSize: 20, fontWeight: 600 }}>{unit}{t.interval > 1 ? "s" : ""}</span>
+      </Sec>
+
+      <Sec n={2} label="When">
+        <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>
+          <Pill on={t.sd === day0} onClick={() => changeDate("sd", day0)}>Today</Pill>
+          <Pill on={t.sd === day1} onClick={() => changeDate("sd", day1)}>Tomorrow</Pill>
+          <input type="date" aria-label="Day" value={t.sd} onChange={e => changeDate("sd", e.target.value)} style={{ flex: 1, minWidth: 210, width: "auto" }} />
         </div>
-      ) : null}
-      {t.freq === "weekly" ? (
-        <div className="fx" style={{ gap: 8, marginTop: 14 }}>
-          {DAYCODES.map((c, i) => <button key={c} className={"pill dow" + (t.days.includes(c) ? " on" : "")} aria-label={DAYNAMES[i]} style={{ padding: 0, width: 52, justifyContent: "center" }} onClick={() => set({ days: toggle(t.days, c) })}>{"MTWTFSS"[i]}</button>)}
+        <Reveal open={!t.allDay}>
+          <div style={{ paddingTop: 12 }}>
+            <input type="time" aria-label="Starts at" value={t.st} onChange={e => changeDate("st", e.target.value)} />
+            <div className="fx" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+              {QUICK_TIMES.map(([l, v]) => <Pill key={v} on={t.st === v} onClick={() => changeDate("st", v)}>{l}</Pill>)}
+            </div>
+          </div>
+        </Reveal>
+        <div className="cap" style={{ margin: "20px 0 10px" }}>How long?</div>
+        <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>
+          <Pill on={t.allDay} onClick={() => set({ allDay: !t.allDay, ...(!t.allDay && t.ned < t.sd ? { ned: t.sd } : {}) })}>All day</Pill>
+          {LENGTHS.map(([m, l]) => <Pill key={m} on={!t.allDay && !custom && dur === m} onClick={() => setLen(m)}>{l}</Pill>)}
+          <Pill on={!t.allDay && (custom || !LENGTHS.some(([m]) => m === dur))} onClick={() => { set({ allDay: false }); setCustom(c => !c); }}>Pick the end</Pill>
         </div>
-      ) : null}
-      {rep ? (
-        <div className="fx" style={{ gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-          <Pill on={!t.untilOn} onClick={() => set({ untilOn: false })}>Carries on</Pill><Pill on={t.untilOn} onClick={() => set({ untilOn: true })}>Until a day</Pill>
-          {t.untilOn ? <input type="date" value={t.until} onChange={e => set({ until: e.target.value })} style={{ width: "auto", flex: 1, minWidth: 220 }} /> : null}
+        <Reveal open={t.allDay ? t.ned >= t.sd : custom || !LENGTHS.some(([m]) => m === dur)}>
+          <div style={{ paddingTop: 12 }}>
+            <div className="cap" style={{ margin: "0 0 8px" }}>{t.allDay ? "Last day" : "Ends"}</div>
+            <div className="fx" style={{ gap: 12 }}>
+              <input type="date" aria-label="Ends on" value={t.ned} onChange={e => changeDate("ned", e.target.value)} style={t.allDay ? undefined : { flex: 3 }} />
+              {t.allDay ? null : <input type="time" aria-label="Ends at" value={t.net} onChange={e => changeDate("net", e.target.value)} style={{ flex: 2 }} />}
+            </div>
+          </div>
+        </Reveal>
+      </Sec>
+
+      <Sec n={3} label="Repeats">
+        <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>
+          {[["none", "Never"], ["daily", "Daily"], ["weekly", "Weekly"], ["monthly", "Monthly"], ["yearly", "Yearly"]].map(([v, l]) => <Pill key={v} on={t.freq === v} onClick={() => set({ freq: v })}>{l}</Pill>)}
         </div>
-      ) : null}
-      <Lab>Who is it for?</Lab>
-      <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>
-        {people.map(p => <Pill key={p.id} on={t.people.includes(p.id)} onClick={() => set({ people: toggle(t.people, p.id) })}>{dot(p.color)}{p.name}</Pill>)}
-        <button className="pill" onClick={() => openSheet({ mode: "family", back: t })}>+ Add someone</button>
-      </div>
-      <Lab>Where? (optional)</Lab>
-      <input value={t.location} onChange={e => set({ location: e.target.value })} maxLength={80} placeholder="School, the park…" autoComplete="off" />
-      {editing && rep ? <p style={{ fontSize: 16, color: "var(--soft)", margin: "18px 0 0" }}>Changes apply to every repeat.</p> : null}
+        <Reveal open={rep}>
+          <div style={{ paddingTop: 14 }}>
+            <div className="fx" style={{ gap: 14 }}>
+              <span style={{ fontSize: 20, fontWeight: 600 }}>Every</span>
+              <button className="cnav" aria-label="Fewer" onClick={() => set({ interval: Math.max(1, t.interval - 1) })}>&minus;</button>
+              <span className="num" style={{ fontSize: 26, fontWeight: 700, minWidth: 34, textAlign: "center" }}>{t.interval}</span>
+              <button className="cnav" aria-label="More" onClick={() => set({ interval: Math.min(30, t.interval + 1) })}>+</button>
+              <span style={{ fontSize: 20, fontWeight: 600 }}>{unit}{t.interval > 1 ? "s" : ""}</span>
+            </div>
+            <Reveal open={t.freq === "weekly"}>
+              <div className="fx" style={{ gap: 8, paddingTop: 14 }}>
+                {DAYCODES.map((c, i) => <button key={c} className={"pill dow" + (t.days.includes(c) ? " on" : "")} aria-label={DAYNAMES[i]} style={{ padding: 0, width: 52, justifyContent: "center" }} onClick={() => set({ days: toggle(t.days, c) })}>{"MTWTFSS"[i]}</button>)}
+              </div>
+            </Reveal>
+            <div className="fx" style={{ gap: 8, paddingTop: 14, flexWrap: "wrap" }}>
+              <Pill on={!t.untilOn} onClick={() => set({ untilOn: false })}>Carries on</Pill><Pill on={t.untilOn} onClick={() => set({ untilOn: true })}>Until a day</Pill>
+              {t.untilOn ? <input type="date" aria-label="Until" value={t.until} onChange={e => set({ until: e.target.value })} style={{ width: "auto", flex: 1, minWidth: 220 }} /> : null}
+            </div>
+            {editing ? <p style={{ fontSize: 16, color: "var(--soft)", margin: "14px 0 0" }}>Changes apply to every repeat.</p> : null}
+          </div>
+        </Reveal>
+      </Sec>
+
+      <Sec n={4} label="Where? (optional)">
+        <input value={t.location} onChange={e => set({ location: e.target.value })} maxLength={80} placeholder="School, the park…" autoComplete="off" />
+      </Sec>
     </>
   );
   const foot = confirmDel
-    ? (rep ? <><button className="danger" style={{ flex: 1 }} onClick={() => del(true)}>Just this day</button><button className="danger" style={{ flex: 1 }} onClick={() => del(false)}>Every one</button><button onClick={() => setConfirmDel(false)}>Keep it</button></>
-        : <><button className="danger" style={{ flex: 1 }} onClick={() => del(false)}>Yes, delete it</button><button style={{ flex: 1 }} onClick={() => setConfirmDel(false)}>Keep it</button></>)
-    : <>{editing ? <button className="danger-o" onClick={() => setConfirmDel(true)}>Delete</button> : null}<button style={{ marginLeft: "auto" }} onClick={closeSheet}>Cancel</button><button className="primary" style={{ minWidth: 200 }} onClick={save}>{editing ? "Save" : "Add to calendar"}</button></>;
-  return <SheetFrame title={editing ? "Change event" : "New event"} body={body} foot={foot} error={err} />;
+    ? (rep ? <><button className="danger" style={{ flex: 1 }} disabled={busy} onClick={() => del(true)}>Just this day</button><button className="danger" style={{ flex: 1 }} disabled={busy} onClick={() => del(false)}>Every one</button><button onClick={() => setConfirmDel(false)}>Keep it</button></>
+        : <><button className="danger" style={{ flex: 1 }} disabled={busy} onClick={() => del(false)}>Yes, delete it</button><button style={{ flex: 1 }} onClick={() => setConfirmDel(false)}>Keep it</button></>)
+    : <>{editing ? <button className="danger-o" onClick={() => setConfirmDel(true)}>Delete</button> : null}<button style={{ marginLeft: "auto" }} onClick={closeSheet}>Cancel</button><button className="primary" disabled={busy} style={{ minWidth: 200 }} onClick={save}>{busy ? "Saving…" : editing ? "Save" : "Add to calendar"}</button></>;
+  const sum = (
+    <div className="evsum" aria-live="polite">
+      <b>{t.title.trim() || "New event"}</b>{pick.length ? <> for {joinNames(pick.map(p => p.name))}</> : null}
+      <span>{whenText}{repeatText}{t.location.trim() ? " · " + t.location.trim() : ""}</span>
+    </div>
+  );
+  return <SheetFrame title={editing ? "Change event" : "New event"} body={body} foot={foot} error={err} sum={confirmDel ? undefined : sum} />;
 }
 
 function ViewSheet({ e, cal: c }: { e: Ev; cal: { name: string; color: string } }) {

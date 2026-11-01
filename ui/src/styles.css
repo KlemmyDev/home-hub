@@ -275,3 +275,27 @@ button:has(>.dnum):active .dnum{transform:scale(.88)}
 .gscroll .evb:active{transform:scale(.985)}
 ::view-transition-group(*){animation-duration:.55s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:.28s}
+
+/* New / change event: one calm flow, steps slide up in turn, extras open smoothly */
+.whobar{display:flex;gap:3px;height:8px;border-radius:999px;overflow:hidden;margin-top:8px}
+.whobar i{flex:1;animation:grow .45s cubic-bezier(.2,.8,.2,1) both;transform-origin:left}
+@keyframes grow{from{transform:scaleX(0)}to{transform:none}}
+.sheetsec{animation:sec .45s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--d) * 70ms)}
+@keyframes sec{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.xp{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .38s cubic-bezier(.2,.8,.2,1),opacity .25s ease}
+.xp.open{grid-template-rows:1fr;opacity:1}
+.xp>div{overflow:hidden;min-height:0}
+.wgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.wpick{position:relative;min-height:0;height:68px;padding:0 16px 0 14px;border-radius:22px;border:2px solid var(--line);background:#fff;display:flex;align-items:center;gap:12px;text-align:left;font-size:20px;font-weight:700;color:#3a4358;transition:background-color .25s ease,border-color .25s ease,transform .15s ease}
+.wpick .av{box-shadow:none}
+.wpick .wn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wpick .wtick{width:24px;height:24px;border-radius:50%;background:var(--pc);display:flex;align-items:center;justify-content:center;flex:none;transform:scale(0);transition:transform .3s cubic-bezier(.2,1.4,.4,1)}
+.wpick.on{border-color:var(--pc);background:color-mix(in srgb,var(--pc) 14%,#fff);color:#101828}
+.wpick.on .wtick{transform:scale(1)}
+.wpick.all,.wpick.add{justify-content:center;font-size:18px;color:#5a6478;border-style:dashed}
+.wpick.all.on{background:#101828;color:#fff;border:2px solid #101828}
+.evsum{padding:12px 32px;border-top:1px solid #edf0f5;font-size:18px;line-height:1.3;color:#101828;animation:fadein .3s ease both}
+.evsum span{display:block;color:#5a6478;font-weight:600;font-size:17px;margin-top:2px}
+.shf>*{animation:fadein .25s ease both}
+button:disabled{opacity:.55;pointer-events:none}
+.phone .wpick{height:60px;font-size:18px;padding:0 12px 0 10px}.phone .evsum{padding:10px 18px}

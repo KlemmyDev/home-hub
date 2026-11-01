@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { addDays, clockT, dayDiff, fmtT, hourLabel, longDay, sameDay, shortDate, startOfDay, weekStart, ymd } from "../lib/dates";
 import { calOf, colorsOf, onDay, peopleOf, timedOn, visibleTo, type Ev, type EvData, type Person } from "../lib/events";
@@ -37,6 +37,12 @@ function calRange(cal: CalView): [Date, Date] {
 }
 
 type Ctx = { data: EvData; list: Ev[]; people: ReturnType<typeof useHub>["people"]; h24: boolean; vt: boolean; band: [number, number]; open: (e: Ev) => void; morph: (f: (c: CalView) => CalView, names?: boolean) => void };
+
+/** Each pane of the swipe track draws its own date; the views read the date they are drawing from here. */
+const PaneCal = createContext<CalView | null>(null);
+const usePaneCal = () => { const p = useContext(PaneCal), { cal } = useHub(); return p || cal; };
+/** The hours' scroll position, shared by the panes so the next day lines up with this one as it slides in. */
+type Shared = { top: number; els: Set<HTMLElement> };
 
 function Grid({ days, gutter, big, c }: { days: Date[]; gutter: number; big: boolean; c: Ctx }) {
   const { now, dim, openSheet, cal } = useHub();
@@ -116,7 +122,7 @@ function glideTo(box: HTMLElement, to: number, ms: number) {
 }
 
 /** The hours scroll. Opening the calendar (or tapping Today) glides down to an hour above now; another day just starts at 8 in the morning. */
-function Scroller({ keyed, anchorHour, big, opening, keep, children }: { keyed: string; anchorHour: number; big: boolean; opening: { current: boolean }; keep: { current: boolean }; children: React.ReactNode }) {
+function Scroller({ keyed, anchorHour, big, opening, keep, shared, follow, children }: { keyed: string; anchorHour: number; big: boolean; opening: { current: boolean }; keep: { current: boolean }; shared: Shared; follow?: boolean; children: React.ReactNode }) {
   const { dim } = useHub();
   const el = useRef<HTMLDivElement>(null);
   const last = useRef({ key: "", top: 0, glideUntil: 0, timer: undefined as ReturnType<typeof setTimeout> | undefined });
@@ -125,6 +131,7 @@ function Scroller({ keyed, anchorHour, big, opening, keep, children }: { keyed: 
   useLayoutEffect(() => {
     const box = el.current, l = last.current;
     if (!box) return;
+    if (follow) { box.scrollTop = shared.top; return; }           // the panes either side just follow the one in view
     if (l.key !== keyed && keep.current && l.key) {        // a swipe keeps the hours where they are
       keep.current = false; l.key = keyed; l.top = box.scrollTop; prev.current = { day, nonce };
     } else if (l.key !== keyed) {
@@ -142,7 +149,13 @@ function Scroller({ keyed, anchorHour, big, opening, keep, children }: { keyed: 
     } else if (Date.now() > l.glideUntil) box.scrollTop = l.top;
   });
   useLayoutEffect(() => () => clearTimeout(last.current.timer), []);
-  return <div ref={el} className="scroll gscroll" style={{ flex: 1, minHeight: 0 }} onScroll={e => { last.current.top = e.currentTarget.scrollTop; }}>{children}</div>;
+  useLayoutEffect(() => { const b = el.current!; if (follow) shared.els.add(b); return () => { shared.els.delete(b); }; }, [follow]);
+  return <div ref={el} className="scroll gscroll" style={{ flex: 1, minHeight: 0 }} onScroll={e => {
+    const t = e.currentTarget.scrollTop;
+    if (follow) return;
+    last.current.top = t; shared.top = t;
+    shared.els.forEach(b => { if (b.scrollTop !== t) b.scrollTop = t; });
+  }}>{children}</div>;
 }
 
 function AllDay({ days, gutter, c }: { days: Date[]; gutter: number; c: Ctx }) {
@@ -176,7 +189,8 @@ function AllDay({ days, gutter, c }: { days: Date[]; gutter: number; c: Ctx }) {
 const busyColours = (c: Ctx, d: Date) => [...new Set(c.list.filter(e => onDay(e, d)).flatMap(e => colorsOf(e, c.data, c.people)))].slice(0, 5);
 
 function DayHead({ days, size, gutter, c }: { days: Date[]; size: number; gutter: number; c: Ctx }) {
-  const { now, cal } = useHub();
+  const { now } = useHub();
+  const cal = usePaneCal();
   const sel = startOfDay(cal.date);
   return (
     <div style={{ display: "grid", gridTemplateColumns: `repeat(${days.length},minmax(0,1fr))`, marginLeft: gutter, padding: "2px 0 8px" }}>
@@ -195,7 +209,8 @@ function DayHead({ days, size, gutter, c }: { days: Date[]; size: number; gutter
 }
 
 function Month({ c }: { c: Ctx }) {
-  const { now, cal, dim } = useHub();
+  const { now, dim } = useHub();
+  const cal = usePaneCal();
   const [first] = calRange(cal), cur = cal.date.getMonth();
   return (
     <>
@@ -231,7 +246,8 @@ function Month({ c }: { c: Ctx }) {
 }
 
 function Agenda({ c }: { c: Ctx }) {
-  const { cal, now } = useHub();
+  const { now } = useHub();
+  const cal = usePaneCal();
   const w = weekStart(startOfDay(cal.date));
   return (
     <div className="scroll" style={{ flex: 1, minHeight: 0 }}>
@@ -292,32 +308,36 @@ function NowStrip({ c }: { c: Ctx }) {
   );
 }
 
-/** Drag the dates sideways and they follow your finger; let go past a fifth of the way (or flick) and the next day, week or month slides in. */
-function SwipePane({ onStep, children }: { onStep: (n: number) => void; children: React.ReactNode }) {
+/** Yesterday, today and tomorrow (or the weeks or months either side) sit side by side on one track. Drag and the neighbours slide in already drawn,
+    so it reads as one long calendar; let go past a fifth of the way (or flick) and the track settles on the next one. */
+function SwipePane({ onStep, api, children }: { onStep: (n: number) => void; api: { current: (n: number) => void }; children: (off: number) => ReactNode }) {
   const { dim } = useHub();
-  const el = useRef<HTMLDivElement>(null);
-  const g = useRef({ id: -1, x: 0, y: 0, t: 0, dx: 0, lock: false, swiped: false, timer: undefined as ReturnType<typeof setTimeout> | undefined });
-  const move = (x: number, ms: number) => { const b = el.current; if (!b) return; b.style.transition = ms ? `transform ${ms}ms cubic-bezier(.2,.8,.2,1)` : "none"; b.style.transform = x ? `translate3d(${x}px,0,0)` : ""; };
+  const box = useRef<HTMLDivElement>(null), track = useRef<HTMLDivElement>(null);
+  const g = useRef({ id: -1, x: 0, y: 0, t: 0, dx: 0, lock: false, swiped: false, busy: false, timer: undefined as ReturnType<typeof setTimeout> | undefined });
+  const move = (x: number, ms: number) => { const b = track.current; if (!b) return; b.style.transition = ms ? `transform ${ms}ms cubic-bezier(.2,.8,.2,1)` : "none"; b.style.transform = x ? `translate3d(${x}px,0,0)` : ""; };
+  const settle = (dir: number) => {
+    const s = g.current, w = box.current?.offsetWidth || 0;
+    if (s.busy || !w) return;
+    s.busy = true;
+    const ms = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 340;
+    move(-dir * w, ms);
+    s.timer = setTimeout(() => { flushSync(() => onStep(dir)); move(0, 0); s.busy = false; }, ms);     // the neighbour was already drawn, so nothing jumps
+  };
+  api.current = settle;
+  useEffect(() => () => clearTimeout(g.current.timer), []);
   const end = (e: React.PointerEvent) => {
-    const s = g.current, b = el.current;
+    const s = g.current, b = box.current;
     if (e.pointerId !== s.id) return;
     s.id = -1;
     if (!s.lock || !b) return;
     s.lock = false; s.swiped = true; setTimeout(() => { s.swiped = false; }, 60);
     const w = b.offsetWidth, v = s.dx / Math.max(1, e.timeStamp - s.t), go = Math.abs(s.dx) > w * .2 || Math.abs(v) > .5;
     if (!go) return move(0, 260);
-    const dir = s.dx < 0 ? 1 : -1;
-    move(-dir * w, 160);                                    // finish sliding out
-    clearTimeout(s.timer);
-    s.timer = setTimeout(() => {
-      onStep(dir);
-      move(dir * w * .6, 0); void b.offsetWidth;            // the new dates come in from the other side
-      move(0, 280);
-    }, 160);
+    settle(s.dx < 0 ? 1 : -1);
   };
   return (
-    <div ref={el} style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", touchAction: "pan-y", willChange: "transform", overflow: "hidden" }}
-      onPointerDown={e => { const s = g.current; if (e.pointerType === "mouse" && e.button !== 0) return; clearTimeout(s.timer); Object.assign(s, { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp, dx: 0, lock: false }); }}
+    <div ref={box} style={{ flex: 1, minHeight: 0, position: "relative", touchAction: "pan-y", overflow: "hidden" }}
+      onPointerDown={e => { const s = g.current; if (s.busy || (e.pointerType === "mouse" && e.button !== 0)) return; Object.assign(s, { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp, dx: 0, lock: false }); }}
       onPointerMove={e => {
         const s = g.current;
         if (e.pointerId !== s.id) return;
@@ -331,7 +351,11 @@ function SwipePane({ onStep, children }: { onStep: (n: number) => void; children
       }}
       onPointerUp={end} onPointerCancel={end}
       onClickCapture={e => { if (g.current.swiped) { e.stopPropagation(); e.preventDefault(); } }}>
-      {children}
+      <div ref={track} style={{ position: "absolute", inset: 0, willChange: "transform" }}>
+        {[-1, 0, 1].map(off => (
+          <div key={off} inert={off !== 0} aria-hidden={off !== 0} style={{ position: "absolute", top: 0, bottom: 0, left: `${off * 100}%`, width: "100%", display: "flex", flexDirection: "column" }}>{children(off)}</div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -348,6 +372,35 @@ function calTitle(cal: CalView, phone: boolean) {
 
 const MODES = ["day", "week", "month"] as const;
 
+type Base = Pick<Ctx, "people" | "h24" | "vt" | "band" | "morph">;
+
+/** One screenful of the swipe track: a day, week or month, with its own events. */
+function Pane({ off, pc, k, keep, opening, shared, nonce }: { off: number; pc: CalView; k: Base; keep: { current: boolean }; opening: { current: boolean }; shared: Shared; nonce: number }) {
+  const { now, dim, openSheet, soon } = useHub();
+  const P = dim.phone, follow = off !== 0;
+  const [from, to] = calRange(pc);
+  const { data = EMPTY_EVENTS } = useEvents(from, to);
+  const c: Ctx = {
+    ...k, data, list: data.list.filter(e => visibleTo(e, pc.who)), vt: k.vt && !follow,
+    open: async e => {
+      if (DEMO) return;
+      if (!e.hub) return openSheet({ mode: "view", e, cal: calOf(e, data, k.people) });
+      try { openSheet({ mode: "event", draft: await loadEventDraft(e) }); } catch (err: any) { soon(err.message); }
+    },
+  };
+  const d = startOfDay(pc.date), weekOf = Array.from({ length: 7 }, (_, i) => addDays(weekStart(d), i));
+  const anchor = (days: Date[]) => days.some(x => sameDay(x, now)) ? now.getHours() + now.getMinutes() / 60 : 8;
+  const key = pc.mode + ymd(pc.date) + ":" + nonce;
+  return (
+    <PaneCal.Provider value={pc}>
+      {pc.mode === "month" ? <Month c={c} />
+        : pc.mode === "week" && P ? <Agenda c={c} />
+        : pc.mode === "week" ? <><DayHead days={weekOf} size={44} gutter={52} c={c} /><AllDay days={weekOf} gutter={52} c={c} /><Scroller keyed={key} anchorHour={anchor(weekOf)} big={false} opening={opening} keep={keep} shared={shared} follow={follow}><Grid days={weekOf} gutter={52} big={false} c={c} /></Scroller></>
+        : <><AllDay days={[d]} gutter={P ? 48 : 60} c={c} /><Scroller keyed={key} anchorHour={anchor([d])} big opening={opening} keep={keep} shared={shared} follow={follow}><Grid days={[d]} gutter={P ? 48 : 60} big c={c} /></Scroller></>}
+    </PaneCal.Provider>
+  );
+}
+
 export function CalendarPanel() {
   const { cal, setCal, now, dim, h24, people, openSheet, soon } = useHub();
   const P = dim.phone;
@@ -358,6 +411,8 @@ export function CalendarPanel() {
   const keep = useRef(false);        // set by a swipe, so the hours stay put
   const opening = useRef(true);      // true until the first screenful has settled, so only opening the calendar glides
   const list = data.list.filter(e => visibleTo(e, cal.who));
+  const shared = useRef<Shared>({ top: 0, els: new Set() }).current;
+  const slide = useRef<(n: number) => void>(() => {});     // set by the swipe track, so the arrows slide it too
   const d = startOfDay(cal.date);
   const weekOf = Array.from({ length: 7 }, (_, i) => addDays(weekStart(d), i));
   const anchor = (days: Date[]) => days.some(x => sameDay(x, now)) ? now.getHours() + now.getMinutes() / 60 : 8;
@@ -369,15 +424,15 @@ export function CalendarPanel() {
     const t = start(() => { flushSync(() => setCal(f)); });
     t.finished.catch(() => {}).finally(() => setVt(false));
   };
+  const band: [number, number] = [Math.min(anchor([d]), anchor(weekOf)) - 1, Math.max(anchor([d]), anchor(weekOf)) + 10];
   const c: Ctx = {
-    data, list, people, h24, vt, morph, band: [Math.min(anchor([d]), anchor(weekOf)) - 1, Math.max(anchor([d]), anchor(weekOf)) + 10],
+    data, list, people, h24, vt, morph, band,
     open: async e => {
       if (DEMO) return;
       if (!e.hub) return openSheet({ mode: "view", e, cal: calOf(e, data, people) });
       try { openSheet({ mode: "event", draft: await loadEventDraft(e) }); } catch (err: any) { soon(err.message); }
     },
   };
-  const step = (n: number) => morph(x => ({ ...x, date: stepDate(x, n) }), false);
   const prefetch = usePrefetchEvents();
   useEffect(() => { prefetch([-1, 1].map(n => calRange({ ...cal, date: stepDate(cal, n) })).concat([calRange({ ...cal, mode: "month" }), calRange({ ...cal, mode: "week" })])); }, [cal.mode, +startOfDay(cal.date)]);
   const key = cal.mode + ymd(cal.date) + ":" + nonce;
@@ -402,9 +457,9 @@ export function CalendarPanel() {
       </div>
       <div className="fx" style={{ justifyContent: "space-between", padding: "0 0 10px", gap: 10 }}>
         <div className="fx" style={{ gap: 10, minWidth: 0 }}>
-          <button className="cnav" aria-label="Back" onClick={() => step(-1)}><ChevL /></button>
+          <button className="cnav" aria-label="Back" onClick={() => slide.current(-1)}><ChevL /></button>
           <span key={key.split(":")[0]} className="ctitle" style={{ fontSize: P ? 21 : cal.mode === "day" ? 25 : 28, fontWeight: 700, letterSpacing: "-.04em", whiteSpace: "nowrap", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{calTitle(cal, P)}</span>
-          <button className="cnav" aria-label="Forward" onClick={() => step(1)}><ChevR /></button>
+          <button className="cnav" aria-label="Forward" onClick={() => slide.current(1)}><ChevR /></button>
         </div>
         <div className="fx" style={{ gap: 8, flex: "none" }}>
           {DEMO ? null : <button className="cbtn accent" id="c-new" aria-label="New event" style={{ padding: "0 22px" }} onClick={() => openSheet({ mode: "event", draft: newEventDraft(startOfDay(cal.mode === "month" ? new Date() : cal.date), undefined, now, cal.who) })}>{P ? "+" : "+ New"}</button>}
@@ -415,11 +470,9 @@ export function CalendarPanel() {
         {chip("", "Everyone")}{people.map(p => chip(p.id, p.name, p.color))}
         {DEMO ? null : <button className="pill" aria-label="Add or change family members" style={{ height: 44, fontSize: 16, padding: "0 18px" }} onClick={() => openSheet({ mode: "family" })}>+ Family</button>}
       </div>
-      <SwipePane onStep={n => { keep.current = true; step(n); }}>
-      {cal.mode === "month" ? <Month c={c} />
-        : cal.mode === "week" && P ? <Agenda c={c} />
-        : cal.mode === "week" ? <><DayHead days={weekOf} size={44} gutter={52} c={c} /><AllDay days={weekOf} gutter={52} c={c} /><Scroller keyed={key} anchorHour={anchor(weekOf)} big={false} opening={opening} keep={keep}><Grid days={weekOf} gutter={52} big={false} c={c} /></Scroller></>
-        : <><DayHead days={weekOf} size={P ? 40 : 44} gutter={0} c={c} /><AllDay days={[d]} gutter={P ? 48 : 60} c={c} /><Scroller keyed={key} anchorHour={anchor([d])} big opening={opening} keep={keep}><Grid days={[d]} gutter={P ? 48 : 60} big c={c} /></Scroller></>}
+      {cal.mode === "day" ? <DayHead days={weekOf} size={P ? 40 : 44} gutter={0} c={c} /> : null}
+      <SwipePane api={slide} onStep={n => { keep.current = true; setCal(x => ({ ...x, date: stepDate(x, n) })); }}>
+        {off => <Pane off={off} pc={{ ...cal, date: stepDate(cal, off) }} k={{ people, h24, vt, band, morph }} keep={keep} opening={opening} shared={shared} nonce={nonce} />}
       </SwipePane>
       <div style={{ flex: "none", padding: "10px 0 112px" }}>
         <NowStrip c={c} />
