@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, DEMO, post } from "../lib/api";
 import { addDays, fromYmd, longDay, nowZ, sameDay, startOfDay, weekStart, ymd } from "../lib/dates";
@@ -12,6 +12,7 @@ import { Pill, SheetFrame } from "./SheetFrame";
 import { ago, busyAt, clashText, cookingFor, dayName, dietClash, homeFor, metaLine, productLine, scaleAmount, useStats } from "../lib/dinnerlib";
 import { Cook, copyLastWeek, History, Pantry, Rules, Suggest } from "./DinnerTools";
 import { Scanner, scanProblem } from "./Scanner";
+import { SHEET_MS, focusRef, useAutoFocus } from "../lib/focus";
 
 /* ---------- what the dinners know about themselves ---------- */
 
@@ -145,7 +146,7 @@ function Ideas({ din }: { din: Dinners | undefined }) {
       <Top back="Dinners" to={{ v: "home" }} title="Dinner ideas" right={<button className="cbtn accent" style={{ padding: "0 18px" }} onClick={() => setAdding(a => !a)}>{adding ? "Cancel" : "+ New"}</button>} />
       {adding ? (
         <form className="qadd" style={{ padding: "0 0 12px" }} onSubmit={e => { e.preventDefault(); make(); }}>
-          <input value={text} onChange={e => setText(e.target.value)} maxLength={40} placeholder="Spaghetti Bolognese, Tacos…" aria-label="New dinner" autoComplete="off" autoFocus enterKeyHint="done" />
+          <input value={text} onChange={e => setText(e.target.value)} maxLength={40} placeholder="Spaghetti Bolognese, Tacos…" aria-label="New dinner" autoComplete="off" ref={focusRef} enterKeyHint="done" />
           <button type="submit" className="primary" disabled={!text.trim()}>Add</button>
         </form>
       ) : null}
@@ -209,7 +210,7 @@ function MealPage({ din, id }: { din: Dinners | undefined; id: string }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             {renaming ? (
               <form className="qadd" onSubmit={e => { e.preventDefault(); run(async () => { await post("/api/meal", { id: m.id, name }); setRenaming(false); }); }}>
-                <input value={name} onChange={e => setName(e.target.value)} maxLength={40} aria-label="Dinner name" autoFocus /><button className="primary" type="submit" disabled={!name.trim()}>Save</button>
+                <input value={name} onChange={e => setName(e.target.value)} maxLength={40} aria-label="Dinner name" ref={focusRef} /><button className="primary" type="submit" disabled={!name.trim()}>Save</button>
               </form>
             ) : <button className="dvname" onClick={() => setRenaming(true)} aria-label="Rename this dinner">{m.name}<small>Rename</small></button>}
             <div className="dvmeta">
@@ -393,6 +394,8 @@ export function IngredientSheet({ meal, ing }: { meal: string; ing: string | nul
   const m = din?.meals.find(x => x.id === meal), cur = m?.ingredients?.find(x => x.id === ing);
   const [name, setName] = useState(cur?.name || ""), [amount, setAmount] = useState(cur?.amount || ""), [staple, setStaple] = useState(!!cur?.staple), [product, setProduct] = useState<Product | null>(cur?.product || null);
   const [alt, setAlt] = useState<Product | null>(cur?.alt || null), [target, setTarget] = useState<"product" | "alt">("product");
+  const nameRef = useRef<HTMLInputElement>(null);
+  useAutoFocus(nameRef, SHEET_MS, !cur);
   const [scan, setScan] = useState<"" | "product" | "alt">(""), [scanMsg, setScanMsg] = useState(""), [unknown, setUnknown] = useState<{ code: string; for: "product" | "alt" } | null>(null);
   const [find, setFind] = useState(false), [q, setQ] = useState(cur?.name || ""), [qd, setQd] = useState("");
   useEffect(() => { const t = setTimeout(() => setQd(q.trim()), 600); return () => clearTimeout(t); }, [q]);
@@ -424,7 +427,7 @@ export function IngredientSheet({ meal, ing }: { meal: string; ing: string | nul
   const body = (
     <>
       <div className="cap" style={{ margin: "14px 0 8px" }}>What is it?</div>
-      <input value={name} onChange={e => { setName(e.target.value); if (!find) setQ(e.target.value); }} maxLength={50} placeholder="Pasta, mince, tomatoes…" aria-label="Ingredient" autoComplete="off" autoFocus={!cur} style={{ fontSize: 26, fontWeight: 700, minHeight: 72 }} />
+      <input value={name} onChange={e => { setName(e.target.value); if (!find) setQ(e.target.value); }} maxLength={50} placeholder="Pasta, mince, tomatoes…" aria-label="Ingredient" autoComplete="off" ref={nameRef} style={{ fontSize: 26, fontWeight: 700, minHeight: 72 }} />
       {!cur ? <div className="fx" style={{ gap: 8, flexWrap: "wrap", marginTop: 10 }}>{COMMON.filter(c => !name || c.toLowerCase().includes(name.toLowerCase())).slice(0, 10).map(c => <Pill key={c} onClick={() => { setName(c); setQ(c); }}>{c}</Pill>)}</div> : null}
       <div className="cap" style={{ margin: "24px 0 8px" }}>How much?</div>
       <input value={amount} onChange={e => setAmount(e.target.value)} maxLength={30} placeholder="500 g, 2, 1 tin…" aria-label="Amount" autoComplete="off" />

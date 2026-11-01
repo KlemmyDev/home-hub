@@ -47,7 +47,7 @@ type Ctx = {
   dview: DView; setDview: (v: DView) => void;
   choreDay: Date; setChoreDay: (d: Date) => void;
   showDone: boolean; setShowDone: (b: boolean) => void;
-  sheet: Sheet | null; openSheet: (s: Sheet | null) => void; closeSheet: () => void;
+  sheet: Sheet | null; sheetShown: boolean; openSheet: (s: Sheet | null) => void; closeSheet: () => void;
   toast: string; toastAct: (() => void) | null; soon: (msg?: string, act?: () => void) => void;
   ppOn: boolean;
 };
@@ -70,8 +70,13 @@ export function useNow() {
 function useDim(probe: React.RefObject<HTMLDivElement | null>) {
   const [dim, setDim] = useState<Dim>(DIM0);
   useLayoutEffect(() => {
+    let lastW = 0, lastH = 0;
     const fit = () => {
       const iw = innerWidth, ih = innerHeight;
+      // The on-screen keyboard shrinks the window while a field is being typed in; the screen keeps its size then, so nothing rescales or jumps.
+      const typing = document.activeElement instanceof HTMLElement && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+      if (typing && iw === lastW && ih < lastH) return;
+      lastW = iw; lastH = ih;
       const phone = Math.min(iw, ih) < 600;
       let W = 800, H = 1280, s = Math.min(iw / 800, ih / 1280);
       if (phone) { if (iw <= ih) { W = 430; s = iw / W; H = ih / s; } else { W = iw; H = ih; s = 1; } }
@@ -116,7 +121,19 @@ function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNod
   const [dview, setDview] = useState<DView>({ v: "home" });
   const [choreDay, setChoreDay] = useState(() => nowZ());
   const [showDone, setShowDone] = useState(false);
-  const [sheet, openSheet] = useState<Sheet | null>(null);
+  const [sheet, setSheet] = useState<Sheet | null>(null);
+  /** The sheet is built (hidden, off the bottom) first, and only slides up two frames later, so the slide is never competing with the work of drawing it. */
+  const [sheetShown, setSheetShown] = useState(false);
+  const shownRef = useRef(false), openToken = useRef(0);
+  const openSheet = useCallback((s: Sheet | null) => {
+    setSheet(s);
+    const token = ++openToken.current;
+    if (!s) { shownRef.current = false; setSheetShown(false); return; }
+    if (shownRef.current) return;
+    const show = () => { if (token === openToken.current && !shownRef.current) { shownRef.current = true; setSheetShown(true); } };
+    requestAnimationFrame(() => requestAnimationFrame(show));
+    setTimeout(show, 120);      // a screen that isn't drawing (just woken, or hidden) must still open it
+  }, []);
   const [toast, setToast] = useState("");
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [toastAct, setToastAct] = useState<(() => void) | null>(null);
@@ -128,9 +145,9 @@ function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNod
   const value = useMemo<Ctx>(() => ({
     S, people: DEMO && !S.people?.length ? DEMO_PEOPLE : S.people || [], h24: !!S.config.hour24, dim, now, refreshState,
     cal, setCal: f => setCalState(f), ovMode, setOvMode, menuWeek, setMenuWeek, dview, setDview, choreDay, setChoreDay, showDone, setShowDone,
-    sheet, openSheet, closeSheet: () => openSheet(null), toast, toastAct, soon,
+    sheet, sheetShown, openSheet, closeSheet: () => openSheet(null), toast, toastAct, soon,
     ppOn: DEMO || !!S.config.pocketpals?.connected,
-  }), [S, dim, now, refreshState, cal, ovMode, menuWeek, dview, choreDay, showDone, sheet, toast, toastAct, soon]);
+  }), [S, dim, now, refreshState, cal, ovMode, menuWeek, dview, choreDay, showDone, sheet, sheetShown, openSheet, toast, toastAct, soon]);
   return <HubCtx.Provider value={value}>{children}</HubCtx.Provider>;
 }
 

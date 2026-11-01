@@ -73,12 +73,12 @@ function Dock() {
 }
 
 export function Stage() {
-  const { dim, sheet, toast, toastAct, closeSheet, soon } = useHub();
+  const { dim, sheetShown, toast, toastAct, closeSheet, soon } = useHub();
   const page = usePage();
   const style = { "--s": dim.s, "--W": dim.W + "px", "--H": dim.H + "px", "--st": dim.st + "px", "--sb": dim.sb + "px" } as CSSProperties;
   return (
     <div id="dash">
-      <div id="stage" className={(dim.phone ? "phone " : "") + (sheet ? "sheet-on" : "")} style={style}>
+      <div id="stage" className={(dim.phone ? "phone " : "") + (sheetShown ? "sheet-on" : "")} style={style}>
         <Overview away={page !== "overview"} />
         <PanelCard id="calcard" inner="calin" active={page === "calendar"} edge><CalendarPanel /></PanelCard>
         <PanelCard id="menucard" inner="menuin" active={page === "menu"} edge><MenuPanel /></PanelCard>

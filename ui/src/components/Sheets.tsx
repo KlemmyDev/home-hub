@@ -6,6 +6,7 @@ import { calOf, fetchEvents, type Ev, type EvData } from "../lib/events";
 import { KINDS, useDinners } from "../data";
 import { clashText, dietClash } from "../lib/dinnerlib";
 import { quickAdd } from "../lib/quickadd";
+import { SHEET_MS } from "../lib/focus";
 import { useHub, type EventDraft, type Sheet } from "../hub";
 import { FamilyEditor } from "./Family";
 import { Lab, Pill, SheetFrame } from "./SheetFrame";
@@ -70,7 +71,7 @@ function EventSheet({ draft: start }: { draft: EventDraft }) {
   const titleRef = useRef<HTMLInputElement>(null);
   useEffect(() => {      // the name field is ready for typing once the sheet has finished rising; focusing earlier makes the page behind scroll
     if (start.id) return;
-    const id = setTimeout(() => titleRef.current?.focus({ preventScroll: true }), 450);
+    const id = setTimeout(() => titleRef.current?.focus({ preventScroll: true }), SHEET_MS);
     return () => clearTimeout(id);
   }, []);
   const set = (p: Partial<EventDraft>) => { setErr(""); setT(x => ({ ...x, ...p })); };

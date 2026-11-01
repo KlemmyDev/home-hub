@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { SHEET_MS, useAutoFocus } from "../lib/focus";
 import { useQuery } from "@tanstack/react-query";
 import { addDays, fmtT, hmOf, longDay, nowZ, sameDay, startOfDay, ymd } from "../lib/dates";
 import { calOf, fetchEvents, type Ev, type EvData } from "../lib/events";
@@ -28,6 +29,8 @@ const Tabs = ({ tab, setTab }: { tab: string; setTab: (t: "search" | "free") => 
 function Search({ tab, setTab }: { tab: string; setTab: (t: "search" | "free") => void }) {
   const { people, h24, openSheet, soon, now } = useHub();
   const [q, setQ] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  useAutoFocus(searchRef, SHEET_MS);
   const { data, isLoading } = useQuery({ queryKey: ["search-all"], queryFn: everything, staleTime: 60000 });
   const term = q.trim().toLowerCase();
   const hits = useMemo(() => {
@@ -50,7 +53,7 @@ function Search({ tab, setTab }: { tab: string; setTab: (t: "search" | "free") =
   return (
     <>
       <Tabs tab={tab} setTab={setTab} />
-      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search events, places and notes" aria-label="Search" autoComplete="off" autoFocus enterKeyHint="search" />
+      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search events, places and notes" aria-label="Search" autoComplete="off" ref={searchRef} enterKeyHint="search" />
       {isLoading ? <p className="upn" style={{ marginTop: 16 }}>Looking through the calendar…</p> : null}
       {term.length >= 2 && data && !hits.next.length && !hits.earlier.length ? <p className="upn" style={{ marginTop: 16 }}>Nothing found for “{q.trim()}”.</p> : null}
       {hits.next.length ? <><div className="cap" style={{ margin: "20px 0 6px" }}>Coming up</div>{hits.next.map(row)}</> : null}
