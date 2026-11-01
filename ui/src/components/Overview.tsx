@@ -172,7 +172,7 @@ function TodayCard() {
         <span style={{ fontSize: 16, fontWeight: 500, color: bad ? "#b3321f" : "#6b7488", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {bad ? "Can't reach " + bad.name : wk ? (weekCount ? `${weekCount} on this week` : "A quiet week") : later}
         </span>
-        <button className="fx" onClick={() => openCal(wk ? "week" : "day", nowZ())} style={{ gap: 6, flex: "none", height: 44, minHeight: 0, padding: "0 18px", borderRadius: 999, border: 0, background: "#101828", color: "#fff", fontSize: 16, fontWeight: 650 }}>Open calendar<Chev /></button>
+        <button className="fx" onClick={() => openCal(wk ? "week" : "day", nowZ())} style={{ gap: 6, flex: "none", height: 48, minHeight: 0, padding: "0 18px", borderRadius: 999, border: 0, background: "#101828", color: "#fff", fontSize: 16, fontWeight: 650 }}>Open calendar<Chev /></button>
       </div>
     </section>
   );

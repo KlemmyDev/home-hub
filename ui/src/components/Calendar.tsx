@@ -444,7 +444,7 @@ export function CalendarPanel() {
       </div>
       <div className="fx" style={{ gap: 8, padding: "0 0 10px", overflowX: "auto", scrollbarWidth: "none" }}>
         {chip("", "Everyone")}{people.map(p => chip(p.id, p.name, p.color))}
-        {DEMO ? null : <button className="pill" aria-label="Add or change family members" style={{ height: 44, fontSize: 16, padding: "0 18px" }} onClick={() => openSheet({ mode: "family" })}>+ Family</button>}
+        {DEMO ? null : <button className="pill" aria-label="Add or change family members" style={{ height: 48, fontSize: 16, padding: "0 18px" }} onClick={() => openSheet({ mode: "family" })}>+ Family</button>}
       </div>
       {cal.mode === "day" ? <DayHead days={weekOf} size={P ? 40 : 44} gutter={0} c={c} /> : null}
       <SwipePane api={slide} keyOf={off => cal.mode + ymd(stepDate(cal, off))} onStep={n => { keep.current = true; setCal(x => ({ ...x, date: stepDate(x, n) })); }}>

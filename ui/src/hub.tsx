@@ -79,6 +79,15 @@ function useDim(probe: React.RefObject<HTMLDivElement | null>) {
 }
 
 /** Keeps the screen on while the hub is showing. */
+/** A long press (a heavy fingertip on a fridge tablet) would open a context menu and cancel the tap; stop that except in text fields. */
+function useNoLongPressMenu() {
+  useEffect(() => {
+    const stop = (e: Event) => { if (!(e.target as HTMLElement | null)?.closest?.("input,textarea")) e.preventDefault(); };
+    document.addEventListener("contextmenu", stop);
+    return () => document.removeEventListener("contextmenu", stop);
+  }, []);
+}
+
 function useKeepAwake() {
   useEffect(() => {
     let lock: { release?: () => Promise<void> } | null = null;
@@ -93,7 +102,7 @@ function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNod
   setZone(S.config.timezone || "");      // before anything reads the time
   const qc = useQueryClient();
   const now = useNow();
-  useKeepAwake();
+  useKeepAwake(); useNoLongPressMenu();
   const [cal, setCalState] = useState<CalView>({ mode: "day", date: nowZ(), who: null });
   const [ovMode, setOvMode] = useState<"day" | "week">("day");
   const [menuWeek, setMenuWeek] = useState(() => nowZ());
