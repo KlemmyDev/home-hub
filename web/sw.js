@@ -1,6 +1,6 @@
 // Home Hub service worker: lets the dashboard install as an app and still open when the network blips.
 // Pages and icons are kept for offline; data from /api is never stored, so the screen only shows real, current data.
-const CACHE = "home-hub-v1";
+const CACHE = "home-hub-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {
