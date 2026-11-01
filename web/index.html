@@ -1080,10 +1080,11 @@ function drawBody() {      // the Overview cards (the calendar has its own layer
   const c = S.config, body = $("body");
   const cards = c.widgets.map(w => w.id === "pocketpals" ? ppCard(w) : w.id === "wattsmypower" ? wmpCard(w) : "").join("");
   body.innerHTML = `
+    <button class="tile-card fx dinner" id="dinner" aria-label="Dinner tonight. Open the dinners" style="gap:18px;padding:18px 26px 18px 18px;background:#ffeadf;border:0;min-height:0;width:100%;text-align:left;color:inherit;border-radius:30px"></button>
     <section id="today" class="tile-card" style="padding:22px 26px 16px"></section>
     ${cards ? `<div class="tile-card wgrid" style="padding:10px;display:grid;grid-template-columns:repeat(${c.widgets.length},minmax(0,1fr));gap:10px;flex:1;min-height:300px">${cards}</div>`
             : `<div class="tile-card" style="padding:28px;flex:1;min-height:300px;display:flex;flex-direction:column;justify-content:center;text-align:center"><div style="font-size:30px;font-weight:700;letter-spacing:-.03em">No apps added yet</div><div style="font-size:19px;color:#6b7488;margin-top:6px">Tap the cog to add PocketPals or WattsMyPower.</div></div>`}
-    <button class="tile-card fx dinner" id="dinner" aria-label="Dinner tonight. Open the dinners" style="gap:18px;padding:18px 26px 18px 18px;background:#ffeadf;border:0;min-height:0;width:100%;text-align:left;color:inherit;border-radius:30px"></button>`;
+`;
   drawToday(); drawDinner(); loadOverview(); poll();
 }
 async function poll() {
