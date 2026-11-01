@@ -3,13 +3,31 @@ import { useQuery } from "@tanstack/react-query";
 import { api, DEMO } from "../lib/api";
 import { addDays, fmtT, clockT, longDay, sameDay, startOfDay, weekStart } from "../lib/dates";
 import { calOf, colorsOf, onDay, tint, type Ev, type EvData } from "../lib/events";
-import { Chev, DinnerIcon, PpLogo } from "../lib/icons";
+import { Chev, DinnerIcon, PpLogo, WeatherIcon } from "../lib/icons";
 import { EMPTY_EVENTS, dinnerFor, useDinners, useEvents } from "../data";
 import { useHub } from "../hub";
 import { useNav } from "../nav";
 import { ChoresCard } from "./Chores";
 
 const fx = (extra?: CSSProperties): CSSProperties => ({ display: "flex", alignItems: "center", ...extra });
+
+function Weather() {
+  const { S } = useHub();
+  const { data: w } = useQuery({ queryKey: ["weather"], queryFn: () => api<any>("/api/weather"), enabled: !!S.config.weather?.connected, refetchInterval: 600000, staleTime: 300000 });
+  if (!S.config.weather?.connected || !w || w.error || w.temp === undefined) return null;
+  return (
+    <div className="fx" aria-label={`Weather in ${w.place}: ${w.summary}, ${w.temp} degrees`} style={{ gap: 10, justifyContent: "flex-end", marginTop: 12 }}>
+      <WeatherIcon kind={w.icon} size={44} />
+      <div style={{ textAlign: "right" }}>
+        <div className="fx" style={{ gap: 8, justifyContent: "flex-end", alignItems: "baseline" }}>
+          <span className="num" style={{ fontSize: 34, fontWeight: 700, letterSpacing: "-.04em", lineHeight: 1 }}>{w.temp}°</span>
+          <span style={{ fontSize: 19, fontWeight: 600, color: "#3a4358" }}>{w.summary}</span>
+        </div>
+        {w.high != null && w.low != null ? <div className="num" style={{ fontSize: 15, fontWeight: 600, color: "#6b7488", marginTop: 3 }}>H {w.high}° · L {w.low}°</div> : null}
+      </div>
+    </div>
+  );
+}
 
 function Greeting() {
   const { now, S } = useHub();
@@ -23,6 +41,7 @@ function Greeting() {
       </div>
       <div style={{ textAlign: "right" }}>
         <div id="clock" className="num clk" style={{ fontFamily: "'Comfortaa','Onest',sans-serif", fontSize: 128, fontWeight: 700, letterSpacing: "-.07em", lineHeight: .88, WebkitTextStroke: "4px #101828", paintOrder: "stroke fill" }}>{clockT(now, !!S.config.hour24)}</div>
+        <Weather />
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ export const queryClient = new QueryClient({ defaultOptions: { queries: { staleT
 export type Config = {
   name: string; setup_done: boolean; hour24?: boolean; widgets: { id: string; url: string }[];
   calendars: { id: string; name: string; color: string; site?: string }[]; pocketpals?: { connected?: boolean; tick?: boolean; url?: string };
+  weather?: { connected: boolean; place: string; fahrenheit: boolean };
 };
 export type HubState = { version: string; config: Config; people: Person[]; catalog: { id: string; name: string; about: string }[] };
 

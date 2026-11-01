@@ -5,6 +5,7 @@ mod dinners;
 mod family;
 mod pocketpals;
 mod shopping;
+mod weather;
 
 use axum::{
     extract::{Query, State},
@@ -73,6 +74,16 @@ struct Config {
     /// Whether that key may tick jobs, or only read them.
     #[serde(default)]
     pocketpals_tick: bool,
+    /// Where the weather is for: a place's name and rounded coordinates (from the search in Settings). Empty name: no weather.
+    #[serde(default)]
+    weather_place: String,
+    #[serde(default)]
+    weather_lat: f64,
+    #[serde(default)]
+    weather_lon: f64,
+    /// Show °F instead of °C.
+    #[serde(default)]
+    weather_f: bool,
 }
 
 /// What the last fetch of one calendar found.
@@ -93,6 +104,8 @@ struct App {
     shopping: RwLock<shopping::Shopping>,
     /// The last jobs PocketPals sent, for a few seconds, so a screen asking twice doesn't ask PocketPals twice.
     jobs: Mutex<HashMap<String, (Instant, Value)>>,
+    /// The last weather Open-Meteo sent, for ten minutes.
+    weather: Mutex<Option<(Instant, Value)>>,
 }
 
 const MAX_CALENDARS: usize = 8;
@@ -120,7 +133,7 @@ async fn main() {
         Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
         Err(_) => shopping::Shopping::default(),
     };
-    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), jobs: Mutex::new(HashMap::new()) });
+    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), jobs: Mutex::new(HashMap::new()), weather: Mutex::new(None) });
 
     // Keep the calendars fresh: once now, then every ten minutes.
     let background = app.clone();
@@ -154,6 +167,11 @@ async fn main() {
         .route("/api/people", post(save_people))
         .route("/api/hub-event", get(hub_event).post(save_hub_event))
         .route("/api/hub-event/delete", post(delete_hub_event))
+        .route("/api/weather", get(get_weather))
+        .route("/api/weather/search", get(weather_search))
+        .route("/api/weather/set", post(weather_set))
+        .route("/api/weather/units", post(weather_units))
+        .route("/api/weather/disconnect", post(weather_off))
         .route("/api/status", get(status))
         .route("/api/update", get(update_info))
         .route("/api/update/request", post(update_request))
@@ -191,6 +209,88 @@ async fn serve_web(uri: axum::http::Uri) -> impl IntoResponse {
     (StatusCode::OK, [(header::CONTENT_TYPE, kind), (header::CACHE_CONTROL, cache)], file.contents())
 }
 
+const WEATHER_CACHE: Duration = Duration::from_secs(600);
+
+/// The weather for the home's place (cached for ten minutes), or `connected: false` when none is chosen.
+async fn get_weather(State(app): Shared) -> Json<Value> {
+    let c = app.config.read().await.clone();
+    if c.weather_place.is_empty() {
+        return Json(json!({"connected": false}));
+    }
+    let mut cache = app.weather.lock().await;
+    if let Some((at, v)) = cache.as_ref() {
+        if at.elapsed() < WEATHER_CACHE {
+            return Json(v.clone());
+        }
+    }
+    match weather::forecast(c.weather_lat, c.weather_lon, c.weather_f).await {
+        Ok(mut v) => {
+            v["connected"] = json!(true);
+            v["place"] = json!(c.weather_place);
+            *cache = Some((Instant::now(), v.clone()));
+            Json(v)
+        }
+        // Keep showing the last good weather if the service blips.
+        Err(why) => Json(cache.as_ref().map(|(_, v)| v.clone()).unwrap_or_else(|| json!({"connected": true, "place": c.weather_place, "error": why}))),
+    }
+}
+
+#[derive(Deserialize)]
+struct SearchQuery {
+    q: String,
+}
+
+async fn weather_search(Query(q): Query<SearchQuery>) -> impl IntoResponse {
+    match weather::search(&q.q).await {
+        Ok(v) => Json(v).into_response(),
+        Err(why) => (StatusCode::BAD_REQUEST, why).into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct PlaceBody {
+    name: String,
+    lat: f64,
+    lon: f64,
+}
+
+async fn weather_set(State(app): Shared, Json(b): Json<PlaceBody>) -> impl IntoResponse {
+    let name = b.name.trim().to_string();
+    if name.is_empty() || name.len() > 80 || !(-90.0..=90.0).contains(&b.lat) || !(-180.0..=180.0).contains(&b.lon) {
+        return (StatusCode::BAD_REQUEST, "Pick a place from the list.").into_response();
+    }
+    // Only about a kilometre of detail is ever kept or sent.
+    let config = Config { weather_place: name, weather_lat: (b.lat * 100.0).round() / 100.0, weather_lon: (b.lon * 100.0).round() / 100.0, ..app.config.read().await.clone() };
+    if save(&app, config).await.is_err() {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
+    }
+    *app.weather.lock().await = None;
+    StatusCode::NO_CONTENT.into_response()
+}
+
+#[derive(Deserialize)]
+struct UnitsBody {
+    fahrenheit: bool,
+}
+
+async fn weather_units(State(app): Shared, Json(b): Json<UnitsBody>) -> impl IntoResponse {
+    let config = Config { weather_f: b.fahrenheit, ..app.config.read().await.clone() };
+    if save(&app, config).await.is_err() {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
+    }
+    *app.weather.lock().await = None;
+    StatusCode::NO_CONTENT.into_response()
+}
+
+async fn weather_off(State(app): Shared) -> impl IntoResponse {
+    let config = Config { weather_place: String::new(), weather_lat: 0.0, weather_lon: 0.0, ..app.config.read().await.clone() };
+    if save(&app, config).await.is_err() {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't save your settings.").into_response();
+    }
+    *app.weather.lock().await = None;
+    StatusCode::NO_CONTENT.into_response()
+}
+
 fn catalog_json() -> Value {
     CATALOG.iter().map(|(id, name, about)| json!({"id": id, "name": name, "about": about})).collect()
 }
@@ -207,7 +307,7 @@ async fn state(State(app): Shared) -> Json<Value> {
     Json(json!({
         "version": VERSION,
         "people": people,
-        "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars, "hour24": config.hour24, "pocketpals": pocketpals_json(&config)},
+        "config": {"setup_done": config.setup_done, "name": config.name, "widgets": config.widgets, "calendars": calendars, "hour24": config.hour24, "pocketpals": pocketpals_json(&config), "weather": {"connected": !config.weather_place.is_empty(), "place": config.weather_place, "fahrenheit": config.weather_f}},
         "catalog": catalog_json(),
     }))
 }

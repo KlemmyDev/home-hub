@@ -49,12 +49,12 @@ input:focus{outline:3px solid #1d4ed8;outline-offset:2px}
 .toast.on{opacity:1}
 .cnav{width:52px;height:52px;min-height:0;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #e1e6ef;color:#101828}
 .cbtn{display:inline-flex;align-items:center;gap:6px;height:52px;min-height:0;padding:0 20px;border-radius:999px;background:#101828;color:#fff;border:0;font-size:17px;font-weight:650}
-.ov{position:absolute;inset:0;padding:48px 44px 124px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;scrollbar-width:none;transition:opacity .45s ease,transform .55s cubic-bezier(.2,.8,.2,1)}
-.ov.away{opacity:0;transform:scale(.97);pointer-events:none}
-#calcard,#menucard,#shopcard,#chorecard{position:absolute;display:none;overflow:hidden;z-index:3}
+.ov{position:absolute;inset:0;padding:48px 44px 124px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;scrollbar-width:none;transition:opacity .25s ease}
+.ov.away{opacity:0;pointer-events:none}
+#calcard,#menucard,#shopcard,#chorecard{position:absolute;display:none;overflow:hidden;z-index:3;opacity:0;transition:opacity .25s ease}
 #calcard.show,#menucard.show,#shopcard.show,#chorecard.show{display:block}
-#calcard.anim,#menucard.anim,#shopcard.anim,#chorecard.anim{transition:left .55s cubic-bezier(.2,.8,.2,1),top .55s cubic-bezier(.2,.8,.2,1),width .55s cubic-bezier(.2,.8,.2,1),height .55s cubic-bezier(.2,.8,.2,1)}
-#calin,#menuin,#shopin,#chorein{position:absolute;left:0;top:0;width:760px;height:1240px;transition:opacity .3s ease}
+#calcard.on,#menucard.on,#shopcard.on,#chorecard.on{opacity:1}
+#calin,#menuin,#shopin,#chorein{position:absolute;left:0;top:0;width:760px;height:1240px}
 .sg.big{height:40px;font-size:16px;padding:0 17px}
 .evb{position:absolute;box-sizing:border-box;min-height:0;border:0;border-radius:10px;overflow:hidden;text-align:left;color:#101828;display:block;font-family:inherit}
 .mcell{box-sizing:border-box;min-height:0;min-width:0;padding:4px;border:0;border-top:1px solid #edf0f5;border-radius:0;background:none;display:flex;flex-direction:column;gap:3px;align-items:stretch;text-align:left;overflow:hidden;color:#101828}

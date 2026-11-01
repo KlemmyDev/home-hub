@@ -10,43 +10,31 @@ import { SheetHost } from "./Sheets";
 
 type Box = { l: number; t: number; w: number; h: number };
 const fullBox = (d: Dim): Box => d.phone ? { l: 10, t: 10 + d.st, w: d.W - 20, h: d.H - 20 - d.st - d.sb } : { l: 20, t: 20, w: d.W - 40, h: d.H - 40 };
-const dockBox = (d: Dim): Box => ({ l: d.phone ? 16 : 28, t: d.H - (d.phone ? 16 : 28) - d.sb - 76, w: 76, h: 76 });   // the round menu button
-/** Where an element sits on the stage (the Overview may be scrolled). */
-function boxIn(el: HTMLElement | null): Box | null {
-  if (!el) return null;
-  let l = 0, t = 0, n: HTMLElement | null = el;
-  const stage = document.getElementById("stage");
-  while (n && n !== stage) { l += n.offsetLeft; t += n.offsetTop; n = n.offsetParent as HTMLElement | null; }
-  const ov = document.getElementById("ov");
-  if (ov && ov.contains(el)) t -= ov.scrollTop;
-  return { l, t, w: el.offsetWidth, h: el.offsetHeight };
-}
 const applyBox = (el: HTMLElement, b: Box) => { el.style.left = b.l + "px"; el.style.top = b.t + "px"; el.style.width = b.w + "px"; el.style.height = b.h + "px"; };
 
-/** A full screen that grows out of the card it belongs to, and shrinks back into it. */
-function PanelCard({ id, inner, active, from, children }: { id: string; inner: string; active: boolean; from: () => Box; children: ReactNode }) {
+/** A full screen that fades in over the Overview, and fades back out. */
+function PanelCard({ id, inner, active, children }: { id: string; inner: string; active: boolean; children: ReactNode }) {
   const { dim } = useHub();
-  const card = useRef<HTMLElement>(null), body = useRef<HTMLDivElement>(null);
+  const card = useRef<HTMLElement>(null);
   const was = useRef(false), timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useLayoutEffect(() => {
-    const c = card.current!, b = body.current!;
+    const c = card.current!;
     clearTimeout(timer.current);
+    applyBox(c, fullBox(dim));
     if (active && !was.current) {
-      c.classList.remove("anim"); applyBox(c, from()); c.classList.add("show");
-      b.style.transitionDelay = ".3s"; b.style.opacity = "0";
-      void c.offsetWidth;                                   // start from the card it came from, then grow
-      c.classList.add("anim"); applyBox(c, fullBox(dim)); b.style.opacity = "1";
+      c.classList.add("show");
+      void c.offsetWidth;                                   // show it at zero opacity first, then fade in
+      c.classList.add("on");
     } else if (!active && was.current) {
-      c.classList.add("anim"); applyBox(c, from());          // shrink back to where it came from
-      b.style.transitionDelay = "0s"; b.style.opacity = "0";
-      timer.current = setTimeout(() => c.classList.remove("show", "anim"), 600);
-    } else if (active) applyBox(c, fullBox(dim));
+      c.classList.remove("on");
+      timer.current = setTimeout(() => c.classList.remove("show"), 300);
+    }
     was.current = active;
   }, [active, dim]);
   const fb = fullBox(dim);
   return (
     <section id={id} ref={card} className="tile-card">
-      <div id={inner} ref={body} style={{ width: fb.w, height: fb.h }}>{active || was.current ? children : null}</div>
+      <div id={inner} style={{ width: fb.w, height: fb.h }}>{active || was.current ? children : null}</div>
     </section>
   );
 }
@@ -81,15 +69,14 @@ export function Stage() {
   const { dim, sheet, toast, closeSheet } = useHub();
   const page = usePage();
   const style = { "--s": dim.s, "--W": dim.W + "px", "--H": dim.H + "px", "--st": dim.st + "px", "--sb": dim.sb + "px" } as CSSProperties;
-  const origin = (id: string, fallback?: string) => () => boxIn(document.getElementById(id)) || boxIn(document.getElementById(fallback || "dock")) || dockBox(dim);
   return (
     <div id="dash">
       <div id="stage" className={(dim.phone ? "phone " : "") + (sheet ? "sheet-on" : "")} style={style}>
         <Overview away={page !== "overview"} />
-        <PanelCard id="calcard" inner="calin" active={page === "calendar"} from={origin("today")}><CalendarPanel /></PanelCard>
-        <PanelCard id="menucard" inner="menuin" active={page === "menu"} from={origin("dinner")}><MenuPanel /></PanelCard>
-        <PanelCard id="shopcard" inner="shopin" active={page === "shopping"} from={origin("dk-shopping")}><ShoppingPanel /></PanelCard>
-        <PanelCard id="chorecard" inner="chorein" active={page === "chores"} from={origin("chorescard", "dk-chores")}><ChoresPanel /></PanelCard>
+        <PanelCard id="calcard" inner="calin" active={page === "calendar"}><CalendarPanel /></PanelCard>
+        <PanelCard id="menucard" inner="menuin" active={page === "menu"}><MenuPanel /></PanelCard>
+        <PanelCard id="shopcard" inner="shopin" active={page === "shopping"}><ShoppingPanel /></PanelCard>
+        <PanelCard id="chorecard" inner="chorein" active={page === "chores"}><ChoresPanel /></PanelCard>
         <Dock />
         <div id="sheetscrim" onClick={closeSheet} />
         <SheetHost />

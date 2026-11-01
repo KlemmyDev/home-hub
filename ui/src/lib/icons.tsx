@@ -29,3 +29,25 @@ export const DockIcon = ({ name, size = 24 }: { name: string; size?: number }) =
   FAV[name] ? <>{FAV[name](size + 6)}</> : <Svg size={size} w={2.2}>{DOCK[name]}</Svg>;
 
 export const PpLogo = () => <svg width="34" height="34" viewBox="0 0 120 120" aria-hidden="true"><defs><radialGradient id="pc" cx=".36" cy=".3" r=".8"><stop offset="0" stopColor="#ffe68a" /><stop offset=".55" stopColor="#ffc21a" /><stop offset="1" stopColor="#d48d00" /></radialGradient><linearGradient id="pt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#7a5cff" /><stop offset="1" stopColor="#4c2dd8" /></linearGradient><linearGradient id="pb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffffff" /><stop offset="1" stopColor="#efeaff" /></linearGradient></defs><rect width="120" height="120" rx="27" fill="url(#pt)" /><path d="M20 22 Q21 27.5 26 28.5 Q21 29.5 20 35 Q19 29.5 14 28.5 Q19 27.5 20 22 Z" fill="#ffd84d" /><g transform="translate(2 0) scale(.9667)"><g transform="rotate(14 75 33)"><circle cx="75" cy="35" r="15" fill="#a86f00" opacity=".35" /><circle cx="75" cy="33" r="15" fill="url(#pc)" /><path d="M75 23 Q76.3 31.7 85 33 Q76.3 34.3 75 43 Q73.7 34.3 65 33 Q73.7 31.7 75 23 Z" fill="#fff" /></g><circle cx="31" cy="42" r="12.5" fill="url(#pb)" stroke="#2a1590" strokeWidth="3.2" /><circle cx="89" cy="42" r="12.5" fill="url(#pb)" stroke="#2a1590" strokeWidth="3.2" /><circle cx="31" cy="42" r="6" fill="#ffb3c6" /><circle cx="89" cy="42" r="6" fill="#ffb3c6" /><path d="M28 44 H92 Q101 44 101 53 V80 Q101 86.5 95 89.5 L65 103 Q60 105.3 55 103 L25 89.5 Q19 86.5 19 80 V53 Q19 44 28 44 Z" fill="url(#pb)" stroke="#2a1590" strokeWidth="3.2" strokeLinejoin="round" /><path d="M24 55.5 H96" stroke="#b7a8ff" strokeWidth="2.4" strokeLinecap="round" strokeDasharray="4.5 4" /><path d="M25.5 61 V79 Q25.5 83.5 29.5 85.3 L57 97.6 Q60 99 63 97.6 L90.5 85.3 Q94.5 83.5 94.5 79 V61" fill="none" stroke="#b7a8ff" strokeWidth="2.4" strokeLinecap="round" strokeDasharray="4.5 4" /><ellipse cx="38.5" cy="77" rx="5.6" ry="3.4" fill="#ffb3c6" /><ellipse cx="81.5" cy="77" rx="5.6" ry="3.4" fill="#ffb3c6" /><circle cx="47" cy="69" r="4.6" fill="#1c1a33" /><circle cx="73" cy="69" r="4.6" fill="#1c1a33" /><circle cx="48.4" cy="67.4" r="1.5" fill="#fff" /><circle cx="74.4" cy="67.4" r="1.5" fill="#fff" /><path d="M54.5 76.5 Q60 82 65.5 76.5" fill="none" stroke="#1c1a33" strokeWidth="3" strokeLinecap="round" /></g></svg>;
+
+/** A little picture of the weather, in colour. */
+export const WeatherIcon = ({ kind, size = 44 }: { kind: string; size?: number }) => {
+  const cloud = (fill: string, dx = 0, dy = 0) => <path transform={`translate(${dx} ${dy})`} d="M17 38h19a8 8 0 00.8-15.96A11 11 0 0015.6 24.6 7 7 0 0017 38z" fill={fill} />;
+  const sun = (cx: number, cy: number, r: number) => <g><circle cx={cx} cy={cy} r={r} fill="#ffb938" />{Array.from({ length: 8 }, (_, i) => { const a = i * Math.PI / 4; return <line key={i} x1={cx + Math.cos(a) * (r + 3)} y1={cy + Math.sin(a) * (r + 3)} x2={cx + Math.cos(a) * (r + 6)} y2={cy + Math.sin(a) * (r + 6)} stroke="#ffb938" strokeWidth="2.6" strokeLinecap="round" />; })}</g>;
+  const moon = <path d="M36 30A13 13 0 1118 12a10 10 0 0018 18z" fill="#c9d2ea" />;
+  const drops = (c: string) => [20, 28, 36].map(x => <line key={x} x1={x} y1="42" x2={x - 3} y2="48" stroke={c} strokeWidth="3" strokeLinecap="round" />);
+  const body = (() => {
+    switch (kind) {
+      case "sun": return sun(24, 24, 9);
+      case "moon": return moon;
+      case "partly": return <>{sun(19, 19, 7)}{cloud("#cdd5e3", 2, 2)}</>;
+      case "partly-night": return <><g transform="translate(-8 -8) scale(.75)">{moon}</g>{cloud("#cdd5e3", 2, 2)}</>;
+      case "fog": return <>{cloud("#cdd5e3", 0, -6)}{[34, 40, 46].map(y => <line key={y} x1="12" y1={y} x2="40" y2={y} stroke="#aab4c8" strokeWidth="3" strokeLinecap="round" />)}</>;
+      case "rain": return <>{cloud("#9fb0cc", 0, -6)}{drops("#3b82f6")}</>;
+      case "snow": return <>{cloud("#cdd5e3", 0, -6)}{[20, 28, 36].map(x => <circle key={x} cx={x} cy="44" r="2.4" fill="#8fb8ef" />)}</>;
+      case "storm": return <>{cloud("#8a96b0", 0, -6)}<path d="M26 34l-5 9h5l-3 7 9-11h-5l3-5z" fill="#ffb938" /></>;
+      default: return cloud("#cdd5e3");
+    }
+  })();
+  return <svg width={size} height={size} viewBox="0 0 48 52" aria-hidden="true">{body}</svg>;
+};

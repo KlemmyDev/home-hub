@@ -44,6 +44,40 @@ function PocketPals() {
   );
 }
 
+function Weather() {
+  const { S, refreshState } = useHub();
+  const qc = useQueryClient();
+  const w = S.config.weather;
+  const [q, setQ] = useState(""), [found, setFound] = useState<any[] | null>(null), [err, setErr] = useState("");
+  const done = async () => { await refreshState(); qc.removeQueries({ queryKey: ["weather"] }); };
+  const search = async () => { try { setFound(await api("/api/weather/search?q=" + encodeURIComponent(q))); setErr(""); } catch (e: any) { setErr(e.message); setFound(null); } };
+  return (
+    <Box title="Weather">
+      <p style={{ margin: "0 0 12px" }}>{w?.connected ? <>Showing the weather for <strong>{w.place}</strong> under the clock.</> : "Show today's weather under the clock. Pick your town or city. It comes from Open-Meteo, which needs no account; only the place's rough location is sent."}</p>
+      {w?.connected ? (
+        <>
+          <div className="fx" style={{ gap: 12, marginBottom: 14 }}>
+            {[false, true].map(v => <button key={String(v)} className={w.fahrenheit === v ? "primary" : ""} onClick={async () => { try { await post("/api/weather/units", { fahrenheit: v }); await done(); } catch (e: any) { setErr(e.message); } }}>{v ? "Fahrenheit (°F)" : "Celsius (°C)"}</button>)}
+          </div>
+          <div className="fx" style={{ gap: 12 }}><button onClick={async () => { try { await post("/api/weather/disconnect"); await done(); setFound(null); } catch (e: any) { setErr(e.message); } }}>Remove weather</button></div>
+        </>
+      ) : null}
+      <p style={{ margin: "16px 0 8px" }}><strong>{w?.connected ? "Change place" : "Find your place"}</strong></p>
+      <form className="fx" style={{ gap: 10 }} onSubmit={e => { e.preventDefault(); search(); }}>
+        <input value={q} onChange={e => setQ(e.target.value)} maxLength={60} placeholder="Town or city" autoComplete="off" style={{ flex: 1, minWidth: 0 }} />
+        <button className="primary" type="submit" style={{ flex: "none" }}>Search</button>
+      </form>
+      <div className="err" role="alert" style={{ marginTop: 8 }}>{err}</div>
+      {found ? (found.length ? found.map((p, i) => (
+        <div className="fx" key={i} style={{ gap: 14, padding: "12px 0", borderTop: "1px solid #edf0f5" }}>
+          <div style={{ flex: 1, minWidth: 0 }}><strong>{p.name}</strong><div style={{ fontSize: 16, color: "var(--soft)" }}>{p.detail}</div></div>
+          <button style={{ minHeight: 52, padding: "0 20px" }} onClick={async () => { try { await post("/api/weather/set", { name: p.name, lat: p.lat, lon: p.lon }); await done(); setFound(null); setQ(""); } catch (e: any) { setErr(e.message); } }}>Use this</button>
+        </div>
+      )) : <p>No places found. Try another spelling.</p>) : null}
+    </Box>
+  );
+}
+
 function Calendars() {
   const { S, refreshState } = useHub();
   const [color, setColor] = useState(PALETTE[0]);
@@ -120,6 +154,7 @@ export function Settings() {
       <Time />
       <PocketPals />
       <Box title="Family"><FamilyEditor /></Box>
+      <Weather />
       <Calendars />
       <Updates />
       <div className="row"><button onClick={() => go("setup")}>Change widgets</button><button className="primary" onClick={() => go("overview")}>Done</button></div>
