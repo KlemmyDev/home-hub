@@ -5,9 +5,9 @@ import { calOf, colorsOf, onDay, peopleOf, timedOn, visibleTo, type Ev, type EvD
 import { ChevL, ChevR, SearchIcon } from "../lib/icons";
 import { api, DEMO, post } from "../lib/api";
 import { useQueryClient } from "@tanstack/react-query";
-import { EMPTY_EVENTS, useEvents, usePrefetchEvents } from "../data";
+import { EMPTY_EVENTS, dinnerFor, useDinners, useEvents, usePrefetchEvents } from "../data";
 import { useHub, type CalView } from "../hub";
-import { usePage } from "../nav";
+import { useNav, usePage } from "../nav";
 import { loadEventDraft, newEventDraft } from "./Sheets";
 
 const HOUR_PX = (big: boolean, phone: boolean) => phone ? 64 : big ? 76 : 64;     // a fixed height for each hour, so the day scrolls
@@ -23,14 +23,14 @@ const evBg = (c: string) => `color-mix(in srgb, ${c} 17%, #fff)`;
 /** Names events so they can glide from one view to the next while the view transition runs. Hours scrolled out of sight are left unnamed, so nothing flies in across the header. */
 const vtn = (e: Ev, day: Date, c: { vt: boolean; band: [number, number] }, hr?: number): CSSProperties => c.vt && (hr === undefined || (hr >= c.band[0] && hr <= c.band[1])) ? { viewTransitionName: "ev-" + e.id.replace(/[^a-zA-Z0-9_-]/g, "_") + "-" + ymd(day) } : {};
 
-const stepDate = (cal: CalView, n: number) => cal.mode === "agenda" ? addDays(cal.date, 7 * n) : cal.mode === "day" ? addDays(cal.date, n) : cal.mode === "week" ? addDays(cal.date, 7 * n) : new Date(cal.date.getFullYear(), cal.date.getMonth() + n, 1);
+const stepDate = (cal: CalView, n: number) => cal.mode === "agenda" ? addDays(cal.date, 7 * n) : cal.mode === "day" || cal.mode === "schedule" ? addDays(cal.date, n) : cal.mode === "week" ? addDays(cal.date, 7 * n) : new Date(cal.date.getFullYear(), cal.date.getMonth() + n, 1);
 
 const AGENDA_DAYS = 14;
 
 function calRange(cal: CalView): [Date, Date] {
   const d = startOfDay(cal.date);
   if (cal.mode === "agenda") return [d, addDays(d, AGENDA_DAYS)];
-  if (cal.mode === "day" || cal.mode === "week") { const w = weekStart(d); return [w, addDays(w, 7)]; }
+  if (cal.mode === "day" || cal.mode === "schedule" || cal.mode === "week") { const w = weekStart(d); return [w, addDays(w, 7)]; }
   const first = weekStart(new Date(d.getFullYear(), d.getMonth(), 1));
   return [first, addDays(first, 42)];
 }
@@ -112,15 +112,15 @@ function Grid({ days, gutter, big, c }: { days: Date[]; gutter: number; big: boo
   return (
     <div className="gwrap" style={{ flex: "none", height: tot * px, position: "relative" }}>
       {Array.from({ length: 24 }, (_, hr) => (
-        <div key={hr} style={{ position: "absolute", left: 0, right: 0, top: top(hr) + "%", borderTop: "1px solid #edf0f5" }}>
-          <span className="num" style={{ position: "absolute", left: 0, top: 4, width: gutter - 10, textAlign: "right", fontSize: big ? 14 : 13, fontWeight: 600, color: "#6b7488" }}>{hourLabel(hr, c.h24)}</span>
+        <div key={hr} style={{ position: "absolute", left: 0, right: 0, top: top(hr) + "%", borderTop: "1px solid var(--hair)" }}>
+          <span className="num ghr" style={{ width: gutter - 10 }}>{hourLabel(hr, c.h24)}</span>
         </div>
       ))}
       <div style={{ position: "absolute", left: gutter, right: 0, top: 0, bottom: 0 }}>
         {days.map((day, i) => {
           const today = sameDay(day, now), w = 100 / days.length;
           return (
-            <div key={i} className="gcol" style={{ position: "absolute", top: 0, bottom: 0, left: i * w + "%", width: w + "%", borderLeft: "1px solid #edf0f5", ...(today ? { background: "linear-gradient(180deg,rgba(195,242,63,.16),rgba(109,220,140,.05))" } : {}) }}
+            <div key={i} className="gcol" style={{ position: "absolute", top: 0, bottom: 0, left: i * w + "%", width: w + "%", borderLeft: "1px solid #edf0f5", ...(today && days.length > 1 ? { background: "#fbfaf6" } : {}) }}
               onClick={ev => {
                 if (DEMO) return;
                 const r = ev.currentTarget.getBoundingClientRect();
@@ -264,6 +264,120 @@ function DayHead({ days, size, gutter, c }: { days: Date[]; size: number; gutter
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/** The Schedule's columns: one for each person, then one for each calendar whose events name nobody. Asking for one person shows just theirs. */
+function schedCols(c: Ctx, day: Date, who: string | null) {
+  const cols: { key: string; name: string; color: string; person: boolean; evs: Ev[] }[] = c.people.map(p => ({ key: p.id, name: p.name, color: p.color, person: true, evs: c.list.filter(e => (e.people || []).includes(p.id)) }));
+  for (const e of c.list.filter(e => onDay(e, day) && !peopleOf(e, c.people).length)) {
+    const k = calOf(e, c.data, c.people), key = "c:" + (e.cal || k.name);
+    let col = cols.find(x => x.key === key);
+    if (!col) cols.push(col = { key, name: k.name || "Family", color: k.color, person: false, evs: [] });
+    col.evs.push(e);
+  }
+  return cols.map(x => ({ ...x, hidden: !!who && x.key !== who }));
+}
+const deep = (c: string) => `color-mix(in srgb, ${c} 72%, #000)`;
+
+function SchedHead({ day, gutter, c }: { day: Date; gutter: number; c: Ctx }) {
+  const { setCal } = useHub();
+  const cal = usePaneCal();
+  return (
+    <div className="sch-head" style={{ paddingLeft: gutter }}>
+      {schedCols(c, day, cal.who).map(col => (
+        <div key={col.key} className="sch-col" style={{ flexGrow: col.hidden ? .0001 : 1, opacity: col.hidden ? 0 : 1 }}>
+          <button className={"sch-who" + (cal.who === col.key ? " on" : "")} aria-pressed={cal.who === col.key} aria-label={(cal.who === col.key ? "Show everyone" : "Show only " + col.name)} disabled={!col.person}
+            onClick={() => setCal(x => ({ ...x, who: x.who === col.key ? null : col.key }))} style={{ "--ec": col.color } as CSSProperties}>
+            <i>{(col.name.trim()[0] || "?").toUpperCase()}</i><b>{col.name}</b>
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Schedule: one day with a column for each person, so who is doing what reads across the hours. Tap a gap to add something for that person then. */
+function Schedule({ day, gutter, c }: { day: Date; gutter: number; c: Ctx }) {
+  const { now, dim, openSheet } = useHub();
+  const cal = usePaneCal();
+  const px = HOUR_PX(true, dim.phone), top = (h: number) => h / 24 * 100;
+  const cols = schedCols(c, day, cal.who), seen = new Set<string>();
+  const h = now.getHours() + now.getMinutes() / 60;
+  return (
+    <div className="gwrap" style={{ flex: "none", height: 24 * px, position: "relative" }}>
+      {Array.from({ length: 24 }, (_, hr) => (
+        <div key={hr} style={{ position: "absolute", left: 0, right: 0, top: top(hr) + "%", borderTop: "1px solid var(--hair)" }}>
+          <span className="num ghr" style={{ width: gutter - 10 }}>{hourLabel(hr, c.h24)}</span>
+        </div>
+      ))}
+      <div className="sch-body" style={{ left: gutter }}>
+        {cols.map(col => (
+          <div key={col.key} className="sch-col gcol" style={{ flexGrow: col.hidden ? .0001 : 1, opacity: col.hidden ? 0 : 1 }}
+            onClick={ev => {
+              if (DEMO) return;
+              const r = ev.currentTarget.getBoundingClientRect();
+              const hr = Math.min(23, Math.floor(((ev.clientY - r.top) / r.height * 24) * 2) / 2);
+              openSheet({ mode: "event", draft: newEventDraft(day, hr, now, col.person ? col.key : cal.who) });
+            }}>
+            {timedOn(col.evs, day).map(x => {
+              const e = x.ev, t0 = x.s.getHours() + x.s.getMinutes() / 60, t1 = t0 + (+x.e - +x.s) / 3600000, n = x.cols, live = e.s <= now && now < e.e;
+              const named = !seen.has(e.id); seen.add(e.id);      // an event shared by two people glides from its first column only
+              return (
+                <button key={e.id} className={"evb sev" + (live ? " live" : "")} onClick={ev => { ev.stopPropagation(); c.open(e); }}
+                  style={{ top: `calc(${top(t0)}% + 2px)`, height: `calc(${top(t1) - top(t0)}% - 4px)`, left: `calc(${x.col / n * 100}% + 2px)`, width: `calc(${100 / n}% - 4px)`, "--ec": col.color, ...(named ? vtn(e, day, c, t0) : {}) } as CSSProperties}>
+                  <b>{e.title}</b>
+                  {t1 - t0 >= .6 ? <span className="num" style={{ color: deep(col.color) }}>{fmtT(e.s, c.h24)} – {fmtT(e.e, c.h24)}</span> : null}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+        {sameDay(day, now) ? <div className="nowline" style={{ top: top(h) + "%" }}><i /></div> : null}
+      </div>
+    </div>
+  );
+}
+
+/** Week: the seven days side by side, each a stack of cards in time order, with that night's dinner along the foot. Everyday things (school, kindy) are a quiet single line. */
+function WeekCards({ c }: { c: Ctx }) {
+  const { now, people } = useHub();
+  const { data: din } = useDinners();
+  const { go } = useNav();
+  const cal = usePaneCal();
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart(startOfDay(cal.date)), i));
+  return (
+    <div className="wkc">
+      <div className="wkc-cols">
+        {days.map(d => {
+          const today = sameDay(d, now), wk = d.getDay() === 0 || d.getDay() === 6;
+          const evs = c.list.filter(e => onDay(e, d)).sort((a, b) => (+b.all_day - +a.all_day) || +a.s - +b.s);
+          return (
+            <div key={+d} className={"wkc-col" + (today ? " today" : "")}>
+              <button className="wkc-h" aria-label={longDay(d)} onClick={() => c.morph(x => ({ ...x, mode: "day", date: d }))}>
+                <span style={wk ? { color: "#b4321f" } : undefined}>{d.toLocaleDateString([], { weekday: "short" })}</span>
+                <b className={"num dnum" + (today ? " now" : "")}>{d.getDate()}</b>
+              </button>
+              <div className="wkc-list scroll">
+                {evs.map(e => {
+                  const cs = colorsOf(e, c.data, c.people), plain = !!e.series && !e.all_day && (+e.e - +e.s) >= 4 * 3600000;
+                  return (
+                    <button key={e.id} className={"wkc-ev" + (e.all_day ? " ad" : "") + (plain ? " plain" : "")} onClick={() => c.open(e)} style={{ "--ec": cs[0], ...vtn(e, d, c) } as CSSProperties}>
+                      {e.all_day ? null : <span className="num t">{fmtT(e.s, c.h24)}</span>}
+                      <b>{e.title}</b>
+                      {plain || cs.length < 2 && !peopleOf(e, c.people).length ? null : <span className="dots">{(peopleOf(e, c.people).length ? peopleOf(e, c.people).map(p => p.color) : cs).slice(0, 5).map((col, i) => <i key={i} style={{ background: col }} />)}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <button className="wkc-din" onClick={() => go("menu")} aria-label="Dinners this week">
+        {days.map(d => <span key={+d}><small>Dinner</small><b>{dinnerFor(din, people, d)?.name || "–"}</b></span>)}
+      </button>
     </div>
   );
 }
@@ -429,7 +543,7 @@ function SwipePane({ onStep, api, keyOf, children }: { onStep: (n: number) => vo
 function calTitle(cal: CalView, phone: boolean) {
   const d = cal.date, w = phone ? "short" : "long";
   if (cal.mode === "agenda") { const a = startOfDay(d), b = addDays(a, AGENDA_DAYS - 1), m = (x: Date) => x.toLocaleDateString([], { month: "short" }); return sameDay(a, nowZ()) ? (phone ? "Next 2 weeks" : "Next two weeks") : `${a.getDate()} ${m(a)} to ${b.getDate()} ${m(b)}`; }
-  if (cal.mode === "day") return d.toLocaleDateString([], { weekday: w, day: "numeric", month: w });
+  if (cal.mode === "day" || cal.mode === "schedule") return d.toLocaleDateString([], { weekday: w, day: "numeric", month: w });
   if (cal.mode === "week") {
     const a = weekStart(d), b = addDays(a, 6), m = (x: Date) => x.toLocaleDateString([], { month: w });
     return a.getMonth() === b.getMonth() ? `${a.getDate()} to ${b.getDate()} ${m(b)}` : `${a.getDate()} ${m(a)} to ${b.getDate()} ${m(b)}`;
@@ -437,7 +551,9 @@ function calTitle(cal: CalView, phone: boolean) {
   return d.toLocaleDateString([], { month: "long", year: phone && d.getFullYear() === nowZ().getFullYear() ? undefined : "numeric" });
 }
 
-const MODES = ["day", "week", "month", "agenda"] as const;
+/* The tablet has Schedule (a column for each person); a phone is too narrow for it, so it keeps the List instead. */
+const MODES_TAB = ["day", "schedule", "week", "month"] as const;
+const MODES_PHONE = ["day", "week", "month", "agenda"] as const;
 
 type Base = Pick<Ctx, "people" | "h24" | "vt" | "band" | "morph">;
 
@@ -463,7 +579,8 @@ function Pane({ off, pc, k, keep, opening, shared, nonce }: { off: number; pc: C
       {pc.mode === "agenda" ? <Upcoming c={c} />
         : pc.mode === "month" ? <Month c={c} />
         : pc.mode === "week" && P ? <Agenda c={c} />
-        : pc.mode === "week" ? <><DayHead days={weekOf} size={44} gutter={52} c={c} /><AllDay days={weekOf} gutter={52} c={c} /><Scroller keyed={key} anchorHour={anchor(weekOf)} big={false} opening={opening} keep={keep} shared={shared} follow={follow}><Grid days={weekOf} gutter={52} big={false} c={c} /></Scroller></>
+        : pc.mode === "week" ? <WeekCards c={c} />
+        : pc.mode === "schedule" ? <><SchedHead day={d} gutter={56} c={c} /><AllDay days={[d]} gutter={56} c={c} /><Scroller keyed={key} anchorHour={anchor([d])} big opening={opening} keep={keep} shared={shared} follow={follow}><Schedule day={d} gutter={56} c={c} /></Scroller></>
         : <><AllDay days={[d]} gutter={P ? 48 : 60} c={c} /><Scroller keyed={key} anchorHour={anchor([d])} big opening={opening} keep={keep} shared={shared} follow={follow}><Grid days={[d]} gutter={P ? 48 : 60} big c={c} /></Scroller></>}
     </PaneCal.Provider>
   );
@@ -511,47 +628,48 @@ export function CalendarPanel() {
   useEffect(() => { prefetch([-1, 1].map(n => calRange({ ...cal, date: stepDate(cal, n) })).concat([calRange({ ...cal, mode: "month" }), calRange({ ...cal, mode: "week" })])); }, [cal.mode, +startOfDay(cal.date)]);
   const key = cal.mode + ymd(cal.date) + ":" + nonce;
   const chip = (id: string, label: string, color?: string) => (
-    <button key={id} className={"pill" + ((cal.who || "") === id ? " on" : "")} style={{ height: 48, fontSize: 17, padding: color ? "0 18px 0 8px" : "0 20px", gap: 9, ...(color ? { "--pc": color } as CSSProperties : {}) }} onClick={() => setCal(x => ({ ...x, who: id || null }))}>
+    <button key={id} className={"pill" + ((cal.who || "") === id ? " on" : "")} style={{ height: 48, fontSize: 16, padding: color ? "0 16px 0 6px" : "0 18px", gap: 8, ...(color ? { "--pc": color } as CSSProperties : {}) }} onClick={() => setCal(x => ({ ...x, who: id || null }))}>
       {color ? <i className="av" style={{ width: 30, height: 30, fontSize: 16, background: color }}>{(label.trim()[0] || "?").toUpperCase()}</i> : null}{label}
     </button>
   );
   const cals = Object.values(data.cals);
-  const idx = MODES.indexOf(cal.mode);
+  const MODES = P ? MODES_PHONE : MODES_TAB;
+  const idx = Math.max(0, (MODES as readonly string[]).indexOf(cal.mode));
+  useEffect(() => {      // a phone has no Schedule and a tablet no List: each falls back to its nearest view
+    if (P && cal.mode === "schedule") setCal(x => ({ ...x, mode: "day" }));
+    if (!P && cal.mode === "agenda") setCal(x => ({ ...x, mode: "week" }));
+  }, [P, cal.mode]);
+  const arrows = <><button className="cnav" aria-label="Back" onClick={() => slide.current(-1)}><ChevL /></button><button className="cnav" aria-label="Forward" onClick={() => slide.current(1)}><ChevR /></button></>;
   return (
-    <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", padding: `${(P ? 14 : 18) + dim.st}px ${P ? 14 : 18}px 0` }}>
-      <div className="fx" style={{ justifyContent: "space-between", padding: "0 4px 12px", gap: 12 }}>
-        <div className="fx" style={{ gap: 14 }}>
-          <span className="clk num" style={{ fontFamily: "'Comfortaa','Onest',sans-serif", fontSize: P ? 44 : 54, fontWeight: 700, letterSpacing: "-.07em", lineHeight: .9, WebkitTextStroke: "1.8px #101828", paintOrder: "stroke fill" }}>{clockT(now, h24)}</span>
-          {P ? null : <span className="cdt" style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-.03em", lineHeight: 1.1 }}>{shortDate(now)}</span>}
-        </div>
+    <div className="calp" style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", padding: `${(P ? 14 : 24) + dim.st}px ${P ? 14 : 24}px 0` }}>
+      <div className="fx" style={{ justifyContent: "space-between", padding: "0 2px 14px", gap: 12 }}>
+        <h1 key={cal.mode + ymd(cal.date)} className="ctitle">{calTitle(cal, P)}</h1>
+        {P ? <div className="fx" style={{ gap: 6, flex: "none" }}>{arrows}</div>
+          : <span className="num cclock">{clockT(now, h24)}{h24 ? null : <small>{now.getHours() < 12 ? "am" : "pm"}</small>}</span>}
+      </div>
+      <div className="fx" style={{ justifyContent: "space-between", padding: "0 0 12px", gap: 8 }}>
         <div className="segc" role="tablist" style={{ "--n": MODES.length, "--i": idx } as CSSProperties}>
           <span className="segthumb" aria-hidden />
-          {MODES.map(m => <button key={m} role="tab" aria-selected={cal.mode === m} className={"sg big" + (cal.mode === m ? " on" : "")} onClick={() => cal.mode !== m && morph(x => ({ ...x, mode: m }))}>{P && m === "agenda" ? "List" : m[0].toUpperCase() + m.slice(1)}</button>)}
-        </div>
-      </div>
-      <div className="fx" style={{ justifyContent: "space-between", padding: "0 0 10px", gap: 10 }}>
-        <div className="fx" style={{ gap: 10, minWidth: 0 }}>
-          <button className="cnav" aria-label="Back" onClick={() => slide.current(-1)}><ChevL /></button>
-          <span key={cal.mode} className="ctitle" style={{ fontSize: P ? 21 : cal.mode === "day" ? 25 : 28, fontWeight: 700, letterSpacing: "-.04em", whiteSpace: "nowrap", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{calTitle(cal, P)}</span>
-          <button className="cnav" aria-label="Forward" onClick={() => slide.current(1)}><ChevR /></button>
+          {MODES.map(m => <button key={m} role="tab" aria-selected={cal.mode === m} className={"sg big" + (cal.mode === m ? " on" : "")} onClick={() => cal.mode !== m && morph(x => ({ ...x, mode: m }))}>{m === "agenda" ? "List" : m[0].toUpperCase() + m.slice(1)}</button>)}
         </div>
         <div className="fx" style={{ gap: 8, flex: "none" }}>
-          {P ? null : <button className="cnav" aria-label="Search, or find a free time" onClick={() => openSheet({ mode: "find" })}><SearchIcon /></button>}
-          {DEMO ? null : <button className="cbtn accent" id="c-new" aria-label="New event" style={{ padding: "0 22px" }} onClick={() => openSheet({ mode: "event", draft: newEventDraft(startOfDay(cal.mode === "month" ? nowZ() : cal.date), undefined, now, cal.who) })}>{P ? "+" : "+ New"}</button>}
-          <button className="cbtn" style={{ background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={() => { morph(x => ({ ...x, date: nowZ() }), false); setNonce(n => n + 1); }}>Today</button>
+          <button className="cnav" aria-label="Search, or find a free time" onClick={() => openSheet({ mode: "find" })}><SearchIcon /></button>
+          <button className="cbtn ctoday" onClick={() => { morph(x => ({ ...x, date: nowZ() }), false); setNonce(n => n + 1); }}>Today</button>
+          {P ? null : arrows}
         </div>
       </div>
-      <div className="fx" style={{ gap: 8, padding: "0 0 10px", overflowX: "auto", scrollbarWidth: "none" }}>
-        {P ? <button className="cnav" style={{ flex: "none" }} aria-label="Search, or find a free time" onClick={() => openSheet({ mode: "find" })}><SearchIcon /></button> : null}
-        {chip("", "Everyone")}{people.map(p => chip(p.id, p.name, p.color))}
-        {DEMO ? null : <button className="pill" aria-label="Add or change family members" style={{ height: 48, fontSize: 16, padding: "0 18px" }} onClick={() => openSheet({ mode: "family" })}>+ Family</button>}
-      </div>
+      {cal.mode === "schedule" ? null : (
+        <div className="fx" style={{ gap: 8, padding: "0 0 12px", overflowX: "auto", scrollbarWidth: "none" }}>
+          {chip("", "Everyone")}{people.map(p => chip(p.id, p.name, p.color))}
+          {DEMO ? null : <button className="pill" aria-label="Add or change family members" style={{ height: 48, fontSize: 16, padding: "0 18px" }} onClick={() => openSheet({ mode: "family" })}>+ Family</button>}
+        </div>
+      )}
       {cal.mode === "day" ? <DayHead days={weekOf} size={P ? 40 : 44} gutter={0} c={c} /> : null}
       <SwipePane api={slide} keyOf={off => cal.mode + ymd(stepDate(cal, off))} onStep={n => { keep.current = true; setCal(x => ({ ...x, date: stepDate(x, n) })); }}>
         {off => <Pane off={off} pc={{ ...cal, date: stepDate(cal, off) }} k={{ people, h24, vt, band, morph }} keep={keep} opening={opening} shared={shared} nonce={nonce} />}
       </SwipePane>
-      <div style={{ flex: "none", padding: "10px 0 112px" }}>
-        {cals.length ? <div className="fx legend" style={{ gap: 14, flexWrap: "wrap", padding: "8px 4px 0" }}>{cals.map(x => <span key={x.id} className="pp" style={{ fontSize: 15 }}><i style={{ background: x.color }} />{x.name + (x.ok ? "" : " (can't reach)")}</span>)}</div> : null}
+      <div style={{ flex: "none", padding: `6px 0 ${(P ? 74 : 104) + dim.sb}px` }}>
+        {cals.length ? <div className="fx legend" style={{ gap: 14, flexWrap: "wrap", padding: "6px 4px 0" }}>{cals.map(x => <span key={x.id} className="pp" style={{ fontSize: 15 }}><i style={{ background: x.color }} />{x.name + (x.ok ? "" : " (can't reach)")}</span>)}</div> : null}
       </div>
     </div>
   );

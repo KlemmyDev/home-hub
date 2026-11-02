@@ -1,6 +1,7 @@
 import { clockT, shortDate } from "../lib/dates";
 import { ChevL } from "../lib/icons";
 import { useHub } from "../hub";
+import { Weather } from "./Overview";
 
 /** The clock and the screen's name, along the top of Dinners and Shopping. */
 export function PanelTop({ title, title2 }: { title: string; title2?: string }) {
@@ -18,14 +19,25 @@ export function PanelTop({ title, title2 }: { title: string; title2?: string }) 
 }
 /** A back button and a title, along the top of the pages inside Dinners. */
 export function Top({ back, to, title, right }: { back: string; to: import("../hub").DView; title: string; right?: React.ReactNode }) {
-  const { dim, setDview } = useHub();
-  const P = dim.phone;
+  const { setDview } = useHub();
   return (
-    <div className="fx dvtop" style={{ gap: 12, padding: "0 4px 14px" }}>
+    <div className="dvtop">
       <button className="dvback" aria-label={"Back to " + back} onClick={() => setDview(to)}><ChevL /><span>{back}</span></button>
-      <div style={{ flex: 1, minWidth: 0, fontSize: P ? 24 : 30, fontWeight: 700, letterSpacing: "-.04em", textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</div>
-      <div className="fx" style={{ gap: 8, flex: "none", minWidth: P ? 52 : 120, justifyContent: "flex-end" }}>{right}</div>
+      <h1 className="dvtitle">{title}</h1>
+      <div className="fx" style={{ gap: 8, flex: "none" }}>{right}</div>
     </div>
+  );
+}
+
+/** The calm page header: the page's name (and a word under it) on the left, the weather and the time on the right. */
+export function PageHead({ title, sub }: { title: string; sub?: React.ReactNode }) {
+  const { now, h24 } = useHub();
+  const ampm = h24 ? "" : now.getHours() < 12 ? "am" : "pm";
+  return (
+    <header className="phead">
+      <div className="phead-l"><h1>{title}</h1>{sub ? <span>{sub}</span> : null}</div>
+      <div className="phead-r"><Weather /><span className="num phead-t">{clockT(now, h24)}{ampm ? <small>{ampm}</small> : null}</span></div>
+    </header>
   );
 }
 

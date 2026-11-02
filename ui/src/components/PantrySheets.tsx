@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, post } from "../lib/api";
-import { XIcon } from "../lib/icons";
+import { DEMO, api, post } from "../lib/api";
+import { Check, XIcon } from "../lib/icons";
 import { NO_PANTRY, stockLevel, usePantry, useDinners, useShopping, type PantryData, type PItem, type Product } from "../data";
 import { useHub } from "../hub";
 import { SHEET_MS, useAutoFocus } from "../lib/focus";
 import { MAIN_UNITS, STARTERS, UNITS, fmtQty, guessUnit, stepFor } from "../lib/units";
-import { planUse } from "../lib/pantrylib";
+import { planUse, type UseRow } from "../lib/pantrylib";
 import { Pill, SheetFrame } from "./SheetFrame";
 import { ItemIcon } from "../lib/pantryicons";
 import { Scanner, scanProblem } from "./Scanner";
@@ -199,48 +199,74 @@ export function ShopItemSheet({ id }: { id: string }) {
   } />;
 }
 
-/** After cooking: what the dinner used from the pantry, to check and change before it's taken off. */
+/** After cooking: what's left of each thing the dinner used, guessed from the recipe, to check and change before the pantry is updated. */
 export function UsePantrySheet({ meal, factor }: { meal: string; factor: number }) {
-  const { closeSheet, soon } = useHub();
+  const { closeSheet, soon, dim } = useHub();
   const qc = useQueryClient();
   const { data: din } = useDinners();
   const { data: pan = NO_PANTRY } = usePantry();
   const m = din?.meals.find(x => x.id === meal);
-  const [rows, setRows] = useState(() => m ? planUse(m, pan, factor) : []);
-  const [busy, setBusy] = useState(false);
+  const [rows, setRows] = useState(() => m ? planUse(m, pan, factor).filter(r => r.item.qty > 0) : []);      // nothing to ask about what's already run out
+  const [busy, setBusy] = useState(false), [exact, setExact] = useState<string | null>(null), [saved, setSaved] = useState<{ id: string; delta: number }[] | null>(null);
   const setUsed = (id: string, n: number) => setRows(r => r.map(x => x.item.id === id ? { ...x, used: Math.max(0, Math.min(x.item.qty, Math.round(n * 1000) / 1000)) } : x));
+  const left = (r: UseRow) => Math.max(0, Math.round((r.item.qty - r.used) * 1000) / 1000);
+  const listed = rows.filter(r => pan.settings.auto_restock && r.item.auto && r.item.min > 0 && left(r) < r.item.min && r.used > 0);
+  const changed = rows.filter(r => r.used > 0);
+  const refresh = () => { qc.invalidateQueries({ queryKey: ["pantry"] }); qc.invalidateQueries({ queryKey: ["shopping"] }); };
   const apply = async () => {
-    const uses = rows.filter(r => r.used > 0).map(r => ({ id: r.item.id, delta: -r.used }));
+    const uses = changed.map(r => ({ id: r.item.id, delta: -r.used }));
+    if (!uses.length) { closeSheet(); soon("Nothing taken off the pantry."); return; }
     setBusy(true);
-    try {
-      if (uses.length) await post("/api/pantry/use", { uses });
-      qc.invalidateQueries({ queryKey: ["pantry"] }); qc.invalidateQueries({ queryKey: ["shopping"] }); closeSheet();
-      soon(uses.length ? `Pantry updated: ${uses.length} ${uses.length === 1 ? "thing" : "things"} used.` : "Nothing taken off the pantry.", uses.length ? async () => { try { await post("/api/pantry/use", { uses: uses.map(u => ({ id: u.id, delta: -u.delta })) }); qc.invalidateQueries({ queryKey: ["pantry"] }); qc.invalidateQueries({ queryKey: ["shopping"] }); } catch (e: any) { soon(e.message); } } : undefined);
-    } catch (e: any) { soon(e.message); setBusy(false); }
+    try { if (!DEMO) await post("/api/pantry/use", { uses }); refresh(); setSaved(uses); } catch (e: any) { soon(e.message); }
+    setBusy(false);
   };
-  return <SheetFrame title="Update the pantry" foot={<><button style={{ marginLeft: "auto" }} onClick={closeSheet}>Skip</button><button className="primary" style={{ minWidth: 220 }} disabled={busy} onClick={apply}>Update the pantry</button></>} body={
-    <div style={{ paddingTop: 6 }}>
-      <p style={{ fontSize: 18, color: "var(--soft)", margin: "6px 2px 10px" }}>{m ? `What ${m.name} used from the pantry.` : "What the dinner used."} Change anything that's not right.</p>
-      {rows.length ? rows.map(r => {
-        const used = r.used, after = Math.max(0, r.item.qty - used);
+  const undo = async () => {
+    if (!saved) return;
+    setBusy(true);
+    try { if (!DEMO) await post("/api/pantry/use", { uses: saved.map(u => ({ id: u.id, delta: -u.delta })) }); refresh(); setSaved(null); } catch (e: any) { soon(e.message); }
+    setBusy(false);
+  };
+  const tone = (r: UseRow) => left(r) <= 0 ? "bad" : r.item.min > 0 && left(r) < r.item.min ? "warn" : "good";
+  const size = dim.phone ? 44 : 56;
+  if (saved) return <SheetFrame title="Pantry updated" foot={<><button disabled={busy} onClick={undo}>Undo</button><button className="primary" style={{ marginLeft: "auto", minWidth: 200 }} onClick={closeSheet}>Done</button></>} body={
+    <div className="ul-done">
+      <div className="ul-tick"><Check /></div>
+      <p className="ul-sub">{changed.length === 1 ? "1 thing" : changed.length + " things"} changed after {m ? m.name.toLowerCase() : "dinner"}.</p>
+      {listed.length ? (
+        <section className="ul-card">
+          <h3>Went on the shopping list</h3>
+          <div className="ul-listed">{listed.map(r => <div key={r.item.id} className={"ul-tile " + tone(r)}><ItemIcon name={r.item.name} aisle={r.item.aisle} size={size} /><b>{r.item.name}</b><small>{left(r) <= 0 ? "Out" : fmtQty(left(r), r.item.unit) + " left"}</small></div>)}</div>
+        </section>
+      ) : null}
+      <section className="ul-card">
+        {changed.map(r => <div key={r.item.id} className="ul-ch"><ItemIcon name={r.item.name} aisle={r.item.aisle} size={36} tile={false} /><b>{r.item.name}</b><span>{fmtQty(r.item.qty, r.item.unit)}</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg><em className={tone(r)}>{left(r) <= 0 ? "Out" : fmtQty(left(r), r.item.unit)}</em></div>)}
+      </section>
+    </div>
+  } />;
+  return <SheetFrame title="What's left?" foot={<><span className="ul-hint">{listed.length ? `${listed.length} will go on the shopping list.` : changed.length ? "Nothing needs buying." : "Nothing will change."}</span><button onClick={closeSheet}>Skip</button><button className="primary" style={{ minWidth: 160 }} disabled={busy} onClick={apply}>Save</button></>} body={
+    <div style={{ paddingTop: 2 }}>
+      <p className="ul-sub" style={{ textAlign: "left", margin: "0 2px 14px" }}>{m ? `We've guessed from what ${m.name.toLowerCase()} needs.` : "We've guessed from the recipe."} Tap to change anything that's wrong.</p>
+      {rows.length ? <section className="ul-card rows">{rows.map(r => {
+        const after = left(r), guess = r.need !== null ? Math.max(0, Math.round((r.item.qty - Math.min(r.need, r.item.qty)) * 1000) / 1000) : null;
+        const opts: [string, number, string][] = [["As it was", 0, fmtQty(r.item.qty, r.item.unit)]];
+        if (guess !== null && guess > 0 && guess < r.item.qty) opts.push(["Recipe", r.item.qty - guess, fmtQty(guess, r.item.unit)]);
+        opts.push(["Out", r.item.qty, "None left"]);
+        const picked = opts.findIndex(o => Math.abs(o[1] - r.used) < 0.0005);
         return (
-          <div key={r.item.id} className="ptuse">
-            <div className="fx" style={{ justifyContent: "space-between", gap: 10 }}>
-              <b style={{ fontSize: 22 }}>{r.item.name}</b>
-              <span style={{ fontSize: 16, fontWeight: 600, color: "#5a6478" }}>{fmtQty(r.item.qty, r.item.unit)} → {fmtQty(after, r.item.unit)}</span>
+          <div key={r.item.id} className="ul-row">
+            <div className="ul-top">
+              <ItemIcon name={r.item.name} aisle={r.item.aisle} size={size} />
+              <span className="ul-n"><b>{r.item.name}</b><small>Had {fmtQty(r.item.qty, r.item.unit)}{r.ing.amount ? ` · needs ${r.ing.amount}` : ""}{!r.item.auto ? " · not used up by dinners" : ""}</small></span>
+              <span className={"ul-left " + tone(r)}>{after <= 0 ? "Out" : fmtQty(after, r.item.unit)}<small>left</small></span>
             </div>
-            <small style={{ display: "block", margin: "2px 0 8px", fontSize: 15, fontWeight: 600, color: "#6b7488" }}>{r.ing.amount ? `The dinner needs ${r.ing.amount}` : "No amount given"}{r.need === null ? ". It can't be worked out in " + (r.item.unit || "this unit") : ""}{!r.item.auto ? ". Not used up by dinners" : ""}</small>
-            <div className="fx" style={{ gap: 10, flexWrap: "wrap" }}>
-              <Stepper value={used} onChange={n => setUsed(r.item.id, n)} step={stepFor(r.item.unit)} label={`${r.item.name} used`} unit={r.item.unit} />
+            <div className="ul-opts" role="group" aria-label={`How much ${r.item.name} is left`}>
+              {opts.map(([l, used, sub], k) => <button key={l} aria-pressed={picked === k && exact !== r.item.id} className={picked === k && exact !== r.item.id ? "on" : ""} onClick={() => { setExact(null); setUsed(r.item.id, used); }}><b>{l}</b><small>{sub}</small></button>)}
+              <button aria-pressed={exact === r.item.id || picked < 0} className={exact === r.item.id || picked < 0 ? "on" : ""} onClick={() => setExact(exact === r.item.id ? null : r.item.id)}><b>Other</b><small>Say how much</small></button>
             </div>
-            <div className="fx" style={{ gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-              <Pill on={used === 0} onClick={() => setUsed(r.item.id, 0)}>None</Pill>
-              {r.need !== null ? <Pill on={used === Math.min(r.need, r.item.qty)} onClick={() => setUsed(r.item.id, r.need!)}>What the dinner needs</Pill> : null}
-              <Pill on={used === r.item.qty && r.item.qty > 0} onClick={() => setUsed(r.item.id, r.item.qty)}>All of it</Pill>
-            </div>
+            {exact === r.item.id ? <div className="ul-exact"><span>Left</span><Stepper value={after} onChange={n => setUsed(r.item.id, r.item.qty - Math.min(n, r.item.qty))} step={stepFor(r.item.unit)} label={`${r.item.name} left`} unit={r.item.unit} /></div> : null}
           </div>
         );
-      }) : <p className="dvnone" style={{ fontSize: 20 }}>None of this dinner's ingredients are in the pantry yet, so there's nothing to take off.</p>}
+      })}</section> : <p className="dvnone">None of this dinner's ingredients are in the pantry yet, so there's nothing to take off.</p>}
     </div>
   } />;
 }

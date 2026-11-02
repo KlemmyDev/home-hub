@@ -13,7 +13,7 @@ import { Avs } from "./Calendar";
 
 const fx = (extra?: CSSProperties): CSSProperties => ({ display: "flex", alignItems: "center", ...extra });
 
-function Weather() {
+export function Weather() {
   const { S } = useHub();
   const { data: w } = useQuery({ queryKey: ["weather"], queryFn: () => api<any>("/api/weather"), enabled: !!S.config.weather?.connected, refetchInterval: 600000, staleTime: 300000 });
   if (!S.config.weather?.connected || !w || w.error || w.temp === undefined) return null;

@@ -1,3 +1,4 @@
+import { api } from "../lib/api";
 import { useEffect, useRef, useState } from "react";
 import { focusManager, useQuery } from "@tanstack/react-query";
 import { addDays, clockT, startOfDay } from "../lib/dates";
@@ -55,7 +56,7 @@ export function Standby() {
   const p = getSettings();
   const day = startOfDay(now);
   const { data: ev = EMPTY_EVENTS } = useEvents(startOfDay(awakeNow), addDays(startOfDay(awakeNow), 2));
-  const { data: weather } = useQuery<any>({ queryKey: ["weather"], enabled: false, staleTime: Infinity });
+  const { data: weather } = useQuery<any>({ queryKey: ["weather"], queryFn: () => api<any>("/api/weather"), enabled: false, staleTime: Infinity });
   const next = mode !== "awake" && p.showNext ? ev.list.filter(e => !e.all_day && e.s > now).sort((a, b) => +a.s - +b.s)[0] : undefined;
   if (mode === "awake" && !leaving) return null;
   const minute = Math.floor(+now / 60000), dx = Math.round(Math.sin(minute * 12.9898) * 40), dy = Math.round(Math.sin(minute * 78.233) * 60);      // drifts a little each minute, so nothing stays lit in one place

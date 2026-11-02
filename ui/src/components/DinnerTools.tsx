@@ -15,6 +15,7 @@ import { Pill, SheetFrame } from "./SheetFrame";
 import { useMealSave } from "./Dinners";
 
 const KIND_LIST = Object.entries(KINDS);
+const Bell = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" /><path d="M10 21h4" /></svg>;
 
 /* ---------- fill the week ---------- */
 export function Suggest({ din }: { din: Dinners | undefined }) {
@@ -37,12 +38,12 @@ export function Suggest({ din }: { din: Dinners | undefined }) {
   const chosen = Object.entries(picks).filter(([, p]) => p.meal || p.kind);
   const use = async () => {
     setBusy(true);
-    try { await post("/api/dinner-plan/many", chosen.map(([date, p]) => ({ date, meal_id: p.meal?.id || "", kind: p.kind || "" }))); await qc.invalidateQueries({ queryKey: ["dinners"] }); soon(`${chosen.length} dinners planned.`); setDview({ v: "home" }); }
+    try { await post("/api/dinner-plan/many", chosen.map(([date, p]) => ({ date, meal_id: p.meal?.id || "", kind: p.kind || "" }))); await qc.invalidateQueries({ queryKey: ["dinners"] }); soon(`${chosen.length} dinners planned.`); setDview({ v: "week" }); }
     catch (e: any) { soon(e.message); setBusy(false); }
   };
   return (
     <div style={wrap(P)}>
-      <Top back="Dinners" to={{ v: "home" }} title="Fill the week" right={<button className="cbtn" style={{ padding: "0 18px", background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={shuffle}>Shuffle</button>} />
+      <Top back="This week" to={{ v: "week" }} title="Fill the week" right={<button className="dvbtn" onClick={shuffle}>Shuffle</button>} />
       <div className="scroll dvbody" style={{ flex: 1, minHeight: 0, paddingBottom: 150 }}>
         <p style={{ fontSize: 18, color: "var(--soft)", margin: "0 4px 10px" }}>Ideas for the empty nights, using what you've had lately, what everyone likes, and who's busy. Nothing is saved until you choose.</p>
         {days.map(d => {
@@ -86,7 +87,7 @@ export function Rules({ din }: { din: Dinners | undefined }) {
   const P = dim.phone, days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   return (
     <div style={wrap(P)}>
-      <Top back="Dinners" to={{ v: "home" }} title="Fixed nights" />
+      <Top back="This week" to={{ v: "week" }} title="Fixed nights" />
       <div className="scroll dvbody" style={{ flex: 1, minHeight: 0, paddingBottom: 130 }}>
         <p style={{ fontSize: 18, color: "var(--soft)", margin: "0 4px 10px" }}>Nights that are usually the same, like pizza on Fridays. "Fill the week" starts from these.</p>
         {days.map((n, i) => {
@@ -136,7 +137,7 @@ export function History({ din }: { din: Dinners | undefined }) {
   const name = (n: { meal: string; kind?: string }) => n.meal ? din?.meals.find(m => m.id === n.meal)?.name : KINDS[n.kind || ""];
   return (
     <div style={wrap(P)}>
-      <Top back="Dinners" to={{ v: "home" }} title="What we've eaten" />
+      <Top back="This week" to={{ v: "week" }} title="What we've eaten" />
       <div className="scroll dvbody" style={{ flex: 1, minHeight: 0, paddingBottom: 130 }}>
         <div className="fx" style={{ gap: 10, justifyContent: "center", margin: "0 0 10px" }}>
           <button className="cnav" aria-label="Earlier month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><ChevL /></button>
@@ -209,9 +210,9 @@ export function Cook({ din, id }: { din: Dinners | undefined; id: string }) {
   const alarming = list.filter(t => t.done);
   return (
     <div style={wrap(P)}>
-      <Top back={m.name} to={{ v: "meal", id }} title="Cooking" right={<button className="cbtn" style={{ padding: "0 18px", background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={finish}>Finish</button>} />
-      {alarming.map(t => <button key={t.id} className="cktimer alarm" onClick={() => { timers = timers.filter(x => x.id !== t.id); poke(); }}>⏰ {t.label} timer is done. Tap to stop.</button>)}
-      <div className="fx" style={{ gap: 8, margin: "0 0 12px" }}><Pill on={tab === "steps"} onClick={() => setTab("steps")}>Steps</Pill><Pill on={tab === "food"} onClick={() => setTab("food")}>Ingredients</Pill></div>
+      <Top back={m.name} to={{ v: "meal", id }} title="Cooking" right={<button className="dvbtn dark" onClick={finish}>Finish</button>} />
+      {alarming.map(t => <button key={t.id} className="cktimer alarm" onClick={() => { timers = timers.filter(x => x.id !== t.id); poke(); }}><Bell />{t.label} timer is done. Tap to stop.</button>)}
+      <div className="dvtabs"><div className="seg2" role="tablist" aria-label="Cooking"><button role="tab" aria-selected={tab === "steps"} className={tab === "steps" ? "on" : ""} onClick={() => setTab("steps")}>Steps</button><button role="tab" aria-selected={tab === "food"} className={tab === "food" ? "on" : ""} onClick={() => setTab("food")}>Ingredients</button></div></div>
       <div className="scroll dvbody" style={{ flex: 1, minHeight: 0, paddingBottom: 150 }}>
         {tab === "steps" ? (
           steps.length ? (
@@ -235,7 +236,7 @@ export function Cook({ din, id }: { din: Dinners | undefined; id: string }) {
           </>
         )}
         <h3 className="dvh">Timers</h3>
-        <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>{[5, 10, 15, 20, 30, 45, 60].map(mn => <Pill key={mn} onClick={() => start(mn)}>{mn} min</Pill>)}</div>
+        <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>{[5, 10, 15, 20, 30, 45, 60].map(mn => <button key={mn} className="chip" onClick={() => start(mn)}>{mn} min</button>)}</div>
         {list.filter(t => !t.done).map(t => <div key={t.id} className="cktimer"><span className="num">{mmss(t.end - Date.now())}</span><small>{t.label} timer</small><button className="cnav" aria-label="Cancel timer" onClick={() => { timers = timers.filter(x => x.id !== t.id); poke(); }}><XIcon /></button></div>)}
       </div>
     </div>

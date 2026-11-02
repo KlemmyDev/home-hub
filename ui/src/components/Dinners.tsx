@@ -2,17 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, DEMO, post } from "../lib/api";
 import { addDays, fromYmd, longDay, nowZ, sameDay, startOfDay, weekStart, ymd } from "../lib/dates";
-import { Check, Chev, ChevL, ChevR, XIcon } from "../lib/icons";
-import { DIETS, EMPTY_EVENTS, KINDS, dinnerFor, useDinners, useEvents, type Dinners, type Ingredient, type Meal, type Product } from "../data";
-import { useHub } from "../hub";
+import { Check, Chev, ChevL, ChevR, DinnerIcon, SearchIcon, XIcon } from "../lib/icons";
+import { DIETS, EMPTY_EVENTS, KINDS, dinnerFor, stockLevel, useDinners, useEvents, type Dinners, type Ingredient, type Meal, type PantryData, type PItem, type Product } from "../data";
+import { useHub, type DView } from "../hub";
 import { useNav } from "../nav";
 import { FoodIcon } from "../lib/foodicons";
-import { PanelTop, Top, wrap } from "./Panels";
+import { ItemIcon } from "../lib/pantryicons";
+import { PageHead, Top, wrap } from "./Panels";
 import { Pill, SheetFrame } from "./SheetFrame";
 import { ago, busyAt, clashText, cookingFor, dayName, dietClash, homeFor, metaLine, productLine, scaleAmount, useStats } from "../lib/dinnerlib";
 import { Cook, copyLastWeek, History, Rules, Suggest } from "./DinnerTools";
 import { NO_PANTRY, usePantry } from "../data";
-import { amountIn } from "../lib/units";
+import { amountIn, fmtQty } from "../lib/units";
 import { findItem, haveEnough } from "../lib/pantrylib";
 import { Scanner, scanProblem } from "./Scanner";
 import { SHEET_MS, focusRef, useAutoFocus } from "../lib/focus";
@@ -54,12 +55,150 @@ export function MenuPanel() {
   const { data: din } = useDinners();
   return (
     <div className="dvpage" key={dview.v === "meal" ? "m" + dview.id : dview.v} style={{ width: "100%", height: "100%" }}>
-      {dview.v === "suggest" ? <Suggest din={din} /> : dview.v === "rules" ? <Rules din={din} /> : dview.v === "history" ? <History din={din} /> : dview.v === "cook" ? <Cook din={din} id={dview.id} /> : dview.v === "ideas" ? <Ideas din={din} /> : dview.v === "meal" ? <MealPage din={din} id={dview.id} /> : dview.v === "shop" ? <ShopWeek din={din} /> : <Week din={din} />}
+      {dview.v === "suggest" ? <Suggest din={din} /> : dview.v === "rules" ? <Rules din={din} /> : dview.v === "history" ? <History din={din} /> : dview.v === "cook" ? <Cook din={din} id={dview.id} /> : dview.v === "ideas" ? <Ideas din={din} /> : dview.v === "meal" ? <MealPage din={din} id={dview.id} /> : dview.v === "shop" ? <ShopWeek din={din} /> : dview.v === "week" ? <Week din={din} /> : <Tonight din={din} />}
     </div>
   );
 }
 
-/* ----- the week, as before: the simple page you land on ----- */
+/** Tonight, This week and Dinner ideas: the three faces of the Dinners page, side by side in a switch. */
+function DinTabs({ right }: { right?: React.ReactNode }) {
+  const { dview, setDview } = useHub();
+  const tabs: [DView["v"], string][] = [["home", "Tonight"], ["week", "This week"], ["ideas", "Dinner ideas"]];
+  return (
+    <div className="dvtabs">
+      <div className="seg2" role="tablist" aria-label="Dinners">
+        {tabs.map(([v, l]) => <button key={v} role="tab" aria-selected={dview.v === v} className={dview.v === v ? "on" : ""} onClick={() => setDview({ v } as DView)}>{l}</button>)}
+      </div>
+      <div className="fx" style={{ gap: 8, flex: "none" }}>{right}</div>
+    </div>
+  );
+}
+
+const Warn = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3 2.5 20h19z" /><path d="M12 10v4M12 17.2v.1" /></svg>;
+const Snow = () => <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2f5fa8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2v20M3.5 7l17 10M20.5 7l-17 10M9 3.5l3 2 3-2M9 20.5l3-2 3 2" /></svg>;
+const Cam = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>;
+const Play = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z" /></svg>;
+
+/** A per-day note kept on this screen only (thawing, listed), so it survives a reload but needs no server. Read on every render: the key can change once the dinners load. */
+const dayFlags = new Set<string>();
+function useDayFlag(name: string, day: string): [boolean, (v: boolean) => void] {
+  const key = `hub-${name}-${day}`, [, bump] = useState(0);
+  let on = dayFlags.has(key);
+  try { on = on || localStorage.getItem(key) === "1"; } catch { /* fine: kept in memory only */ }
+  return [on, (v: boolean) => { v ? dayFlags.add(key) : dayFlags.delete(key); try { v ? localStorage.setItem(key, "1") : localStorage.removeItem(key); } catch { /* fine */ } bump(n => n + 1); }];
+}
+
+type Need = { i: Ingredient; item?: PItem; status: string; tone: "good" | "warn" | "bad" | "quiet"; have: boolean };
+/** What one ingredient looks like against the pantry: there, low, out, or not kept there at all. */
+function needOf(pan: PantryData, i: Ingredient, factor: number): Need {
+  const item = findItem(pan, i), where = item?.aisle && item.aisle !== "Other" ? item.aisle : "";
+  if (!item) return i.staple ? { i, status: "Usually in", tone: "quiet", have: true } : { i, status: "Not in the pantry", tone: "bad", have: false };
+  if (item.qty <= 0) return { i, item, status: "Out", tone: "bad", have: !!i.staple };
+  if (!haveEnough(pan, i, factor)) return { i, item, status: "Not enough" + (where ? " · " + where : ""), tone: "warn", have: false };
+  if (stockLevel(item) === "low") return { i, item, status: "Low" + (where ? " · " + where : ""), tone: "warn", have: true };
+  return { i, item, status: fmtQty(item.qty, item.unit) + (where ? " · " + where : ""), tone: "good", have: true };
+}
+
+/* ----- tonight: what's for dinner, whether everything's here, and a big Start cooking ----- */
+function Tonight({ din }: { din: Dinners | undefined }) {
+  const { dim, now, people, openSheet, setDview, soon } = useHub();
+  const { go } = useNav();
+  const qc = useQueryClient();
+  const P = dim.phone, key = ymd(now), night = din?.plan[key], meal = din?.meals.find(x => x.id === night?.meal), t = dinnerFor(din, people, now);
+  const { data: pan = NO_PANTRY } = usePantry();
+  const [thawed, setThawed] = useDayFlag("thawed", key), [added, setAdded] = useDayFlag("listed", key + (meal?.id || ""));
+  const cook = people.find(p => p.id === night?.cook);
+  const factor = meal?.serves ? cookingFor(din, people, key, meal) / meal.serves : 1;
+  const ings = meal?.ingredients || [];
+  const needs = ings.map(i => needOf(pan, i, factor));
+  const get = needs.filter(n => !n.have);
+  const frozen = needs.find(n => n.item && n.item.qty > 0 && n.item.aisle === "Frozen");
+  const warn = clashText(dietClash(meal, homeFor(din, people, key)));
+  const pick = () => { if (!DEMO) openSheet({ mode: "dinner", date: key, cook: night?.cook || null }); };
+  const setKind = async (kind: string) => { if (DEMO) return; try { await post("/api/dinner-plan", { date: key, kind }); await qc.invalidateQueries({ queryKey: ["dinners"] }); } catch (e: any) { soon(e.message); } };
+  const listIt = async () => {
+    if (added) return go("pantry");
+    try { if (!DEMO) await addToList(get.map(n => n.i), meal!.name, factor, pan); setAdded(true); qc.invalidateQueries({ queryKey: ["shopping"] }); } catch (e: any) { soon(e.message); }
+  };
+  const later = [1, 2, 3, 4].map(n => addDays(startOfDay(now), n)).map(d => ({ d, t: dinnerFor(din, people, d), cook: people.find(p => p.id === din?.plan[ymd(d)]?.cook) }));
+  return (
+    <div style={wrap(P)}>
+      <PageHead title="Dinners" />
+      <DinTabs />
+      <div className="scroll dvbody" style={{ flex: 1, minHeight: 0, paddingBottom: P ? 110 : 130 }}>
+        <section className="tn-card">
+          <div className="tn-top">
+            {t ? <FoodIcon name={t.name} size={P ? 64 : 84} /> : <span className="tn-none"><DinnerIcon color="#c2410c" /></span>}
+            <div className="tn-m">
+              <span className="tn-cap">Tonight · {now.toLocaleDateString([], { weekday: "long" })}</span>
+              <h2 className="tn-name">{t ? t.name : "Nothing planned yet"}</h2>
+              {cook ? <span className="tn-cook" style={{ "--pc": cook.color } as React.CSSProperties}><i>{cook.name.trim()[0]?.toUpperCase()}</i>{cook.name}'s cooking</span> : null}
+            </div>
+            {t ? <button className="tn-change" onClick={pick}>Change</button> : null}
+          </div>
+          {warn ? <p className="tn-warn"><Warn />{warn}</p> : null}
+          {!t ? (
+            <div className="tn-empty">
+              <button className="tn-go" onClick={pick}>Choose a dinner</button>
+              <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>{Object.entries(KINDS).map(([k, l]) => <button key={k} className="chip" onClick={() => setKind(k)}>{l}</button>)}</div>
+            </div>
+          ) : !meal ? <p className="tn-note">Nothing to cook tonight.</p> : ings.length ? (
+            <>
+              <div className="tn-h"><h3>What it needs</h3><span>{needs.filter(n => n.have).length} of {needs.length} at home</span></div>
+              <div className="tn-needs">{needs.map(n => (
+                <button key={n.i.id} className={"tn-need " + n.tone} onClick={() => !DEMO && openSheet({ mode: "ingredient", meal: meal.id, ing: n.i.id })}>
+                  <ItemIcon name={n.i.name} aisle={n.item?.aisle} size={P ? 44 : 54} />
+                  <span><b>{n.i.name}</b><small>{n.status}</small></span>
+                </button>
+              ))}</div>
+            </>
+          ) : (
+            <div className="tn-empty">
+              <p className="tn-note">No ingredients yet. Add them and this shows what's at home and what to buy.</p>
+              <button className="chip" onClick={() => setDview({ v: "meal", id: meal.id })}>Add the ingredients</button>
+            </div>
+          )}
+        </section>
+
+        {frozen ? (
+          <section className={"tn-band thaw" + (thawed ? " done" : "")}>
+            <span className="tn-bi"><Snow /></span>
+            <span className="tn-bt"><b>The {frozen.i.name.toLowerCase()} is in the freezer</b><small>{thawed ? "Taken out to thaw." : now.getHours() < 12 ? "Take it out this morning so it's ready by dinner." : "Take it out now, or thaw it in the microwave."}</small></span>
+            <button className="tn-bb" aria-pressed={thawed} onClick={() => setThawed(!thawed)}>{thawed ? "Taken out" : "Taken out?"}</button>
+          </section>
+        ) : null}
+
+        {meal && ings.length ? (get.length ? (
+          <section className={"tn-band get" + (added ? " done" : "")}>
+            <span className="tn-pics" aria-hidden>{get.slice(0, 3).map(n => <ItemIcon key={n.i.id} name={n.i.name} aisle={n.item?.aisle} size={44} />)}</span>
+            <span className="tn-bt"><b>{added ? "On the shopping list" : `${get.length} to get before you cook`}</b><small>{get.map(n => n.i.name).join(", ")}</small></span>
+            <button className="tn-bb dark" onClick={listIt}>{added ? "See the list" : "Add to the list"}</button>
+          </section>
+        ) : (
+          <section className="tn-band done"><span className="tn-bi"><Check /></span><span className="tn-bt"><b>Everything's at home</b><small>Nothing to buy for tonight.</small></span></section>
+        )) : null}
+
+        {meal ? (
+          <div className="tn-acts">
+            <button className="tn-start" onClick={() => setDview({ v: "cook", id: meal.id })}><Play />Start cooking</button>
+            <button className="tn-recipe" onClick={() => setDview({ v: "meal", id: meal.id })}>Recipe</button>
+          </div>
+        ) : null}
+
+        <div className="tn-h" style={{ margin: "26px 6px 10px" }}><h3>Coming up</h3><button className="dvlink" onClick={() => setDview({ v: "week" })}>The whole week</button></div>
+        <div className="tn-later">{later.map(({ d, t, cook }) => (
+          <button key={+d} className={"tn-day" + (t ? "" : " empty")} onClick={() => !DEMO && openSheet({ mode: "dinner", date: ymd(d), cook: din?.plan[ymd(d)]?.cook || null })}>
+            <span className="tn-dw">{sameDay(d, addDays(now, 1)) ? "Tomorrow" : d.toLocaleDateString([], { weekday: "long" })}</span>
+            {t ? <FoodIcon name={t.name} size={P ? 40 : 48} /> : <span className="dplus" aria-hidden>+</span>}
+            <span className="tn-dn">{t ? t.name : "Choose a dinner"}{cook ? <small>{cook.name} cooking</small> : null}</span>
+          </button>
+        ))}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ----- the week: a row for each night ----- */
 function Week({ din }: { din: Dinners | undefined }) {
   const { dim, now, people, menuWeek, setMenuWeek, openSheet, setDview, soon } = useHub();
   const { go } = useNav();
@@ -78,54 +217,43 @@ function Week({ din }: { din: Dinners | undefined }) {
     if (t) planned++;
     if (n) withIng++;
     return (
-      <button key={i} className={"drow" + (today ? " today" : "") + (t ? " set" : "")} aria-label={longDay(day) + (t ? ": " + t.name : "")} onClick={() => {
+      <button key={i} className={"drow" + (today ? " today" : "") + (t ? " set" : "") + (past ? " past" : "")} aria-label={longDay(day) + (t ? ": " + t.name : "")} onClick={() => {
         if (DEMO) return;
         const p = din?.plan[ymd(day)];
         openSheet({ mode: "dinner", date: ymd(day), cook: p && p.cook ? p.cook : null });
       }}>
-        <span className={"dnumbox" + (today ? " now" : "")}><span className="dnum2 num">{day.getDate()}</span></span>
+        <span className="dnumbox"><small>{day.toLocaleDateString([], { weekday: "short" })}</small><span className="dnum2 num">{day.getDate()}</span></span>
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span className="dday">{day.toLocaleDateString([], { weekday: "long" })}{today ? <b className="dtoday">Today</b> : null}</span>
+          {today ? <span className="dday"><b className="dtoday">Tonight</b></span> : null}
           {t ? <>
             <span className="dname">{t.name}</span>
             {t.cook || n || awayNames ? <span className="dcook">{t.cook ? <i className="av" style={{ width: 22, height: 22, fontSize: 12, background: t.cookColor || "#8a93a6" }}>{t.cook[0].toUpperCase()}</i> : null}{[t.cook ? `${t.cook} cooking` : "", n ? `${n} ingredients` : "", awayNames ? `${awayNames} away` : ""].filter(Boolean).join(" · ")}</span> : null}
-            {warn ? <span className="dwarn">⚠ {warn}</span> : null}
+            {warn ? <span className="dwarn"><Warn />{warn}</span> : null}
             {busy ? <span className="dbusy">{busy.title} at {busy.s.getHours() % 12 || 12}{busy.s.getMinutes() ? ":" + String(busy.s.getMinutes()).padStart(2, "0") : ""}{busy.s.getHours() < 12 ? "am" : "pm"}</span> : null}
-          </> : <><span className="dempty">{past ? "No dinner planned" : "Tap to choose a dinner"}</span>{busy ? <span className="dbusy">{busy.title} at {busy.s.getHours() % 12 || 12}{busy.s.getHours() < 12 ? "am" : "pm"}: maybe something quick</span> : null}</>}
+          </> : <><span className="dempty">{past ? "No dinner planned" : "Choose a dinner"}</span>{busy ? <span className="dbusy">{busy.title} at {busy.s.getHours() % 12 || 12}{busy.s.getHours() < 12 ? "am" : "pm"}: maybe something quick</span> : null}</>}
         </span>
-        {t ? <FoodIcon name={t.name} size={P ? 64 : 84} /> : <span className="dplus" aria-hidden="true">+</span>}
+        {t ? <FoodIcon name={t.name} size={P ? 56 : 72} /> : <span className="dplus" aria-hidden="true">+</span>}
       </button>
     );
   });
   return (
     <div style={wrap(P)}>
-      <PanelTop title="Dinners" />
-      <div className="fx" style={{ justifyContent: "space-between", padding: "0 0 12px", gap: 10 }}>
-        <div className="fx" style={{ gap: 10, minWidth: 0 }}>
-          <button className="cnav" aria-label="Back" onClick={() => setMenuWeek(addDays(w, -7))}><ChevL /></button>
-          <span style={{ fontSize: P ? 21 : 28, fontWeight: 700, letterSpacing: "-.04em", whiteSpace: "nowrap", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{title}</span>
-          <button className="cnav" aria-label="Forward" onClick={() => setMenuWeek(addDays(w, 7))}><ChevR /></button>
-        </div>
-        <div className="fx" style={{ gap: 8, flex: "none" }}>
-          {thisWeek ? null : <button className="cbtn" style={{ background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={() => setMenuWeek(nowZ())}>This week</button>}
-          {withIng ? <button className="cbtn" style={{ padding: "0 18px", background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={() => setDview({ v: "shop" })}>{P ? "Shop" : "Shop this week"}</button> : null}
-          <button className="cbtn accent" hidden={DEMO} style={{ padding: "0 20px" }} onClick={() => setDview({ v: "ideas" })}>{P ? "Ideas" : "Ideas"}{din?.meals.length ? " · " + din.meals.length : ""}</button>
-        </div>
+      <PageHead title="Dinners" sub={`${planned} of 7 planned`} />
+      <DinTabs right={withIng ? <button className="tc-open" onClick={() => setDview({ v: "shop" })}>{P ? "Shop" : "Shop this week"}</button> : null} />
+      <div className="fx dvweek">
+        <button className="cnav" aria-label="Last week" onClick={() => setMenuWeek(addDays(w, -7))}><ChevL /></button>
+        <span className="dvweek-t">{title}</span>
+        <button className="cnav" aria-label="Next week" onClick={() => setMenuWeek(addDays(w, 7))}><ChevR /></button>
+        {thisWeek ? null : <button className="chip" style={{ marginLeft: "auto" }} onClick={() => setMenuWeek(nowZ())}>This week</button>}
       </div>
-      <div className="fx dvchips" style={{ padding: "0 0 10px" }}>
-        <Pill onClick={() => setDview({ v: "suggest" })}>✨ Fill the week</Pill>
-        <Pill onClick={async () => { try { const n = await copyLastWeek(din, w); await qc.invalidateQueries({ queryKey: ["dinners"] }); soon(n ? `${n} dinner${n === 1 ? "" : "s"} copied from last week.` : "Those nights were already planned."); } catch (e: any) { soon(e.message); } }}>Copy last week</Pill>
-        <Pill onClick={() => setDview({ v: "rules" })}>Fixed nights</Pill>
-        <Pill onClick={() => go("pantry")}>Pantry</Pill>
-        <Pill onClick={() => setDview({ v: "history" })}>What we've eaten</Pill>
+      <div className="fx dvchips">
+        <button className="chip" onClick={() => setDview({ v: "suggest" })}>Fill the week</button>
+        <button className="chip" onClick={async () => { try { const n = await copyLastWeek(din, w); await qc.invalidateQueries({ queryKey: ["dinners"] }); soon(n ? `${n} dinner${n === 1 ? "" : "s"} copied from last week.` : "Those nights were already planned."); } catch (e: any) { soon(e.message); } }}>Copy last week</button>
+        <button className="chip" onClick={() => setDview({ v: "rules" })}>Fixed nights</button>
+        <button className="chip" onClick={() => setDview({ v: "history" })}>What we've eaten</button>
+        <button className="chip" onClick={() => go("pantry")}>Pantry</button>
       </div>
-      <div className="drows">{rows}</div>
-      <div style={{ flex: "none", height: 140, padding: "10px 4px 0" }}>
-        <div className="pbar" aria-hidden style={{ margin: "0 0 14px" }}>{Array.from({ length: 7 }, (_, i) => <i key={i} className={dinnerFor(din, people, addDays(w, i)) ? "on" : ""} />)}</div>
-        <div className="fx" style={{ justifyContent: "space-between", gap: 12 }}>
-          <span style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-.02em" }}>{planned} of 7 planned</span>
-        </div>
-      </div>
+      <div className="drows">{rows}<div aria-hidden style={{ flex: "none", height: P ? 90 : 110 }} /></div>
     </div>
   );
 }
@@ -150,21 +278,22 @@ function Ideas({ din }: { din: Dinners | undefined }) {
   };
   return (
     <div style={wrap(P)}>
-      <Top back="Dinners" to={{ v: "home" }} title="Dinner ideas" right={<button className="cbtn accent" style={{ padding: "0 18px" }} onClick={() => setAdding(a => !a)}>{adding ? "Cancel" : "+ New"}</button>} />
+      <PageHead title="Dinners" sub={meals.length ? `${meals.length} we know how to make` : undefined} />
+      <DinTabs right={DEMO ? null : <button className="dvnew" onClick={() => setAdding(a => !a)}>{adding ? "Cancel" : "+ New"}</button>} />
       {adding ? (
         <form className="qadd" style={{ padding: "0 0 12px" }} onSubmit={e => { e.preventDefault(); make(); }}>
           <input value={text} onChange={e => setText(e.target.value)} maxLength={40} placeholder="Spaghetti Bolognese, Tacos…" aria-label="New dinner" autoComplete="off" ref={focusRef} enterKeyHint="done" />
           <button type="submit" className="primary" disabled={!text.trim()}>Add</button>
         </form>
       ) : null}
-      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search dinners or ingredients" aria-label="Search dinners" autoComplete="off" enterKeyHint="search" style={{ marginBottom: 10 }} />
+      <label className="dvsearch"><SearchIcon /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Search dinners or ingredients" aria-label="Search dinners" autoComplete="off" enterKeyHint="search" /></label>
       <div className="fx dvchips">
-        {[["az", "A to Z"], ["most", "Most often"], ["lately", "Not had lately"]].map(([v, l]) => <Pill key={v} on={sort === v} onClick={() => setSort(v as Sort)}>{l}</Pill>)}
+        {[["az", "A to Z"], ["most", "Most often"], ["lately", "Not had lately"]].map(([v, l]) => <button key={v} className={"chip" + (sort === v ? " on" : "")} aria-pressed={sort === v} onClick={() => setSort(v as Sort)}>{l}</button>)}
         <span className="dvsep" aria-hidden />
-        {meals.some(m => m.favourite) ? <Pill on={tag === "★"} onClick={() => setTag(tag === "★" ? null : "★")}>★ Favourites</Pill> : null}
-        {tags.map(t => <Pill key={t} on={tag === t} onClick={() => setTag(tag === t ? null : t)}>{t}</Pill>)}
+        {meals.some(m => m.favourite) ? <button className={"chip" + (tag === "★" ? " on" : "")} aria-pressed={tag === "★"} onClick={() => setTag(tag === "★" ? null : "★")}>★ Favourites</button> : null}
+        {tags.map(t => <button key={t} className={"chip" + (tag === t ? " on" : "")} aria-pressed={tag === t} onClick={() => setTag(tag === t ? null : t)}>{t}</button>)}
       </div>
-      <div className="scroll" style={{ flex: 1, minHeight: 0, paddingBottom: 130 }}>
+      <div className="scroll" style={{ flex: 1, minHeight: 0, paddingBottom: P ? 100 : 130 }}>
         {shown.length ? <div className="dvgrid">{shown.map(m => {
           const s = stats[m.id];
           return (
@@ -172,14 +301,14 @@ function Ideas({ din }: { din: Dinners | undefined }) {
               <FoodIcon name={m.name} size={P ? 56 : 68} />
               <span className="dvct"><b>{m.name}{m.favourite ? <i className="dvstar" aria-label="Favourite">★</i> : null}</b>
                 <small>{metaLine(m) || "Tap to add the ingredients"}</small>
-                {s?.last ? <small className="dvlast">Had {ago(s.last, now)}{s.count > 1 ? ` · ${s.count} times` : ""}</small> : null}</span>
+                {s?.next ? <small className="dvnext">On {dayName(s.next, now)}</small> : s?.last ? <small className="dvlast">Had {ago(s.last, now)}{s.count > 1 ? ` · ${s.count} times` : ""}</small> : null}</span>
               <Chev />
             </button>
           );
         })}</div> : (
-          <div style={{ padding: "40px 0", textAlign: "center" }}>
-            <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-.02em" }}>{meals.length ? "No dinners match" : "No dinners yet"}</div>
-            <div style={{ fontSize: 18, color: "#6b7488", marginTop: 6 }}>{meals.length ? "Try a different word, or clear the filter." : "Add your favourites with + New and they turn up here."}</div>
+          <div className="dvempty">
+            <b>{meals.length ? "No dinners match" : "No dinners yet"}</b>
+            <span>{meals.length ? "Try a different word, or clear the filter." : "Add your favourites with + New and they turn up here."}</span>
           </div>
         )}
       </div>
@@ -200,7 +329,7 @@ function MealPage({ din, id }: { din: Dinners | undefined; id: string }) {
   const [notes, setNotes] = useState(m?.notes || ""), [link, setLink] = useState(m?.link || ""), [tag, setTag] = useState(""), [sure, setSure] = useState(false), [name, setName] = useState(m?.name || ""), [renaming, setRenaming] = useState(false), [msg, setMsg] = useState("");
   useEffect(() => { if (m) { setNotes(m.notes || ""); setLink(m.link || ""); setName(m.name); } }, [m?.id]);
   if (!m) return (
-    <div style={wrap(P)}><Top back="Dinner ideas" to={{ v: "ideas" }} title="Dinner" /><p style={{ fontSize: 20, color: "#6b7488", padding: 8 }}>That dinner has gone. Go back to the list to pick another.</p></div>
+    <div style={wrap(P)}><Top back="Dinner ideas" to={{ v: "ideas" }} title="Dinner" /><p className="dvnone">That dinner has gone. Go back to the list to pick another.</p></div>
   );
   const s = stats[m.id], ings = m.ingredients || [];
   const stocked = (i: Ingredient) => haveEnough(pan, i, m.serves ? cookFor / m.serves : 1);
@@ -227,17 +356,18 @@ function MealPage({ din, id }: { din: Dinners | undefined; id: string }) {
             </div>
           </div>
         </section>
-        <div className="fx" style={{ gap: 10, flexWrap: "wrap", margin: "4px 0 6px" }}>
-          <button className="cbtn accent" style={{ padding: "0 22px" }} onClick={() => openSheet({ mode: "planmeal", meal: m.id })}>Plan it</button>
-          {ings.length || m.notes ? <button className="cbtn" style={{ padding: "0 22px", background: "#101828", color: "#fff" }} onClick={() => setDview({ v: "cook", id: m.id })}>Cook it</button> : null}
-          {buy.length ? <button className="cbtn" style={{ padding: "0 22px", background: "#fff", color: "#101828", border: "1.5px solid #d5dbe6" }} onClick={shop}>Add to shopping list</button> : null}
-          {msg ? <button className="dvlink" onClick={() => go("pantry")}>{msg} Open the list</button> : null}
+        <div className="dvacts">
+          {ings.length || m.notes ? <button className="dvbtn dark" onClick={() => setDview({ v: "cook", id: m.id })}><Play />Cook it</button> : null}
+          <button className="dvbtn" onClick={() => openSheet({ mode: "planmeal", meal: m.id })}>Plan it</button>
+          {buy.length ? <button className="dvbtn" onClick={shop}>Add {buy.length} to the list</button> : null}
         </div>
+        {msg ? <button className="dvlink" onClick={() => go("pantry")}>{msg} Open the list</button> : null}
 
-        {clash ? <p className="dwarn" style={{ fontSize: 17, margin: "10px 4px 0" }}>⚠ {clash}. Check the ingredients, then mark which diets it suits below.</p> : null}
+        {clash ? <p className="tn-warn"><Warn />{clash}. Check the ingredients, then mark which diets it suits below.</p> : null}
         <h3 className="dvh">Ingredients{ings.length ? <small>{ings.length}</small> : null}</h3>
+        <section className="dvsec">
         {ings.length && m.serves ? (
-          <div className="fx dvrow" style={{ borderTop: 0, paddingTop: 0 }}><span>Cooking for</span>
+          <div className="fx dvrow" style={{ borderTop: 0 }}><span>Cooking for</span>
             <div className="fx" style={{ gap: 12 }}>
               <button className="cnav" aria-label="Fewer" onClick={() => setCookFor(Math.max(1, cookFor - 1))}>−</button>
               <span className="num" style={{ minWidth: 40, textAlign: "center", fontSize: 26, fontWeight: 700 }}>{cookFor}</span>
@@ -247,16 +377,18 @@ function MealPage({ din, id }: { din: Dinners | undefined; id: string }) {
         ) : null}
         {ings.length ? ings.map(i => (
           <button key={i.id} className="dving" onClick={() => openSheet({ mode: "ingredient", meal: m.id, ing: i.id })}>
-            <Thumb src={i.product?.image} letter={i.product?.brand || i.name} />
+            {i.product?.image ? <Thumb src={i.product.image} letter={i.product.brand || i.name} /> : <ItemIcon name={i.name} size={56} />}
             <span className="dvit"><b>{i.name}{i.amount ? <em>{scaleAmount(i.amount, factor)}</em> : null}</b>
               <small>{i.product ? productLine(i.product) : "Any brand"}{i.alt ? ` · or ${i.alt.brand || i.alt.name}` : ""}{i.staple ? " · pantry staple" : stocked(i) ? " · in the pantry" : ""}</small></span>
             <Chev />
           </button>
         )) : <p className="dvnone">No ingredients yet. Add what this dinner needs and you can send them to the shopping list.</p>}
         <button className="dvadd" onClick={() => openSheet({ mode: "ingredient", meal: m.id, ing: null })}>+ Add an ingredient</button>
+        </section>
 
         <h3 className="dvh">About</h3>
-        <div className="fx dvrow"><span>Serves</span>
+        <section className="dvsec">
+        <div className="fx dvrow" style={{ borderTop: 0 }}><span>Serves</span>
           <div className="fx" style={{ gap: 12 }}>
             <button className="cnav" aria-label="Fewer" onClick={() => save(m, { serves: Math.max(0, (m.serves || 0) - 1) })}>−</button>
             <span className="num" style={{ minWidth: 40, textAlign: "center", fontSize: 26, fontWeight: 700 }}>{m.serves || "–"}</span>
@@ -271,7 +403,7 @@ function MealPage({ din, id }: { din: Dinners | undefined; id: string }) {
             <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>
               {people.map(p => { const r = m.ratings?.[p.id] ?? 0; return (
                 <button key={p.id} className={"pill rate" + (r > 0 ? " up" : r < 0 ? " down" : "")} aria-label={`${p.name}: ${r > 0 ? "likes it" : r < 0 ? "doesn't like it" : "no opinion yet"}. Tap to change`} onClick={() => save(m, { ratings: { ...(m.ratings || {}), [p.id]: r === 0 ? 1 : r > 0 ? -1 : 0 } })}>
-                  <i className="av" style={{ width: 30, height: 30, fontSize: 15, background: p.color }}>{p.name[0].toUpperCase()}</i>{p.name} {r > 0 ? "👍" : r < 0 ? "👎" : ""}
+                  <i className="av" style={{ width: 30, height: 30, fontSize: 15, background: p.color }}>{p.name[0].toUpperCase()}</i>{p.name}{r > 0 ? " likes it" : r < 0 ? " isn't keen" : ""}
                 </button>
               ); })}
             </div>
@@ -296,9 +428,10 @@ function MealPage({ din, id }: { din: Dinners | undefined; id: string }) {
         <div className="dvrow col"><span>Recipe link</span>
           <div className="fx" style={{ gap: 10 }}>
             <input value={link} onChange={e => setLink(e.target.value)} onBlur={() => link !== (m.link || "") && save(m, { link })} inputMode="url" autoCapitalize="off" maxLength={300} placeholder="https://…" aria-label="Recipe link" autoComplete="off" style={{ flex: 1, minWidth: 0 }} />
-            {m.link ? <a className="cbtn" style={{ flex: "none", padding: "0 20px", display: "inline-flex", alignItems: "center", textDecoration: "none", color: "#101828", background: "#fff", border: "1.5px solid #d5dbe6" }} href={m.link} target="_blank" rel="noreferrer">Open</a> : null}
+            {m.link ? <a className="dvbtn" style={{ flex: "none" }} href={m.link} target="_blank" rel="noreferrer">Open</a> : null}
           </div>
         </div>
+        </section>
         <div style={{ marginTop: 26 }}>
           {sure ? <div className="fx" style={{ gap: 10 }}><button className="danger" style={{ flex: 1 }} onClick={() => run(async () => { await post("/api/meal/delete", { id: m.id }); setDview({ v: "ideas" }); })}>Yes, remove it</button><button style={{ flex: 1 }} onClick={() => setSure(false)}>Keep it</button></div>
             : <button className="danger-o" onClick={() => setSure(true)}>Remove this dinner</button>}
@@ -337,20 +470,20 @@ function ShopWeek({ din }: { din: Dinners | undefined }) {
   };
   return (
     <div style={wrap(P)}>
-      <Top back="Dinners" to={{ v: "home" }} title="Shop for the week" />
+      <Top back="This week" to={{ v: "week" }} title="Shop for the week" />
       <div className="scroll dvbody" style={{ flex: 1, minHeight: 0, paddingBottom: 130 }}>
         {done !== null ? (
           <div style={{ padding: "44px 0", textAlign: "center" }}>
             <div className="dvdone"><Check /></div>
             <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-.02em", marginTop: 14 }}>{done} {done === 1 ? "thing" : "things"} on the shopping list</div>
-            <div className="fx" style={{ gap: 10, justifyContent: "center", marginTop: 18 }}><button className="primary" onClick={() => go("pantry")}>Open the list</button><button onClick={() => setDview({ v: "home" })}>Back to dinners</button></div>
+            <div className="fx" style={{ gap: 10, justifyContent: "center", marginTop: 18 }}><button className="primary" onClick={() => go("pantry")}>Open the list</button><button onClick={() => setDview({ v: "week" })}>Back to the week</button></div>
           </div>
         ) : groups.length ? (
           <>
             <p style={{ fontSize: 18, color: "var(--soft)", margin: "0 4px 6px" }}>Everything the planned dinners need, for the people who are home. Pantry staples and things you already have start unticked.</p>
             {groups.map(g => (
               <section key={+g.d} className="dvshop">
-                <div className="fx" style={{ gap: 12, padding: "12px 4px 6px" }}><FoodIcon name={g.m!.name} size={44} />
+                <div className="fx" style={{ gap: 12, padding: "12px 0 8px" }}><FoodIcon name={g.m!.name} size={48} />
                   <div style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 21 }}>{g.m!.name}</b><div style={{ fontSize: 15, color: "#6b7488", fontWeight: 600 }}>{g.d.toLocaleDateString([], { weekday: "long" })}</div></div>
                   {g.m!.serves ? <div className="fx" style={{ gap: 8, flex: "none" }} aria-label="Cooking for">
                     <button className="cnav" style={{ width: 48, height: 48 }} aria-label="Fewer" onClick={() => setForN({ ...forN, [ymd(g.d)]: Math.max(1, target(g.d, g.m!) - 1) })}>−</button>
@@ -360,7 +493,7 @@ function ShopWeek({ din }: { din: Dinners | undefined }) {
                 </div>
                 {g.m!.ingredients!.map(i => { const k = key(g.d, i), on = !skipped.includes(k); return (
                   <div className={"srow" + (on ? "" : " off")} key={k}>
-                    <button className="stk" aria-pressed={on} onClick={() => toggle(k)}><span className="chk" aria-hidden style={on ? { background: "#101828", borderColor: "#101828" } : undefined}>{on ? <Check /> : null}</span>
+                    <button className="stk" aria-pressed={on} onClick={() => toggle(k)}><span className="chk" aria-hidden style={on ? { background: "var(--text)", borderColor: "var(--text)" } : undefined}>{on ? <Check /> : null}</span>
                       <span className="sn" style={{ textDecoration: "none" }}>{i.name}<small className="snote">{[scaleAmount(i.amount, factor(g.d, g.m!)), i.product ? productLine(i.product) : ""].filter(Boolean).join(" · ")}{i.staple ? " · staple" : stocked(i, factor(g.d, g.m!)) ? " · in the pantry" : ""}</small></span></button>
                   </div>
                 ); })}
@@ -443,7 +576,7 @@ export function IngredientSheet({ meal, ing }: { meal: string; ing: string | nul
         </div>
       ) : !find ? (
         <div className="fx" style={{ gap: 10 }}>
-          <button className="dvadd" onClick={() => startScan("product")}>📷 Scan a barcode</button>
+          <button className="dvadd" onClick={() => startScan("product")}><Cam />Scan a barcode</button>
           <button className="dvadd" onClick={() => { setTarget("product"); setFind(true); setQ(name || q); }}>Look up a brand and size</button>
         </div>
       ) : null}
@@ -456,7 +589,7 @@ export function IngredientSheet({ meal, ing }: { meal: string; ing: string | nul
               <span className="dvit"><b>{alt.brand || alt.name}</b><small>{[alt.brand ? alt.name : "", alt.quantity].filter(Boolean).join(" · ")}</small></span>
               <button className="cnav" aria-label="Remove the second choice" onClick={() => setAlt(null)}><XIcon /></button>
             </div>
-          ) : !find ? <div className="fx" style={{ gap: 10 }}><button className="dvadd" onClick={() => startScan("alt")}>📷 Scan one</button><button className="dvadd" onClick={() => { setTarget("alt"); setFind(true); setQ(name || q); }}>Look one up</button></div> : null}
+          ) : !find ? <div className="fx" style={{ gap: 10 }}><button className="dvadd" onClick={() => startScan("alt")}><Cam />Scan one</button><button className="dvadd" onClick={() => { setTarget("alt"); setFind(true); setQ(name || q); }}>Look one up</button></div> : null}
         </>
       ) : null}
       {scanMsg ? <p className="dvnone">{scanMsg}</p> : null}

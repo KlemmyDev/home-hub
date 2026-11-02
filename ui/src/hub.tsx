@@ -20,9 +20,9 @@ export type HubState = { version: string; config: Config; people: Person[]; cata
 export type Dim = { W: number; H: number; s: number; phone: boolean; st: number; sb: number };
 const DIM0: Dim = { W: 800, H: 1280, s: 1, phone: false, st: 0, sb: 0 };
 
-export type CalView = { mode: "day" | "week" | "month" | "agenda"; date: Date; who: string | null };
+export type CalView = { mode: "day" | "schedule" | "week" | "month" | "agenda"; date: Date; who: string | null };
 /** Which page of Dinners is open: the week, the list of ideas, one dinner, or shopping for the week. */
-export type DView = { v: "home" } | { v: "ideas" } | { v: "meal"; id: string } | { v: "shop" } | { v: "suggest" } | { v: "rules" } | { v: "history" } | { v: "cook"; id: string };
+export type DView = { v: "home" } | { v: "week" } | { v: "ideas" } | { v: "meal"; id: string } | { v: "shop" } | { v: "suggest" } | { v: "rules" } | { v: "history" } | { v: "cook"; id: string };
 export type Sheet =
   | { mode: "event"; draft: EventDraft; occ?: string; back?: boolean }
   | { mode: "view"; e: import("./lib/events").Ev; cal: { name: string; color: string } }
@@ -125,7 +125,7 @@ function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNod
   const qc = useQueryClient();
   const now = useNow();
   useKeepAwake(); useNoLongPressMenu();
-  const [cal, setCalState] = useState<CalView>({ mode: "day", date: nowZ(), who: null });
+  const [cal, setCalState] = useState<CalView>({ mode: "schedule", date: nowZ(), who: null });
   const [ovMode, setOvMode] = useState<"day" | "week">("day");
   const [menuWeek, setMenuWeek] = useState(() => nowZ());
   const [dview, setDview] = useState<DView>({ v: "home" });
