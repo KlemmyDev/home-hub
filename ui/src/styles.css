@@ -512,8 +512,10 @@ button:disabled{opacity:.55;pointer-events:none}
 .scanbox{position:relative;margin:6px 0 12px;border-radius:26px;overflow:hidden;background:#0b0f17;aspect-ratio:4/3;max-height:420px;width:100%}
 .scanbox video{width:100%;height:100%;object-fit:cover;display:block}
 .scanframe{position:absolute;left:12%;right:12%;top:30%;bottom:30%;border:4px solid #c3f23f;border-radius:18px;box-shadow:0 0 0 999px rgba(11,15,23,.45)}
-.scanhint{position:absolute;left:0;right:0;bottom:70px;text-align:center;color:#fff;font-size:20px;font-weight:650;padding:0 20px;text-shadow:0 1px 6px rgba(0,0,0,.6)}
-.scanx{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);min-height:52px;padding:0 28px;border-radius:999px;border:0;background:#fff;font-size:19px;font-weight:700}
+.scanhint{position:absolute;left:0;right:0;bottom:76px;text-align:center;color:#fff;font-size:20px;font-weight:650;padding:0 20px;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.scanbtns{position:absolute;left:0;right:0;bottom:12px;display:flex;justify-content:center;gap:10px;padding:0 12px}
+.scanx{min-height:52px;padding:0 22px;border-radius:999px;border:0;background:#fff;font-size:18px;font-weight:700;display:inline-flex;align-items:center;cursor:pointer;color:#101828}
+.scanx.photo{background:#c3f23f}
 
 /* Nothing in the stage may be scrolled by focus or scrollIntoView: only the lists inside it scroll. */
 #stage,#sheet,#calcard,#menucard,#shopcard,#chorecard{overflow:clip}
