@@ -278,6 +278,7 @@ async fn serve_web(uri: axum::http::Uri) -> impl IntoResponse {
         "png" => "image/png",
         "webmanifest" => "application/manifest+json",
         "woff2" => "font/woff2",
+        "wasm" => "application/wasm",
         _ => "application/octet-stream",
     };
     // File names under assets/ carry a hash of their contents, so they never change; the rest is checked every time.
