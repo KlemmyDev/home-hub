@@ -43,7 +43,7 @@ export function Suggest({ din }: { din: Dinners | undefined }) {
     <div style={wrap(P)}>
       <Top back="This week" to={{ v: "week" }} title="Fill the week" right={<button className="dvbtn" onClick={shuffle}>Shuffle</button>} />
       <div className="scroll dvbody" style={{ flex: 1, minHeight: 0, paddingBottom: 150 }}>
-        <p style={{ fontSize: 18, color: "var(--soft)", margin: "0 4px 10px" }}>Ideas for the empty nights, using what you've had lately, what everyone likes, and who's busy. Nothing is saved until you choose.</p>
+        <p className="dvintro">Ideas for the empty nights, using what you've had lately, what everyone likes, and who's busy. Nothing is saved until you choose.</p>
         {days.map(d => {
           const key = ymd(d), have = din?.plan[key], p = picks[key], busyEv = busyAt(ev.list, d);
           const planned = have && (have.meal ? din?.meals.find(m => m.id === have.meal)?.name : KINDS[have.kind || ""]);
@@ -62,7 +62,7 @@ export function Suggest({ din }: { din: Dinners | undefined }) {
           );
         })}
       </div>
-      <div className="dvbar"><button className="primary" disabled={!chosen.length || busy} onClick={use}>{chosen.length ? `Use these ${chosen.length}` : "Nothing to add"}</button></div>
+      <div className="dvbar"><button className="primary" disabled={!chosen.length || busy} onClick={use}>{chosen.length === 1 ? "Plan this one" : chosen.length ? `Plan these ${chosen.length}` : "Nothing to add"}</button></div>
     </div>
   );
 }
@@ -87,17 +87,20 @@ export function Rules({ din }: { din: Dinners | undefined }) {
     <div style={wrap(P)}>
       <Top back="This week" to={{ v: "week" }} title="Fixed nights" />
       <div className="scroll dvbody" style={{ flex: 1, minHeight: 0, paddingBottom: 130 }}>
-        <p style={{ fontSize: 18, color: "var(--soft)", margin: "0 4px 10px" }}>Nights that are usually the same, like pizza on Fridays. "Fill the week" starts from these.</p>
-        {days.map((n, i) => {
-          const r = din?.rules?.[String(i)], name = r ? (r.meal ? din?.meals.find(m => m.id === r.meal)?.name : KINDS[r.kind]) : null;
-          return (
-            <button key={n} className="dving" onClick={() => openSheet({ mode: "rule", weekday: i })}>
-              {name ? <FoodIcon name={name} size={52} /> : <span className="dvthumb"><b>+</b></span>}
-              <span className="dvit"><b>{n}</b><small>{name || "Nothing fixed"}</small></span><Chev />
-            </button>
-          );
-        })}
-        <button className="dvlink" style={{ marginTop: 14 }} onClick={() => setDview({ v: "suggest" })}>Fill the week from these</button>
+        <p className="dvintro">Nights that are usually the same, like pizza on Fridays. "Fill the week" starts from these.</p>
+        <section className="dvsec">
+          {days.map((n, i) => {
+            const r = din?.rules?.[String(i)], name = r ? (r.meal ? din?.meals.find(m => m.id === r.meal)?.name : KINDS[r.kind]) : null;
+            return (
+              <button key={n} className="fn-row" onClick={() => openSheet({ mode: "rule", weekday: i })}>
+                <span className="fn-d">{n.slice(0, 3)}</span>
+                <span className="dvit"><b>{n}s</b><small>{name || "Nothing fixed"}</small></span>
+                {name ? <FoodIcon name={name} size={52} /> : <span className="dplus" aria-hidden>+</span>}
+              </button>
+            );
+          })}
+        </section>
+        <button className="dvbtn dark" style={{ marginTop: 16, alignSelf: "flex-start" }} onClick={() => setDview({ v: "suggest" })}>Fill the week from these</button>
       </div>
     </div>
   );
@@ -118,20 +121,26 @@ export function History({ din }: { din: Dinners | undefined }) {
     <div style={wrap(P)}>
       <Top back="This week" to={{ v: "week" }} title="What we've eaten" />
       <div className="scroll dvbody" style={{ flex: 1, minHeight: 0, paddingBottom: 130 }}>
-        <div className="fx" style={{ gap: 10, justifyContent: "center", margin: "0 0 10px" }}>
+        <div className="fx dvweek">
           <button className="cnav" aria-label="Earlier month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><ChevL /></button>
-          <span style={{ fontSize: 26, fontWeight: 700, minWidth: 220, textAlign: "center", letterSpacing: "-.03em" }}>{month.toLocaleDateString([], { month: "long", year: "numeric" })}</span>
+          <span className="dvweek-t">{month.toLocaleDateString([], { month: "long", year: "numeric" })}</span>
           <button className="cnav" aria-label="Later month" onClick={() => setMonth(nextM)}><ChevR /></button>
         </div>
-        {days.length ? days.map(([d, n]) => (
-          <div key={d} className="dving" style={{ cursor: "default", minHeight: 68 }}>
-            <span className="dvsd num"><b>{fromYmd(d).getDate()}</b><small>{fromYmd(d).toLocaleDateString([], { weekday: "short" })}</small></span>
-            <span className="dvit"><b>{name(n) || "A dinner that's been removed"}</b>{d > t ? <small>Planned</small> : null}</span>
-            {n.meal ? <button className="dvswap" onClick={() => setDview({ v: "meal", id: n.meal })}>Open</button> : null}
-          </div>
-        )) : <p className="dvnone">Nothing planned in this month.</p>}
-        {top.length ? <><h3 className="dvh">Had most often</h3>{top.map(([id, s]) => <button key={id} className="dving" onClick={() => setDview({ v: "meal", id })}><FoodIcon name={din!.meals.find(m => m.id === id)?.name || ""} size={48} /><span className="dvit"><b>{din!.meals.find(m => m.id === id)?.name}</b><small>{s.count} times · last {ago(s.last!, now)}</small></span><Chev /></button>)}</> : null}
-        {lapsed.length ? <><h3 className="dvh">Not had for a while</h3>{lapsed.map(m => <button key={m.id} className="dving" onClick={() => setDview({ v: "meal", id: m.id })}><FoodIcon name={m.name} size={48} /><span className="dvit"><b>{m.name}</b><small>{stats[m.id]?.last ? `Last had ${ago(stats[m.id].last!, now)}` : "Never planned yet"}</small></span><Chev /></button>)}</> : null}
+        {days.length ? (
+          <section className="dvsec">{days.map(([d, n]) => { const nm = name(n); return (
+            <button key={d} className="fn-row" disabled={!n.meal} onClick={() => n.meal && setDview({ v: "meal", id: n.meal })}>
+              <span className="fn-d hd"><small>{fromYmd(d).toLocaleDateString([], { weekday: "short" })}</small>{fromYmd(d).getDate()}</span>
+              <span className="dvit"><b>{nm || "A dinner that's been removed"}</b>{d > t ? <small>Planned</small> : d === t ? <small>Tonight</small> : null}</span>
+              {nm ? <FoodIcon name={nm} size={48} /> : null}
+            </button>
+          ); })}</section>
+        ) : <p className="dvintro">Nothing planned in this month.</p>}
+        {top.length ? <><h3 className="dvh">Had most often</h3><section className="dvsec">{top.map(([id, s]) => { const m = din!.meals.find(x => x.id === id); return (
+          <button key={id} className="fn-row" onClick={() => setDview({ v: "meal", id })}><FoodIcon name={m?.name || ""} size={48} /><span className="dvit"><b>{m?.name}</b><small>{s.count} times · last {ago(s.last!, now)}</small></span><Chev /></button>
+        ); })}</section></> : null}
+        {lapsed.length ? <><h3 className="dvh">Not had for a while</h3><section className="dvsec">{lapsed.map(m => (
+          <button key={m.id} className="fn-row" onClick={() => setDview({ v: "meal", id: m.id })}><FoodIcon name={m.name} size={48} /><span className="dvit"><b>{m.name}</b><small>{stats[m.id]?.last ? `Last had ${ago(stats[m.id].last!, now)}` : "Not had yet"}</small></span><Chev /></button>
+        ))}</section></> : null}
       </div>
     </div>
   );

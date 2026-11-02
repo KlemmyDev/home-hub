@@ -99,7 +99,7 @@ function Ribbon({ data, now }: { data: EvData; now: Date }) {
   if (!rows.length) rows.push({ key: "all", name: "Family", color: "#8a93a6", evs: [] });
   const ticks = Array.from({ length: 7 }, (_, i) => ({ h: (h0 + i) % 24, left: i === 0 ? 3 : i === 6 ? 96 : i / 6 * 100 }));
   return (
-    <div className="rb" style={{ "--past": pct(now) + "%" } as CSSProperties}>
+    <div className="rb" style={{ "--past": (pct(now) / 100).toFixed(4) } as CSSProperties}>
       <div className="rb-ticks">{ticks.map(t => <span key={t.left} style={{ left: t.left + "%" }}>{hourLabel(t.h, h24)}</span>)}</div>
       <div className="rb-rows">
         {rows.map(r => (

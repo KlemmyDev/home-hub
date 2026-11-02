@@ -26,6 +26,7 @@ export function useMealSave() {
   const { soon } = useHub();
   return async (m: Meal, patch: Partial<Meal>) => {
     const next = { ...m, ...patch };
+    if (DEMO) { soon("That isn't saved in the demo."); return; }
     qc.setQueryData<Dinners>(["dinners"], old => old && { ...old, meals: old.meals.map(x => x.id === m.id ? next : x) });
     try {
       await post("/api/meal/details", { id: m.id, ingredients: next.ingredients || [], notes: next.notes || "", link: next.link || "", serves: next.serves || 0, minutes: next.minutes || 0, tags: next.tags || [], favourite: !!next.favourite, ratings: next.ratings || {}, suits: next.suits || [] });
@@ -114,8 +115,8 @@ function Tonight({ din }: { din: Dinners | undefined }) {
   const get = needs.filter(n => !n.have);
   const frozen = needs.find(n => n.item && n.item.qty > 0 && n.item.aisle === "Frozen");
   const warn = clashText(dietClash(meal, homeFor(din, people, key)));
-  const pick = () => { if (!DEMO) openSheet({ mode: "dinner", date: key, cook: night?.cook || null }); };
-  const setKind = async (kind: string) => { if (DEMO) return; try { await post("/api/dinner-plan", { date: key, kind }); await qc.invalidateQueries({ queryKey: ["dinners"] }); } catch (e: any) { soon(e.message); } };
+  const pick = () => { openSheet({ mode: "dinner", date: key, cook: night?.cook || null }); };
+  const setKind = async (kind: string) => { if (DEMO) return soon("That isn't saved in the demo."); try { await post("/api/dinner-plan", { date: key, kind }); await qc.invalidateQueries({ queryKey: ["dinners"] }); } catch (e: any) { soon(e.message); } };
   const listIt = async () => {
     if (added) return go("pantry");
     try { if (!DEMO) await addToList(get.map(n => n.i), meal!.name, factor, pan); setAdded(true); qc.invalidateQueries({ queryKey: ["shopping"] }); } catch (e: any) { soon(e.message); }
@@ -146,7 +147,7 @@ function Tonight({ din }: { din: Dinners | undefined }) {
             <>
               <div className="tn-h"><h3>What it needs</h3><span>{needs.filter(n => n.have).length} of {needs.length} at home</span></div>
               <div className="tn-needs">{needs.map(n => (
-                <button key={n.i.id} className={"tn-need " + n.tone} onClick={() => !DEMO && openSheet({ mode: "ingredient", meal: meal.id, ing: n.i.id })}>
+                <button key={n.i.id} className={"tn-need " + n.tone} onClick={() => openSheet({ mode: "ingredient", meal: meal.id, ing: n.i.id })}>
                   <ItemIcon name={n.i.name} aisle={n.item?.aisle} size={P ? 44 : 54} />
                   <span><b>{n.i.name}</b><small>{n.status}</small></span>
                 </button>
@@ -187,7 +188,7 @@ function Tonight({ din }: { din: Dinners | undefined }) {
 
         <div className="tn-h" style={{ margin: "26px 6px 10px" }}><h3>Coming up</h3><button className="dvlink" onClick={() => setDview({ v: "week" })}>The whole week</button></div>
         <div className="tn-later">{later.map(({ d, t, cook }) => (
-          <button key={+d} className={"tn-day" + (t ? "" : " empty")} onClick={() => !DEMO && openSheet({ mode: "dinner", date: ymd(d), cook: din?.plan[ymd(d)]?.cook || null })}>
+          <button key={+d} className={"tn-day" + (t ? "" : " empty")} onClick={() => openSheet({ mode: "dinner", date: ymd(d), cook: din?.plan[ymd(d)]?.cook || null })}>
             <span className="tn-dw">{sameDay(d, addDays(now, 1)) ? "Tomorrow" : d.toLocaleDateString([], { weekday: "long" })}</span>
             {t ? <FoodIcon name={t.name} size={P ? 40 : 48} /> : <span className="dplus" aria-hidden>+</span>}
             <span className="tn-dn">{t ? t.name : "Choose a dinner"}{cook ? <small>{cook.name} cooking</small> : null}</span>
@@ -218,7 +219,6 @@ function Week({ din }: { din: Dinners | undefined }) {
     if (n) withIng++;
     return (
       <button key={i} className={"drow" + (today ? " today" : "") + (t ? " set" : "") + (past ? " past" : "")} aria-label={longDay(day) + (t ? ": " + t.name : "")} onClick={() => {
-        if (DEMO) return;
         const p = din?.plan[ymd(day)];
         openSheet({ mode: "dinner", date: ymd(day), cook: p && p.cook ? p.cook : null });
       }}>
@@ -464,7 +464,7 @@ function ShopWeek({ din }: { din: Dinners | undefined }) {
     try {
       const by: Record<string, { i: Ingredient; f: number }[]> = {};
       picked.forEach(p => (by[p.from] ||= []).push(p));
-      for (const [from, items] of Object.entries(by)) for (const f of [...new Set(items.map(x => x.f))]) await addToList(items.filter(x => x.f === f).map(x => x.i), from, f, pan);
+      if (!DEMO) for (const [from, items] of Object.entries(by)) for (const f of [...new Set(items.map(x => x.f))]) await addToList(items.filter(x => x.f === f).map(x => x.i), from, f, pan);
       setDone(total);
     } catch (e: any) { soon(e.message); }
   };
@@ -480,7 +480,7 @@ function ShopWeek({ din }: { din: Dinners | undefined }) {
           </div>
         ) : groups.length ? (
           <>
-            <p style={{ fontSize: 18, color: "var(--soft)", margin: "0 4px 6px" }}>Everything the planned dinners need, for the people who are home. Pantry staples and things you already have start unticked.</p>
+            <p className="dvintro">Everything the planned dinners need, for the people who are home. Pantry staples and things you already have start unticked.</p>
             {groups.map(g => (
               <section key={+g.d} className="dvshop">
                 <div className="fx" style={{ gap: 12, padding: "12px 0 8px" }}><FoodIcon name={g.m!.name} size={48} />
@@ -494,6 +494,7 @@ function ShopWeek({ din }: { din: Dinners | undefined }) {
                 {g.m!.ingredients!.map(i => { const k = key(g.d, i), on = !skipped.includes(k); return (
                   <div className={"srow" + (on ? "" : " off")} key={k}>
                     <button className="stk" aria-pressed={on} onClick={() => toggle(k)}><span className="chk" aria-hidden style={on ? { background: "var(--text)", borderColor: "var(--text)" } : undefined}>{on ? <Check /> : null}</span>
+                      <ItemIcon name={i.name} size={44} />
                       <span className="sn" style={{ textDecoration: "none" }}>{i.name}<small className="snote">{[scaleAmount(i.amount, factor(g.d, g.m!)), i.product ? productLine(i.product) : ""].filter(Boolean).join(" · ")}{i.staple ? " · staple" : stocked(i, factor(g.d, g.m!)) ? " · in the pantry" : ""}</small></span></button>
                   </div>
                 ); })}
@@ -531,6 +532,8 @@ export function IngredientSheet({ meal, ing }: { meal: string; ing: string | nul
   const [find, setFind] = useState(false), [q, setQ] = useState(cur?.name || ""), [qd, setQd] = useState("");
   useEffect(() => { const t = setTimeout(() => setQd(q.trim()), 600); return () => clearTimeout(t); }, [q]);
   const res = useQuery({ queryKey: ["products", qd], enabled: find && qd.length >= 2, staleTime: 600000, retry: false, queryFn: () => api<Product[]>("/api/products/search?q=" + encodeURIComponent(qd)) });
+  const { data: pan = NO_PANTRY } = usePantry();
+  const home = name.trim() ? findItem(pan, { id: "", name, amount, product, staple }) : undefined;
   if (!m) return <SheetFrame title="Ingredient" body={<p>That dinner has gone.</p>} foot={<button className="primary" style={{ marginLeft: "auto" }} onClick={closeSheet}>Close</button>} />;
   /** A barcode has been read (or typed): find the product it belongs to, or offer to keep the bare barcode. */
   const gotCode = async (code: string, forWhat: "product" | "alt") => {
@@ -557,17 +560,21 @@ export function IngredientSheet({ meal, ing }: { meal: string; ing: string | nul
   };
   const body = (
     <>
-      <div className="cap" style={{ margin: "14px 0 8px" }}>What is it?</div>
-      <input value={name} onChange={e => { setName(e.target.value); if (!find) setQ(e.target.value); }} maxLength={50} placeholder="Pasta, mince, tomatoes…" aria-label="Ingredient" autoComplete="off" ref={nameRef} style={{ fontSize: 26, fontWeight: 700, minHeight: 72 }} />
+      <p className="ds-date">{cur ? `In ${m.name}` : `For ${m.name}`}</p>
+      <div className="ig-name">
+        <ItemIcon name={name || "?"} aisle={home?.aisle} size={72} />
+        <input value={name} onChange={e => { setName(e.target.value); if (!find) setQ(e.target.value); }} maxLength={50} placeholder="Pasta, mince, tomatoes…" aria-label="What is it?" autoComplete="off" ref={nameRef} />
+      </div>
+      {name.trim() ? <p className={"ig-home" + (home ? (home.qty > 0 ? " good" : " bad") : "")}>{home ? (home.qty > 0 ? `At home: ${fmtQty(home.qty, home.unit)}${home.aisle && home.aisle !== "Other" ? " · " + home.aisle : ""}` : "In the pantry, but it's run out") : staple ? "Not kept in the pantry. It's a staple, so it's never bought without asking" : "Not kept in the pantry, so it goes on the shopping list"}</p> : null}
       {!cur ? <div className="fx" style={{ gap: 8, flexWrap: "wrap", marginTop: 10 }}>{COMMON.filter(c => !name || c.toLowerCase().includes(name.toLowerCase())).slice(0, 10).map(c => <Pill key={c} onClick={() => { setName(c); setQ(c); }}>{c}</Pill>)}</div> : null}
-      <div className="cap" style={{ margin: "24px 0 8px" }}>How much?</div>
+      <h3 className="ig-h">How much?</h3>
       <input value={amount} onChange={e => setAmount(e.target.value)} maxLength={30} placeholder="500 g, 2, 1 tin…" aria-label="Amount" autoComplete="off" />
       <div className="fx" style={{ gap: 8, flexWrap: "wrap", marginTop: 10 }}>{AMOUNTS.map(a => <Pill key={a} on={amount === a} onClick={() => setAmount(a)}>{a}</Pill>)}</div>
-      <div className="fx dvrow" style={{ marginTop: 18 }}><span>A pantry staple<small>Usually in the cupboard, so it isn't added to the shopping list without asking</small></span>
+      <div className="fx dvrow ig-staple"><span>A pantry staple<small>Usually in the cupboard, so it isn't added to the shopping list without asking</small></span>
         <button className={"sw2" + (staple ? " on" : "")} role="switch" aria-checked={staple} aria-label="Pantry staple" onClick={() => setStaple(!staple)}><i /></button></div>
 
       {scan ? <Scanner onCode={c => gotCode(c, scan)} onClose={() => setScan("")} /> : null}
-      <div className="cap" style={{ margin: "24px 0 8px" }}>The exact product</div>
+      <h3 className="ig-h">The exact product <small>optional</small></h3>
       {product ? (
         <div className="dvprod on">
           <Thumb big src={product.image} letter={product.brand || product.name} />
@@ -582,7 +589,7 @@ export function IngredientSheet({ meal, ing }: { meal: string; ing: string | nul
       ) : null}
       {product ? (
         <>
-          <div className="cap" style={{ margin: "22px 0 8px" }}>A second choice, if that one isn't there</div>
+          <h3 className="ig-h">A second choice, if that one isn't there</h3>
           {alt ? (
             <div className="dvprod on">
               <Thumb big src={alt.image} letter={alt.brand || alt.name} />

@@ -35,7 +35,7 @@ export function DinnerPicker({ current, currentKind, onMeal, onKind, onNew, none
     (+!!b.favourite - +!!a.favourite) || (stats[a.id]?.last || "").localeCompare(stats[b.id]?.last || "") || a.name.localeCompare(b.name)), [din, stats]);
   const shown = t ? meals.filter(m => m.name.toLowerCase().includes(t) || (m.ingredients || []).some(i => i.name.toLowerCase().includes(t))) : meals;
   const exact = meals.some(m => m.name.toLowerCase() === t);
-  const meta = (m: Meal) => { const s = stats[m.id]; return s?.next && s.next > ymd(now) ? "Planned already" : s?.last ? "Had " + ago(s.last, now) : "Not had yet"; };
+  const meta = (m: Meal) => { const s = stats[m.id]; return s?.next ? (s.next === ymd(now) ? "On tonight" : "Planned already") : s?.last ? "Had " + ago(s.last, now) : "Not had yet"; };
   return (
     <div className="dp">
       <form className="dvsearch" onSubmit={e => { e.preventDefault(); if (onNew && t && !exact) onNew(q.trim()); else if (shown.length === 1) onMeal(shown[0]); }}>
@@ -60,7 +60,7 @@ export function DinnerPicker({ current, currentKind, onMeal, onKind, onNew, none
           <FoodIcon name={m.name} size={52} />
           <span><b>{m.name}{m.favourite ? <i className="dvstar" aria-label="Favourite">★</i> : null}</b><small>{current === m.id ? "Chosen" : meta(m)}</small></span>
         </button>
-      ))}</div> : <p className="dp-none">{meals.length ? "No dinners match." : onNew ? "No dinners yet. Type one above to add it." : "No dinners yet. Add some on the Dinner ideas tab."}</p>}
+      ))}</div> : onNew && t && !exact ? null : <p className="dp-none">{meals.length ? "No dinners match." : onNew ? "No dinners yet. Type one above to add it." : "No dinners yet. Add some on the Dinner ideas tab."}</p>}
     </div>
   );
 }
@@ -149,7 +149,7 @@ export function PlanMealSheet({ meal }: { meal: string }) {
         const p = din?.plan[ymd(d)], cur = p?.meal ? din?.meals.find(x => x.id === p.meal)?.name : p?.kind ? KINDS[p.kind] : "", same = p?.meal === meal;
         return (
           <button key={i} className={"pm-day" + (cur ? " taken" : "") + (same ? " on" : "")} disabled={same} onClick={() => pick(d)}>
-            <span className="pm-d"><small>{i === 0 ? "Tonight" : i === 1 ? "Tomorrow" : d.toLocaleDateString([], { weekday: "short" })}</small><b className="num">{d.getDate()}</b></span>
+            <span className="pm-d"><small>{i === 0 ? "Today" : d.toLocaleDateString([], { weekday: "short" })}</small><b className="num">{d.getDate()}</b></span>
             <span className="pm-m">{same ? "This one" : cur ? <>{cur}<small>Swap it</small></> : <span className="pm-free">Free</span>}</span>
           </button>
         );
