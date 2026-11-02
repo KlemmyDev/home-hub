@@ -59,7 +59,7 @@ pub async fn ping(base: &str, key: &str) -> Result<Value, String> {
 /// What the screen may ask for, and the permission each needs (the reading is only worth asking for if the key has it).
 pub const READS: [(&str, &str); 9] = [
     ("live", "live:read"), ("today", "live:read"), ("history", "history:read"), ("daily", "history:read"), ("costs", "costs:read"),
-    ("tariff", "costs:read"), ("savings", "costs:read"), ("forecast", "forecast:read"), ("insights", "insights:read"),
+    ("tariff", "costs:read"), ("bills", "costs:read"), ("forecast", "forecast:read"), ("insights", "insights:read"),
 ];
 
 /// A reading, with the few numbers that may be asked for it (unix seconds, or how many points).
