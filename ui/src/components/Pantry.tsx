@@ -21,7 +21,7 @@ export function PantryPanel() {
   const { data: pan = NO_PANTRY } = usePantry();
   const low = pan.items.filter(i => stockLevel(i) !== "ok").length;
   return (
-    <div style={wrap(P)}>
+    <div className="pantry" style={wrap(P)}>
       <PanelTop title="Pantry" />
       <div className="fx ptabs" role="tablist" aria-label="Pantry">
         {TABS.map(([t, l]) => <button key={t} role="tab" aria-selected={tab === t} className={"pill" + (tab === t ? " on" : "")} onClick={() => pick(t)}>{l}{t === "stock" && low ? <b className="ptbadge">{low}</b> : null}</button>)}

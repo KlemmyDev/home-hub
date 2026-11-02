@@ -576,3 +576,29 @@ html.standby *{animation:none!important;transition:none!important}
 .engy-t span{font-size:15px;font-weight:600;color:#6b7488;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .engy-t.solar{background:#fff6e0}.engy-t.battery{background:#e8f7ee}.engy-t.grid{background:#eef1f8}.engy-t.home{background:#f3eefc}
 .phone .engy-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+/* phone: smaller pantry controls */
+.phone .pantry .pill,.phone #sheet .pill{height:38px;padding:0 14px;font-size:14.5px;gap:6px}
+.phone .pantry .ptabs .pill{height:40px;font-size:14.5px;padding:0 4px}
+.phone .pantry .dvchips .pill,.phone #sheet .again .pill{height:36px}
+.phone .pantry .dvchips{gap:6px;padding-bottom:8px!important}
+.phone .pantry input,.phone #sheet input{min-height:0;height:44px;font-size:16px;padding:0 12px}
+.phone .pantry .ptadd,.phone .pantry form .primary{height:44px;font-size:15px;padding:0 16px!important;min-height:0}
+.phone .pantry .cbtn{height:40px;font-size:15px}
+.phone .pantry .ptrow{min-height:64px;padding:8px 6px 8px 12px;margin-bottom:6px;border-radius:18px;gap:8px}
+.phone .pantry .ptmain{gap:4px;padding:2px 0}.phone .pantry .ptmain b{font-size:17px}.phone .pantry .ptmain small{font-size:13px}
+.phone .pantry .ptbar{height:8px}.phone .pantry .ptbar u{height:14px;top:-3px}
+.phone .pantry .ptflag{font-size:10.5px;padding:1px 5px}
+.phone .ptstep{padding:3px;gap:2px}.phone .ptstep button{width:36px;height:36px;font-size:22px}.phone .ptstep span{min-width:46px;font-size:15px}
+.phone .pantry .stk{min-height:48px;font-size:18px;gap:10px}.phone .pantry .snote{font-size:13px}
+.phone .pantry .sx{width:40px;height:40px}
+.phone .pantry .cap{font-size:12px}.phone .pantry .pthead{font-size:19px;margin-top:10px}.phone .pantry .pthead small{font-size:13px}
+.phone .pantry .ptshop{min-height:36px;padding:0 10px;font-size:13px}
+.phone .pantry .ptauto{font-size:10px}
+.phone .pantry .dving{padding:8px 10px}.phone .pantry .dvrow{font-size:16px}.phone .pantry .dvrow small{font-size:13px}
+.phone .pantry p{font-size:15px!important}
+.phone #sheet .cnav{width:40px;height:40px}
+.phone #sheet .shh>div{font-size:26px!important}
+.phone #sheet .shf button{min-height:0;height:46px;font-size:15px}
+.phone #sheet .ptscan{width:44px;height:44px;font-size:20px;border-radius:14px}
+.phone #sheet .ptmore{min-height:46px;font-size:15px}
