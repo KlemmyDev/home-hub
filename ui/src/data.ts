@@ -56,7 +56,12 @@ export const useShopping = () => useQuery<{ items: ShopItem[] }>({ queryKey: ["s
 export type Energy<T = any> = { connected: boolean; allowed?: boolean; needs?: string; error?: string; data?: T };
 /** A reading from WattsMyPower, through the hub (which holds the key). It's refreshed every half minute while the screen is up. */
 export const useEnergy = <T = any>(what: string, query = "", enabled = true) =>
-  useQuery<Energy<T>>({ queryKey: ["energy", what, query], enabled: enabled && !DEMO, queryFn: () => api(`/api/energy/${what}${query ? "?" + query : ""}`), refetchInterval: 30000, staleTime: 10000 });
+  useQuery<Energy<T>>({ queryKey: ["energy", what, query], enabled: enabled && (!DEMO || what === "today"), queryFn: () => DEMO ? Promise.resolve(demoEnergy() as Energy<T>) : api(`/api/energy/${what}${query ? "?" + query : ""}`), refetchInterval: 30000, staleTime: 10000 });
+/** A sunny afternoon for ?demo: solar running the house, filling the battery and selling the rest. */
+const demoEnergy = (): Energy => ({ connected: true, allowed: true, data: {
+  live: { snapshot: { pv_power: 4230, load_power: 1310, battery_power: -2100, battery_soc: 78, grid_power: -820, daily_pv: 18.6, daily_import: 2.1, daily_export: 6.4 } },
+  costs: { saved: 4.2, net_cost: 0.85 },
+} });
 
 /* ---------- the pantry ---------- */
 export type Store = { id: string; name: string; color: string };

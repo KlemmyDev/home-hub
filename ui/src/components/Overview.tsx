@@ -187,26 +187,65 @@ function Status({ id, color }: { id: string; color: string }) {
   const up = data ? !!data[id] : undefined;
   return <span className="stat" data-up={up === undefined ? undefined : up ? "1" : "0"} style={{ color, marginTop: 3 }}><span className="sd" /><span>{up === undefined ? "Checking…" : up ? "Ready" : "Can't reach it"}</span></span>;
 }
-/** The house's power right now and today's total, from WattsMyPower (when it's connected and its key may read live power). */
+/* WattsMyPower's line icons (Lucide), for the Energy card. */
+const WM_ICONS: Record<string, string[]> = {
+  solar: ["M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z", "M12 2v2", "M12 20v2", "m4.93 4.93 1.41 1.41", "m17.66 17.66 1.41 1.41", "M2 12h2", "M20 12h2", "m6.34 17.66-1.41 1.41", "m19.07 4.93-1.41 1.41"],
+  battery: ["M4 7h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z", "M22 11v2", "M11 9.5 8.5 12h3L9 14.5"],
+  home: ["M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8", "M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"],
+  grid: ["M12 2v20", "M2 5h20", "M3 3v2", "M7 3v2", "M17 3v2", "M21 3v2", "m19 5-7 7-7-7"],
+};
+const WmIcon = ({ name }: { name: string }) => <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{WM_ICONS[name].map(d => <path key={d} d={d} />)}</svg>;
+
+/**
+ * The house's power right now and today's totals, from WattsMyPower (when it's connected and its key may read live
+ * power), dressed as WattsMyPower itself: dark, Geist figures, Nunito heading, amber solar and blue battery. Solar,
+ * the battery, the home and the grid sit on one wire, each lit while in use, with sparks running the way the power goes.
+ */
 function EnergyCard() {
   const { S } = useHub();
   const wm = S.config.wattsmypower;
-  const { data: t } = useEnergy("today", "", !!wm?.connected);
+  const { data: t } = useEnergy("today", "", DEMO || !!wm?.connected);
   const e = t?.data, p = e?.live?.snapshot, costs = e?.costs;
-  if (!wm?.connected || !t?.allowed || !p) return null;
-  const kw = (w?: number) => ((w ?? 0) / 1000).toFixed(1), bat = p.battery_power ?? 0, grid = p.grid_power ?? 0;
-  const batNote = bat < -50 ? `charging ${kw(-bat)} kW` : bat > 50 ? `using ${kw(bat)} kW` : "resting", gridNote = grid > 50 ? "buying" : grid < -50 ? "selling" : "not used";
+  if (!(DEMO || wm?.connected) || !t?.allowed || !p) return null;
+  const ON = 50, kw = (w?: number) => (Math.abs(w ?? 0) / 1000).toFixed(1), kwh = (n?: number) => (n ?? 0).toFixed(1);
+  const pv = p.pv_power ?? 0, bat = p.battery_power ?? 0, grid = p.grid_power ?? 0, soc = Math.max(0, Math.min(100, p.battery_soc ?? 0));
   const money = (n?: number) => n === undefined || n === null ? "" : `$${Math.abs(n).toFixed(2)}`;
-  const tiles: [string, string, string, string][] = [
-    ["Solar", kw(p.pv_power), "kW", `${(p.daily_pv ?? 0).toFixed(1)} kWh today`],
-    ["Home", kw(p.load_power), "kW", "using now"],
-    ["Battery", String(Math.round(p.battery_soc ?? 0)), "%", batNote],
-    ["Grid", kw(Math.abs(grid)), "kW", gridNote],
+  const charging = bat < -ON, using = bat > ON;
+  type Node = { id: string; label: string; value: string; unit: string; note: string; on: boolean; color: string };
+  const nodes: Node[] = [
+    { id: "solar", label: "Solar", value: kw(pv), unit: "kW", note: `${kwh(p.daily_pv)} kWh today`, on: pv > ON, color: "#ffb547" },
+    { id: "battery", label: "Battery", value: String(Math.round(soc)), unit: "%", note: charging ? `↑ charging ${kw(bat)} kW` : using ? `↓ using ${kw(bat)} kW` : "resting", on: charging || using, color: using ? "#ffc777" : "#8fa6ff" },
+    { id: "home", label: "Home", value: kw(p.load_power), unit: "kW", note: "using now", on: true, color: "#f5f5f5" },
+    { id: "grid", label: "Grid", value: kw(grid), unit: "kW", note: grid > ON ? "buying" : grid < -ON ? "selling" : "not used", on: Math.abs(grid) > ON, color: grid < -ON ? "#f2a65a" : "#b4b4bc" },
   ];
+  // The wire between each pair: lit while power runs along it, and which way (rev runs right to left).
+  const wires = [
+    { on: pv > ON, rev: false, color: "#ffb547" },
+    { on: pv > ON || using, rev: charging && pv <= ON, color: using ? "#ffc777" : "#ffb547" },
+    { on: Math.abs(grid) > ON, rev: grid > ON, color: grid < -ON ? "#f2a65a" : "#9aa4ff" },
+  ];
+  const head = costs ? <><b className="wm-good">{money(costs.saved)}</b><span>saved today</span></> : <><b>{kwh(p.daily_pv)}<i>kWh</i></b><span>made today</span></>;
+  const totals: [string, string][] = [["Made", `${kwh(p.daily_pv)} kWh`], ["Bought", `${kwh(p.daily_import)} kWh`], ["Sold", `${kwh(p.daily_export)} kWh`]];
+  if (costs?.net_cost !== undefined && costs?.net_cost !== null) totals.push([costs.net_cost < 0 ? "Credit" : "Bill", money(costs.net_cost)]);
   return (
-    <a className="tile-card engy" href={wm.url} aria-label="Energy, open WattsMyPower">
-      <div className="engy-head"><b>Energy</b><span>{costs ? `Saved ${money(costs.saved)} today${costs.net_cost !== undefined ? ` · bill ${money(costs.net_cost)}` : ""}` : "Right now"}</span></div>
-      <div className="engy-tiles">{tiles.map(([l, v, u, n]) => <div key={l} className={"engy-t " + l.toLowerCase()}><small>{l}</small><b className="num">{v}<i>{u}</i></b><span>{n}</span></div>)}</div>
+    <a className="tile-card wm" href={wm?.url} aria-label={`Energy: solar ${kw(pv)} kW, home ${kw(p.load_power)} kW, battery ${Math.round(soc)}%. Open WattsMyPower`}>
+      <div className="wm-head">
+        <span className="wm-mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="#ffb547" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" /></svg></span>
+        <div className="wm-title"><b>Energy</b><span><i className="wm-live" />Live from Watts<em>My</em>Power</span></div>
+        <div className="wm-sum">{head}</div>
+      </div>
+      <div className="wm-flow">
+        {wires.map((w, i) => <i key={i} className={"wm-wire" + (w.on ? " on" : "") + (w.rev ? " rev" : "")} style={{ "--i": i, "--wc": w.color } as CSSProperties} />)}
+        {nodes.map(n => (
+          <div key={n.id} className={"wm-node" + (n.on ? " on" : "")} style={{ "--nc": n.color } as CSSProperties}>
+            <span className="wm-dot" style={n.id === "battery" ? { "--soc": `${soc * 3.6}deg` } as CSSProperties : undefined}>{n.id === "battery" && <i className="wm-ring" />}<WmIcon name={n.id} /></span>
+            <small>{n.label}</small>
+            <b className="num">{n.value}<i>{n.unit}</i></b>
+            <span>{n.note}</span>
+          </div>
+        ))}
+      </div>
+      <div className="wm-foot">{totals.map(([l, v]) => <span key={l}><small>{l}</small>{v}</span>)}</div>
     </a>
   );
 }
