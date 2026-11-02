@@ -30,7 +30,7 @@ function Greeting() {
   const { now, S, people } = useHub();
   const h24 = !!S.config.hour24;
   const mon = weekStart(now);
-  const { data = EMPTY_EVENTS } = useEvents(mon, addDays(mon, 7));
+  const { data = EMPTY_EVENTS } = useEvents(mon, addDays(mon, 8));
   const chips = data.list.filter(e => e.all_day && onDay(e, now)).slice(0, 3);
   const g = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
   const ampm = h24 ? "" : now.getHours() < 12 ? "am" : "pm";
@@ -101,12 +101,19 @@ function WeekColumns({ data, mon, now, people }: { data: EvData; mon: Date; now:
 }
 
 /** Who has what for the next few hours: a row for each person, their events as bars along the time, the time gone shaded. */
+/** The hours the ribbon shows: from the current hour, or, from 8pm on, tomorrow morning (the rest of tonight is mostly gone by then). */
+export function ribbonWindow(now: Date, phone: boolean) {
+  const span = phone ? 4 : 6, late = now.getHours() >= 20;
+  const h0 = late ? 7 : Math.max(6, Math.min(24 - span, now.getHours()));
+  const day = late ? addDays(now, 1) : now;
+  const a = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h0);
+  return { late, span, h0, a, b: new Date(+a + span * 3600000) };
+}
+
 function Ribbon({ data, now }: { data: EvData; now: Date }) {
   const { people, h24, dim } = useHub();
   const { openCal } = useNav();
-  const span = dim.phone ? 4 : 6;
-  const h0 = Math.max(6, Math.min(24 - span, now.getHours()));
-  const a = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h0), b = new Date(+a + span * 3600000);
+  const { span, h0, a, b } = ribbonWindow(now, dim.phone);
   const pct = (d: Date) => Math.max(0, Math.min(100, (+d - +a) / (+b - +a) * 100));
   const timed = data.list.filter(e => !e.all_day && e.e > a && e.s < b).sort((x, y) => +x.s - +y.s);
   // A row for everyone in the family, then one for each calendar with events that name nobody.
@@ -150,25 +157,26 @@ function TodayCard() {
   const { now, people, h24, ovMode, setOvMode, dim } = useHub();
   const { openCal } = useNav();
   const mon = weekStart(now);
-  const { data = EMPTY_EVENTS } = useEvents(mon, addDays(mon, 7));
+  const { data = EMPTY_EVENTS } = useEvents(mon, addDays(mon, 8));      // a day past the week, so Sunday night can show Monday morning
   const wk = ovMode === "week";
+  const win = ribbonWindow(now, dim.phone), day = win.late ? addDays(now, 1) : now;
   const bad = Object.values(data.cals).find(c => !c.ok);
-  const coming = data.list.filter(e => !e.all_day && onDay(e, now) && e.s > now).sort((x, y) => +x.s - +y.s);
+  const coming = data.list.filter(e => !e.all_day && onDay(e, day) && e.s > now).sort((x, y) => +x.s - +y.s);
   const whoOf = (e: Ev) => peopleOf(e, people).map(p => p.name).join(" and ");
   let nextTxt = "";
   if (coming.length) {
     const e = coming[0], m = Math.round((+e.s - +now) / 60000), w = whoOf(e);
     nextTxt = `${e.title}${w ? " for " + w : ""} ${m < 60 ? `in ${m} min` : "at " + fmtT(e.s, h24)}${coming[1] ? ` · then ${coming[1].title} at ${fmtT(coming[1].s, h24)}` : ""}`;
+    if (win.late) nextTxt = `${e.title}${w ? " for " + w : ""} at ${fmtT(e.s, h24)}${coming[1] ? ` · then ${coming[1].title} at ${fmtT(coming[1].s, h24)}` : ""}`;
   }
   const weekCount = data.list.filter(e => { for (let i = 0; i < 7; i++) if (onDay(e, addDays(mon, i))) return true; return false; }).length;
-  const any = data.list.some(e => onDay(e, now));
-  const span = dim.phone ? 4 : 6, h0 = Math.max(6, Math.min(24 - span, now.getHours()));
+  const any = data.list.some(e => onDay(e, day));
   return (
     <section id="today" className="tile-card tcard">
       <div className="fx" style={{ justifyContent: "space-between", gap: 10 }}>
         <div className="fx" style={{ gap: 12, alignItems: "baseline", minWidth: 0 }}>
-          <h2 className="tc-h">{wk ? "This week" : "Today"}</h2>
-          {!wk && !dim.phone ? <span className="tc-sub">{hourLabel(h0, h24)} to {hourLabel((h0 + span) % 24, h24)}</span> : null}
+          <h2 className="tc-h">{wk ? "This week" : win.late ? "Tomorrow" : "Today"}</h2>
+          {!wk && !dim.phone ? <span className="tc-sub">{hourLabel(win.h0, h24)} to {hourLabel((win.h0 + win.span) % 24, h24)}</span> : null}
         </div>
         <div className="fx" style={{ gap: 8 }}>
           <div className="seg2">
@@ -179,13 +187,13 @@ function TodayCard() {
         </div>
       </div>
       {wk ? <div style={{ marginTop: 14 }}><WeekColumns data={data} mon={mon} now={now} people={people} /></div>
-        : people.length || data.list.some(e => onDay(e, now) && !e.all_day) ? <Ribbon data={data} now={now} />
+        : people.length || data.list.some(e => onDay(e, day) && !e.all_day) ? <Ribbon data={data} now={now} />
         : null}
       {wk ? null : (
         <div className={"tc-next" + (bad ? " bad" : nextTxt ? "" : " quiet")}>
           {bad ? <span>Can't reach {bad.name}</span>
-            : nextTxt ? <><b>Next up</b><span>{nextTxt}</span></>
-            : <span>{any ? "That's everything for today" : "Nothing on today. Open the calendar to add something."}</span>}
+            : nextTxt ? <><b>{win.late ? "First up" : "Next up"}</b><span>{nextTxt}</span></>
+            : <span>{win.late ? (any ? "Nothing timed tomorrow" : "Nothing on tomorrow yet") : any ? "That's everything for today" : "Nothing on today. Open the calendar to add something."}</span>}
         </div>
       )}
       {wk ? <div className="tc-next quiet"><span>{weekCount ? `${weekCount} on this week` : "A quiet week"}</span></div> : null}
