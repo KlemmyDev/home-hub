@@ -1204,3 +1204,8 @@ html.standby *{animation:none!important;transition:none!important}
 .calp .sch-head{padding-top:12px;padding-bottom:10px}
 .sch-name{display:flex;align-items:center;justify-content:center;gap:7px;font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sch-name i{width:10px;height:10px;border-radius:50%;flex:none;background:var(--ec)}
+
+/* The calendar's scrolling parts (Day's and Schedule's hours, Week's day columns, the List) only scroll up and down, so a sideways
+   swipe that starts in them is the calendar's to take: left to the browser, it claims the gesture and the swipe gets cancelled. */
+.calbody .scroll{touch-action:pan-y}
+.calbody button,.calbody [role=button]{touch-action:pan-y}
