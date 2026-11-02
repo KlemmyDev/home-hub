@@ -4,17 +4,15 @@ import { post } from "../lib/api";
 import { addDays, fromYmd, startOfDay, weekStart, ymd } from "../lib/dates";
 import { Check, Chev, ChevL, ChevR, XIcon } from "../lib/icons";
 import { KINDS, type Dinners, type Meal } from "../data";
-import { EMPTY_EVENTS, NO_PANTRY, useDinners as useDinners2, useEvents, usePantry } from "../data";
+import { EMPTY_EVENTS, NO_PANTRY, useEvents, usePantry } from "../data";
 import { planUse } from "../lib/pantrylib";
 import { useHold } from "../lib/power";
 import { useHub } from "../hub";
 import { FoodIcon } from "../lib/foodicons";
 import { ago, busyAt, cookingFor, dayName, scaleAmount, stepsOf, suggestWeek, useStats, type Pick } from "../lib/dinnerlib";
 import { Top, wrap } from "./Panels";
-import { Pill, SheetFrame } from "./SheetFrame";
 import { useMealSave } from "./Dinners";
 
-const KIND_LIST = Object.entries(KINDS);
 const Bell = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" /><path d="M10 21h4" /></svg>;
 
 /* ---------- fill the week ---------- */
@@ -105,25 +103,6 @@ export function Rules({ din }: { din: Dinners | undefined }) {
   );
 }
 
-export function RuleSheet({ weekday }: { weekday: number }) {
-  const { closeSheet, soon } = useHub();
-  const qc = useQueryClient();
-  const { data: din } = useDinners2();
-  const [q, setQ] = useState("");
-  const set = async (meal: string, kind: string) => { try { await post("/api/dinner-rule", { weekday, meal, kind }); await qc.invalidateQueries({ queryKey: ["dinners"] }); closeSheet(); } catch (e: any) { soon(e.message); } };
-  const meals = [...(din?.meals || [])].filter(m => !q || m.name.toLowerCase().includes(q.toLowerCase())).sort((a, b) => a.name.localeCompare(b.name));
-  return <SheetFrame title={["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][weekday] + "s are…"} foot={<button className="primary" style={{ marginLeft: "auto", minWidth: 200 }} onClick={closeSheet}>Cancel</button>} body={
-    <div style={{ paddingTop: 8 }}>
-      <div className="fx" style={{ gap: 8, flexWrap: "wrap" }}>
-        <Pill onClick={() => set("", "")}>Nothing fixed</Pill>
-        {KIND_LIST.map(([k, l]) => <Pill key={k} onClick={() => set("", k)}>{l}</Pill>)}
-      </div>
-      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Or pick a dinner" aria-label="Search dinners" autoComplete="off" style={{ margin: "16px 0 8px" }} />
-      {meals.map(m => <button key={m.id} className="dvcard" style={{ width: "100%", marginBottom: 8 }} onClick={() => set(m.id, "")}><FoodIcon name={m.name} size={52} /><span className="dvct"><b>{m.name}</b></span></button>)}
-    </div>
-  } />;
-}
-
 /* ---------- what we've eaten ---------- */
 export function History({ din }: { din: Dinners | undefined }) {
   const { dim, now, setDview } = useHub();
@@ -212,7 +191,7 @@ export function Cook({ din, id }: { din: Dinners | undefined; id: string }) {
     <div style={wrap(P)}>
       <Top back={m.name} to={{ v: "meal", id }} title="Cooking" right={<button className="dvbtn dark" onClick={finish}>Finish</button>} />
       {alarming.map(t => <button key={t.id} className="cktimer alarm" onClick={() => { timers = timers.filter(x => x.id !== t.id); poke(); }}><Bell />{t.label} timer is done. Tap to stop.</button>)}
-      <div className="dvtabs"><div className="seg2" role="tablist" aria-label="Cooking"><button role="tab" aria-selected={tab === "steps"} className={tab === "steps" ? "on" : ""} onClick={() => setTab("steps")}>Steps</button><button role="tab" aria-selected={tab === "food"} className={tab === "food" ? "on" : ""} onClick={() => setTab("food")}>Ingredients</button></div></div>
+      <div className="dvtabs"><div className="dvseg" role="tablist" aria-label="Cooking"><button role="tab" aria-selected={tab === "steps"} className={tab === "steps" ? "on" : ""} onClick={() => setTab("steps")}>Steps</button><button role="tab" aria-selected={tab === "food"} className={tab === "food" ? "on" : ""} onClick={() => setTab("food")}>Ingredients</button></div></div>
       <div className="scroll dvbody" style={{ flex: 1, minHeight: 0, paddingBottom: 150 }}>
         {tab === "steps" ? (
           steps.length ? (

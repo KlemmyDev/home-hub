@@ -46,7 +46,6 @@ type Ctx = {
   S: HubState; people: Person[]; h24: boolean; dim: Dim; now: Date;
   refreshState: () => Promise<void>;
   cal: CalView; setCal: (f: (c: CalView) => CalView) => void;
-  ovMode: "day" | "week"; setOvMode: (m: "day" | "week") => void;
   menuWeek: Date; setMenuWeek: (d: Date) => void;
   dview: DView; setDview: (v: DView) => void;
   choreDay: Date; setChoreDay: (d: Date) => void;
@@ -126,7 +125,6 @@ function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNod
   const now = useNow();
   useKeepAwake(); useNoLongPressMenu();
   const [cal, setCalState] = useState<CalView>({ mode: "schedule", date: nowZ(), who: null });
-  const [ovMode, setOvMode] = useState<"day" | "week">("day");
   const [menuWeek, setMenuWeek] = useState(() => nowZ());
   const [dview, setDview] = useState<DView>({ v: "home" });
   const [choreDay, setChoreDay] = useState(() => nowZ());
@@ -154,10 +152,10 @@ function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNod
   const refreshState = useCallback(async () => { await qc.fetchQuery({ queryKey: ["state"], queryFn: () => api<HubState>("/api/state"), staleTime: 0 }); }, [qc]);
   const value = useMemo<Ctx>(() => ({
     S, people: DEMO && !S.people?.length ? DEMO_PEOPLE : S.people || [], h24: !!S.config.hour24, dim, now, refreshState,
-    cal, setCal: f => setCalState(f), ovMode, setOvMode, menuWeek, setMenuWeek, dview, setDview, choreDay, setChoreDay, showDone, setShowDone,
+    cal, setCal: f => setCalState(f), menuWeek, setMenuWeek, dview, setDview, choreDay, setChoreDay, showDone, setShowDone,
     sheet, sheetShown, openSheet, closeSheet: () => openSheet(null), toast, toastAct, soon,
     ppOn: DEMO || !!S.config.pocketpals?.connected,
-  }), [S, dim, now, refreshState, cal, ovMode, menuWeek, dview, choreDay, showDone, sheet, sheetShown, openSheet, toast, toastAct, soon]);
+  }), [S, dim, now, refreshState, cal, menuWeek, dview, choreDay, showDone, sheet, sheetShown, openSheet, toast, toastAct, soon]);
   return <HubCtx.Provider value={value}>{children}</HubCtx.Provider>;
 }
 

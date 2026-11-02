@@ -66,7 +66,7 @@ function DinTabs({ right }: { right?: React.ReactNode }) {
   const tabs: [DView["v"], string][] = [["home", "Tonight"], ["week", "This week"], ["ideas", "Dinner ideas"]];
   return (
     <div className="dvtabs">
-      <div className="seg2" role="tablist" aria-label="Dinners">
+      <div className="dvseg" role="tablist" aria-label="Dinners">
         {tabs.map(([v, l]) => <button key={v} role="tab" aria-selected={dview.v === v} className={dview.v === v ? "on" : ""} onClick={() => setDview({ v } as DView)}>{l}</button>)}
       </div>
       <div className="fx" style={{ gap: 8, flex: "none" }}>{right}</div>
@@ -617,24 +617,4 @@ export function IngredientSheet({ meal, ing }: { meal: string; ing: string | nul
   );
   return <SheetFrame title={cur ? "Ingredient" : "Add an ingredient"} body={body}
     foot={<>{cur ? <button className="danger-o" onClick={async () => { await save(m, { ingredients: m.ingredients!.filter(x => x.id !== cur.id) }); closeSheet(); }}>Remove</button> : null}<button style={{ marginLeft: "auto" }} onClick={closeSheet}>Cancel</button><button className="primary" style={{ minWidth: 180 }} onClick={go}>{cur ? "Save" : "Add"}</button></>} />;
-}
-
-/** Pick a day to have this dinner on. */
-export function PlanMealSheet({ meal }: { meal: string }) {
-  const { closeSheet, now, soon } = useHub();
-  const qc = useQueryClient();
-  const { data: din } = useDinners();
-  const m = din?.meals.find(x => x.id === meal);
-  const days = Array.from({ length: 14 }, (_, i) => addDays(startOfDay(now), i));
-  const plan = async (d: Date) => { try { await post("/api/dinner-plan", { date: ymd(d), meal_id: meal, cook: din?.plan[ymd(d)]?.cook || null }); await qc.invalidateQueries({ queryKey: ["dinners"] }); closeSheet(); soon(`${m?.name || "Dinner"} planned for ${d.toLocaleDateString([], { weekday: "long" })}.`); } catch (e: any) { soon(e.message); } };
-  return <SheetFrame title={m ? `Plan ${m.name}` : "Plan it"} foot={<button className="primary" style={{ marginLeft: "auto", minWidth: 200 }} onClick={closeSheet}>Cancel</button>} body={
-    <div style={{ paddingTop: 10 }}>
-      {days.map((d, i) => { const cur = din?.meals.find(x => x.id === din.plan[ymd(d)]?.meal); return (
-        <button key={i} className="srow" onClick={() => plan(d)} style={{ width: "100%" }}>
-          <span className="sd num"><b>{d.getDate()}</b><small>{d.toLocaleDateString([], { month: "short" })}</small></span>
-          <span className="sm"><b>{i === 0 ? "Today" : i === 1 ? "Tomorrow" : d.toLocaleDateString([], { weekday: "long" })}</b><small>{cur ? (cur.id === meal ? "Already this dinner" : "Now: " + cur.name + " (it will be replaced)") : "Nothing planned"}</small></span>
-        </button>
-      ); })}
-    </div>
-  } />;
 }
