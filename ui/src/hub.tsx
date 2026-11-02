@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, DEMO } from "./lib/api";
-import { addDays, nowZ, setZone, startOfDay, weekStart } from "./lib/dates";
+import { addDays, nowZ, setZone, startOfDay, weekStart, ymd } from "./lib/dates";
 import { DEMO_PEOPLE, type Person } from "./lib/events";
+import { palColor, palFor } from "./lib/pals";
 import { useStandby } from "./lib/power";
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 15000, retry: false, refetchOnWindowFocus: false } } });
@@ -26,6 +27,8 @@ export type DView = { v: "home" } | { v: "week" } | { v: "ideas" } | { v: "meal"
 export type Sheet =
   | { mode: "event"; draft: EventDraft; occ?: string; back?: boolean }
   | { mode: "view"; e: import("./lib/events").Ev; cal: { name: string; color: string } }
+  | { mode: "details"; e: import("./lib/events").Ev }
+  | { mode: "quick"; day: Date; hour?: number; who?: string | null }
   | { mode: "family"; back?: EventDraft }
   | { mode: "steps"; key: string }
   | { mode: "dinner"; date: string; cook: string | null }
@@ -150,12 +153,20 @@ function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNod
     clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => { setToast(""); setToastAct(null); }, act ? 8000 : 1800);     // an undo stays long enough to be reached
   }, []);
   const refreshState = useCallback(async () => { await qc.fetchQuery({ queryKey: ["state"], queryFn: () => api<HubState>("/api/state"), staleTime: 0 }); }, [qc]);
+  // Kids who have a pal in PocketPals wear it: its face for their picture and its colour for theirs, everywhere.
+  const ppOn = DEMO || !!S.config.pocketpals?.connected;
+  const { data: palKids } = useQuery({ queryKey: ["pals"], enabled: ppOn && !DEMO, refetchInterval: 300000, staleTime: 60000,
+    queryFn: async () => { const d = ymd(nowZ()), r = await api(`/api/chores?from=${d}&to=${d}`); return (r.connected && !r.error ? r.kids : []) as { id: number; name: string; species?: string; pal_url?: string }[]; } });
+  const people = useMemo(() => {
+    const base = DEMO && !S.people?.length ? DEMO_PEOPLE : S.people || [], kids = palKids || [], ppUrl = (S.config.pocketpals?.url || "").replace(/\/$/, "");
+    return kids.length ? base.map(p => { const k = palFor(p.name, kids); return k ? { ...p, color: palColor(k, kids), pal: k.pal_url && ppUrl ? ppUrl + k.pal_url + "&head=1" : undefined } : p; }) : base;
+  }, [S, palKids]);
   const value = useMemo<Ctx>(() => ({
-    S, people: DEMO && !S.people?.length ? DEMO_PEOPLE : S.people || [], h24: !!S.config.hour24, dim, now, refreshState,
+    S, people, h24: !!S.config.hour24, dim, now, refreshState,
     cal, setCal: f => setCalState(f), menuWeek, setMenuWeek, dview, setDview, choreDay, setChoreDay, showDone, setShowDone,
     sheet, sheetShown, openSheet, closeSheet: () => openSheet(null), toast, toastAct, soon,
-    ppOn: DEMO || !!S.config.pocketpals?.connected,
-  }), [S, dim, now, refreshState, cal, menuWeek, dview, choreDay, showDone, sheet, sheetShown, openSheet, toast, toastAct, soon]);
+    ppOn,
+  }), [S, people, dim, now, refreshState, cal, menuWeek, dview, choreDay, showDone, sheet, sheetShown, openSheet, toast, toastAct, soon]);
   return <HubCtx.Provider value={value}>{children}</HubCtx.Provider>;
 }
 

@@ -10,6 +10,7 @@ import { useHub } from "../hub";
 import { useNav } from "../nav";
 import { ChoresCard } from "./Chores";
 import { Avs } from "./Calendar";
+import { Ava } from "./Ava";
 
 const fx = (extra?: CSSProperties): CSSProperties => ({ display: "flex", alignItems: "center", ...extra });
 
@@ -89,7 +90,7 @@ function Ribbon({ data, now }: { data: EvData; now: Date }) {
   const { a, b, h0 } = ribbonWindow(now);
   const pct = (d: Date) => Math.max(0, Math.min(100, (+d - +a) / (+b - +a) * 100));
   const timed = data.list.filter(e => !e.all_day && e.e > a && e.s < b).sort((x, y) => +x.s - +y.s);
-  const rows: { key: string; name: string; color: string; evs: Ev[] }[] = people.map(p => ({ key: p.id, name: p.name, color: p.color, evs: timed.filter(e => (e.people || []).includes(p.id)) }));
+  const rows: { key: string; name: string; color: string; pal?: string; evs: Ev[] }[] = people.map(p => ({ key: p.id, name: p.name, color: p.color, pal: p.pal, evs: timed.filter(e => (e.people || []).includes(p.id)) }));
   for (const e of timed.filter(e => !peopleOf(e, people).length)) {
     const c = calOf(e, data, people), key = "c:" + (e.cal || c.name);
     let r = rows.find(x => x.key === key);
@@ -104,7 +105,7 @@ function Ribbon({ data, now }: { data: EvData; now: Date }) {
       <div className="rb-rows">
         {rows.map(r => (
           <div key={r.key} className="rb-row" style={{ "--ec": r.color } as CSSProperties}>
-            <span className="rb-who"><i>{(r.name.trim()[0] || "?").toUpperCase()}</i><b>{r.name}</b></span>
+            <span className="rb-who"><Ava p={r} size={36} /><b>{r.name}</b></span>
             <span className="rb-track">
               {laneUp(r.evs.map(e => ({ ev: e, s: e.s < a ? a : e.s, e: e.e > b ? b : e.e }))).map(l => (
                 <button key={l.ev.id} className={"rb-bar" + (l.ev.s <= now && now < l.ev.e ? " live" : "")} onClick={() => openCal("day", l.ev.s)} aria-label={`${l.ev.title}, ${fmtT(l.ev.s, h24)} to ${fmtT(l.ev.e, h24)}`}

@@ -4,7 +4,8 @@ import { addDays, fromZoned, startOfDay, toZoned } from "./dates";
 export const PALETTE = ["#2f6fe0", "#e2523f", "#14a06c", "#e5487f", "#7b5cf0", "#f59e0b", "#0ea5b7"];
 export const tint = (c: string) => c + "2b";
 
-export type Person = { id: string; name: string; color: string; birthday?: string; diet?: string[] };
+/** A family member. `pal` is their PocketPals pal (a picture of just its face), when PocketPals knows them; their colour is then the pal's. */
+export type Person = { id: string; name: string; color: string; birthday?: string; diet?: string[]; pal?: string };
 export type CalInfo = { id: string; name: string; color: string; ok: boolean; error?: string };
 export type Ev = {
   id: string; title: string; location: string; all_day: boolean; cal?: string; hub?: boolean; fixed?: boolean; notes?: string; link?: string; travel?: number; checklist?: string[]; icon?: string; remind?: number | null; name?: string; series?: string; people?: string[];

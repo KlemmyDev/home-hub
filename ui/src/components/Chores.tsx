@@ -4,14 +4,12 @@ import { DEMO, post } from "../lib/api";
 import { addDays, clockT, fromYmd, nowZ, sameDay, shortDate, startOfDay, weekStart, ymd } from "../lib/dates";
 import { Check, Chev, ChevL, ChevR } from "../lib/icons";
 import { NO_CHORES, useChores, usePatchChores, type Chores, type Job, type Kid } from "../data";
+import { palColor } from "../lib/pals";
 import { useHub } from "../hub";
 import { useNav } from "../nav";
 import { SheetFrame } from "./SheetFrame";
 
-const KIDCOL = ["#14a06c", "#e5487f", "#7b5cf0", "#0ea5b7", "#f59e0b", "#2f6fe0"];
-/* A child's colour is their pal's. PocketPals draws the pal itself (colour, outfit, pet) on a page the hub shows in a frame. */
-const PALACC: Record<string, string> = { pig: "#F0709F", fox: "#FF8A2B", owl: "#8B5CFF", dino: "#1FB574", cat: "#F09A1A", bunny: "#A98BD8", puppy: "#A66A3C", panda: "#5B6577", frog: "#6DB82B", penguin: "#36427F" };
-const kidColor = (k: Kid, kids: Kid[]) => PALACC[String(k.species || "").split("~")[0]] || KIDCOL[Math.max(0, kids.findIndex(x => x.id === k.id)) % KIDCOL.length];
+const kidColor = palColor;
 export const jobDone = (j: Job) => j.status === "pending" || j.status === "approved";
 const jobTally = (jobs: Job[]) => [jobs.filter(jobDone).length, jobs.length];
 
