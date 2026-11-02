@@ -120,7 +120,7 @@ function StockTab({ pan }: { pan: PantryData }) {
     <>
       <div className="fx" style={{ gap: 10, padding: "0 0 10px" }}>
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search the pantry" aria-label="Search the pantry" autoComplete="off" enterKeyHint="search" style={{ flex: 1, minWidth: 0 }} />
-        <button className="cbtn accent" style={{ flex: "none", padding: "0 22px" }} onClick={() => openSheet({ mode: "pitem", id: null })}>+ Add</button>
+        <button className="cbtn accent ptadd" style={{ flex: "none", padding: "0 22px" }} onClick={() => openSheet({ mode: "pitem", id: null })}>+ Add</button>
       </div>
       <div className="fx dvchips" style={{ paddingBottom: 10 }}>
         <Pill on={show === "all"} onClick={() => setShow("all")}>Everything · {pan.items.length}</Pill>

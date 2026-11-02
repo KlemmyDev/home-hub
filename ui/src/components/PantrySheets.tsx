@@ -101,7 +101,7 @@ export function PantryItemSheet({ id, name: startName }: { id: string | null; na
   const body = (
     <>
       <div className="fx" style={{ gap: 10, marginTop: 14 }}>
-        <input ref={nameRef} value={t.name} onChange={e => rename(e.target.value)} maxLength={50} placeholder="What is it? Flour, rice, milk…" aria-label="Name" autoComplete="off" enterKeyHint="done" style={{ flex: 1, minWidth: 0, fontSize: 26, fontWeight: 700, minHeight: 72 }} />
+        <input ref={nameRef} value={t.name} onChange={e => rename(e.target.value)} maxLength={50} placeholder="What is it?" aria-label="Name" autoComplete="off" enterKeyHint="done" style={{ flex: 1, minWidth: 0, fontSize: 26, fontWeight: 700, minHeight: 72 }} />
         {!cur ? <button className="ptscan" aria-label="Scan a barcode" onClick={() => { const why = scanProblem(); if (why) { setScanMsg(why); } else { setScanMsg(""); setScan(true); } }}>📷</button> : null}
       </div>
       {scan ? <Scanner onClose={() => setScan(false)} onCode={async code => { setScan(false); try { const r = await api<Product[]>("/api/products/search?q=" + code); found(r.find(p => p.code === code) || { code, name: t.name || "Scanned product", brand: "", quantity: "", image: "" }); } catch { found({ code, name: t.name || "Scanned product", brand: "", quantity: "", image: "" }); } }} /> : null}
