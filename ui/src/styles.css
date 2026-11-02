@@ -945,6 +945,7 @@ html.standby *{animation:none!important;transition:none!important}
 .fn-row .dplus{width:48px;height:48px;font-size:26px}
 .fn-d.hd{flex-direction:column;gap:0;font-size:22px;letter-spacing:-.02em;color:var(--text);line-height:1.05}.fn-d.hd small{font-size:11px;letter-spacing:.06em;color:var(--soft)}
 .dvshop .stk{font-size:19px;font-weight:600;gap:12px;min-height:66px}.dvshop .srow.off .fico{opacity:.5}
+.dvpage .qadd input{background:#fff;border:1.5px solid #dcdad4;border-radius:16px}.dvpage .qadd input:focus{outline:0;border-color:var(--text)}.dvpage .qadd button{border-radius:16px;border-color:#dcdad4}
 .fn-row:disabled{opacity:1}.fn-row>svg:last-child{color:#8d929c;flex:none}
 .ig-name{display:flex;align-items:center;gap:14px}
 #sheet .ig-name input{flex:1;min-height:72px;font-size:26px;font-weight:700}

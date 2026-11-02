@@ -9,6 +9,7 @@ import { planUse } from "../lib/pantrylib";
 import { useHold } from "../lib/power";
 import { useHub } from "../hub";
 import { FoodIcon } from "../lib/foodicons";
+import { ItemIcon } from "../lib/pantryicons";
 import { ago, busyAt, cookingFor, dayName, scaleAmount, stepsOf, suggestWeek, useStats, type Pick } from "../lib/dinnerlib";
 import { Top, wrap } from "./Panels";
 import { useMealSave } from "./Dinners";
@@ -175,7 +176,7 @@ export function Cook({ din, id }: { din: Dinners | undefined; id: string }) {
   const P = dim.phone, m = din?.meals.find(x => x.id === id), list = useTimers();
   useHold(true);      // cooking: the screen stays up
   const steps = useMemo(() => stepsOf(m?.notes || ""), [m?.notes]);
-  const [i, setI] = useState(0), [tab, setTab] = useState<"steps" | "food">("steps"), [done, setDone] = useState<number[]>([]);
+  const [i, setI] = useState(0), [tab, setTab] = useState<"steps" | "food">("steps"), [done, setDone] = useState<string[]>([]);
   const today = ymd(now), planned = din?.plan[today]?.meal === id;
   const [n, setN] = useState(() => planned ? cookingFor(din, [], today, m) : m?.serves || 4);
   if (!m) return <div style={wrap(P)}><Top back="Dinners" to={{ v: "home" }} title="Cooking" /></div>;
@@ -215,12 +216,18 @@ export function Cook({ din, id }: { din: Dinners | undefined; id: string }) {
           ) : <p className="dvnone" style={{ fontSize: 22 }}>No steps yet. Put the method in the dinner's notes, one step to a line, and it shows here in big type.</p>
         ) : (
           <>
+            <section className="dvsec dvshop">
             <div className="fx dvrow"><span>Cooking for</span><div className="fx" style={{ gap: 12 }}><button className="cnav" aria-label="Fewer" onClick={() => setN(Math.max(1, n - 1))}>−</button><span className="num" style={{ minWidth: 40, textAlign: "center", fontSize: 28, fontWeight: 700 }}>{n}</span><button className="cnav" aria-label="More" onClick={() => setN(Math.min(50, n + 1))}>+</button></div></div>
-            {(m.ingredients || []).map(g => { const on = done.includes(+g.id.replace(/\D/g, "")) ; return (
-              <button key={g.id} className={"srow" + (on ? " done" : "")} style={{ width: "100%", textAlign: "left", background: "none", border: 0, padding: 0 }} onClick={() => setDone(on ? done.filter(x => x !== +g.id.replace(/\D/g, "")) : [...done, +g.id.replace(/\D/g, "")])}>
-                <span className="stk" style={{ fontSize: 26 }}><span className="chk" aria-hidden>{on ? <Check /> : null}</span><span className="sn">{g.name}<small className="snote" style={{ fontSize: 19 }}>{scaleAmount(g.amount, factor)}</small></span></span>
-              </button>
+            {(m.ingredients || []).map(g => { const on = done.includes(g.id); return (
+              <div key={g.id} className={"srow" + (on ? " done" : "")}>
+                <button className="stk" aria-pressed={on} onClick={() => setDone(on ? done.filter(x => x !== g.id) : [...done, g.id])}>
+                  <span className="chk" aria-hidden>{on ? <Check /> : null}</span>
+                  <ItemIcon name={g.name} size={48} />
+                  <span className="sn">{g.name}<small className="snote">{scaleAmount(g.amount, factor)}</small></span>
+                </button>
+              </div>
             ); })}
+            </section>
           </>
         )}
         <h3 className="dvh">Timers</h3>

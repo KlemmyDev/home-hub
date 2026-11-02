@@ -36,7 +36,7 @@ function demoDinners(): Dinners {
     "Spaghetti Bolognese": [["Spaghetti", "500 g"], ["Beef mince", "500 g"], ["Passata", "1 jar"], ["Onion", "1"], ["Garlic", "2 cloves"]],
     "Tacos": [["Taco shells", "1 box"], ["Beef mince", "500 g"], ["Cheese", "1 cup"], ["Lettuce", "1"]],
   };
-  const meals: Meal[] = [...names.filter(Boolean), ...extra].map((name, i) => ({ id: "m" + i, name, serves: 4, minutes: 30, tags: i % 3 === 0 ? ["Quick"] : [], favourite: i < 2, ingredients: (sample[name] || []).map(([n, amount], j) => ({ id: `i${i}x${j}`, name: n, amount, product: null, staple: n === "Garlic" || n === "Onion" })) }));
+  const meals: Meal[] = [...names.filter(Boolean), ...extra].map((name, i) => ({ id: "m" + i, name, serves: 4, minutes: 30, tags: i % 3 === 0 ? ["Quick"] : [], favourite: i < 2, notes: name === "Spaghetti Bolognese" ? "Brown the mince in a big pan, breaking it up.\nAdd the onion and garlic and cook until soft.\nPour in the passata, then simmer for 20 minutes.\nCook the spaghetti while the sauce simmers.\nDrain, and serve with the sauce on top." : undefined, ingredients: (sample[name] || []).map(([n, amount], j) => ({ id: `i${i}x${j}`, name: n, amount, product: null, staple: n === "Garlic" || n === "Onion" })) }));
   const w = weekStart(startOfDay(nowZ())), plan: Dinners["plan"] = {};
   names.forEach((n, i) => { if (n) plan[ymd(addDays(w, i))] = { meal: "m" + i, cook: ["d", "m", "a", "d", "m", "d", ""][i] || undefined }; });
   return { meals, plan };
