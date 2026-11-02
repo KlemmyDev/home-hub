@@ -7,11 +7,12 @@ import { PRODUCE } from "./pantrydata1";
 import { FRESH } from "./pantrydata2";
 import { STAPLES } from "./pantrydata3";
 import { HOUSE } from "./pantrydata4";
+import { MORE } from "./pantrydata5";
 
 export type ItemPic = { id: string; name: string; bg: string; keys: string[]; svg: string };
 
 const wrap = (inner: string) => `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
-export const ITEM_PICS: ItemPic[] = [...PRODUCE, ...FRESH, ...STAPLES, ...HOUSE].map(([id, name, bg, keys, svg]) => ({ id, name, bg, keys: keys.split(","), svg: wrap(svg) }));
+export const ITEM_PICS: ItemPic[] = [...PRODUCE, ...FRESH, ...STAPLES, ...HOUSE, ...MORE].map(([id, name, bg, keys, svg]) => ({ id, name, bg, keys: keys.split(","), svg: wrap(svg) }));
 
 /** What an item with no picture of its own gets, by aisle. */
 const PLAIN: Record<string, ItemPic> = {
