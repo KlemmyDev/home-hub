@@ -2,14 +2,14 @@ import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "rea
 import { useHub, type Dim } from "../hub";
 import { useNav, usePage, type Page } from "../nav";
 import { DockIcon } from "../lib/icons";
-import { nowZ } from "../lib/dates";
+import { nowZ, startOfDay } from "../lib/dates";
 import { CalendarPanel } from "./Calendar";
 import { ChoresPanel } from "./Chores";
 import { Overview } from "./Overview";
 import { PantryPanel } from "./Pantry";
 import { MenuPanel } from "./Dinners";
 import { Settings } from "../screens/Settings";
-import { SheetHost } from "./Sheets";
+import { SheetHost, newEventDraft } from "./Sheets";
 import { Reminders } from "./Reminders";
 import { UpdateOverlay } from "./UpdateOverlay";
 import { Standby } from "./Standby";
@@ -47,28 +47,31 @@ function PanelCard({ id, inner, active, edge, children }: { id: string; inner: s
   );
 }
 
-/** The floating menu: always open, so every screen is one tap away. */
-function Dock() {
-  const { S, dim, ppOn, cal, setDview } = useHub();
+/** The menu along the bottom: every screen one tap away, and Add (a new event) raised in the middle. */
+function Bar() {
+  const { S, ppOn, cal, setDview, openSheet, now } = useHub();
   const page = usePage();
   const { go, openCal } = useNav();
   const url = (id: string) => S.config.widgets.find(w => w.id === id)?.url;
-  const items: [string, string, string][] = [["overview", "Overview", "page"], ["calendar", "Calendar", "page"], ["menu", "Dinners", "page"], ["pantry", "Pantry", "page"]];
-  if (ppOn) items.push(["chores", "Chores", "page"]); else if (url("pocketpals")) items.push(["chores", "Chores", url("pocketpals")!]);
-  if (url("wattsmypower")) items.push(["energy", "Energy", url("wattsmypower")!]);
-  items.push(["settings", "Settings", "page"]);
-  const dw = dim.phone ? 50 * items.length + 10 : 150 + 60 * (items.length - 1) + 20;
+  const left: [string, string, string][] = [["overview", "Home", "page"], ["calendar", "Calendar", "page"], ["menu", "Dinners", "page"]];
+  const right: [string, string, string][] = [["pantry", "Pantry", "page"]];
+  if (ppOn) right.push(["chores", "Chores", "page"]); else if (url("pocketpals")) right.push(["chores", "Chores", url("pocketpals")!]);
+  if (url("wattsmypower")) right.push(["energy", "Energy", url("wattsmypower")!]);
+  right.push(["settings", "Settings", "page"]);
+  const open = (id: string) => id === "calendar" ? (page === "calendar" ? undefined : openCal(cal.mode, nowZ())) : id === "menu" ? (page === "menu" ? setDview({ v: "home" }) : go("menu")) : go(id as Page | "settings");
+  const item = ([id, name, to]: [string, string, string]) => {
+    const on = to === "page" && id === page;
+    const body = <><span className="bi"><DockIcon name={id === "overview" ? "home" : id} /></span><span className="bl">{name}</span></>;
+    return to === "page"
+      ? <button key={id} id={"dk-" + id} className={"bt" + (on ? " on" : "")} aria-label={name} aria-current={on ? "page" : undefined} onClick={() => open(id)}>{body}</button>
+      : <a key={id} className="bt" href={to} aria-label={name}>{body}</a>;
+  };
+  const add = () => openSheet({ mode: "event", draft: newEventDraft(startOfDay(page === "calendar" && cal.mode !== "month" ? cal.date : now), undefined, now, page === "calendar" ? cal.who : null) });
   return (
-    <nav id="dock" aria-label="Main" style={{ "--dw": dw + "px" } as CSSProperties}>
-      <div id="dk-i">
-        {items.map(([id, name, to]) => {
-          const on = to === "page" && id === page;
-          const inner = on ? <><DockIcon name={id} size={22} /><span className="lb">{name}</span></> : <DockIcon name={id} />;
-          return to === "page"
-            ? <button key={id} id={"dk-" + id} className={"dk" + (on ? " on" : "")} aria-label={name} aria-current={on ? "page" : undefined} onClick={() => id === "calendar" ? (page === "calendar" ? undefined : openCal(cal.mode, nowZ())) : id === "menu" ? (page === "menu" ? setDview({ v: "home" }) : go("menu")) : go(id as Page | "settings")}>{inner}</button>
-            : <a key={id} className="dk" href={to} aria-label={name}>{inner}</a>;
-        })}
-      </div>
+    <nav id="bar" aria-label="Main">
+      {left.map(item)}
+      <button id="dk-add" className="bt add" aria-label="Add an event" onClick={add}><span className="bi"><DockIcon name="add" /></span><span className="bl">Add</span></button>
+      {right.map(item)}
     </nav>
   );
 }
@@ -87,7 +90,7 @@ export function Stage() {
         <PanelCard id="chorecard" inner="chorein" active={page === "chores"} edge><ChoresPanel /></PanelCard>
         {page === "settings" ? <div id="setlayer"><Settings /></div> : null}
         <Reminders />
-        <Dock />
+        <Bar />
         <div id="sheetscrim" onClick={closeSheet} />
         <SheetHost />
         <UpdateOverlay />
