@@ -5,10 +5,11 @@ import { addDays, clockT, fmtT, hourLabel, longDay, nowZ, sameDay, weekStart } f
 import { calOf, colorsOf, laneUp, onDay, peopleOf, tint, type Ev, type EvData } from "../lib/events";
 import { FoodIcon, foodFor } from "../lib/foodicons";
 import { Chev, DinnerIcon, PpLogo, WeatherIcon } from "../lib/icons";
-import { EMPTY_EVENTS, dinnerFor, useDinners, useEnergy, useEvents } from "../data";
+import { EMPTY_EVENTS, dinnerFor, useDinners, useEvents } from "../data";
 import { useHub } from "../hub";
 import { useNav } from "../nav";
 import { ChoresCard } from "./Chores";
+import { EnergyCard } from "./Energy";
 import { Avs } from "./Calendar";
 import { Ava } from "./Ava";
 
@@ -166,55 +167,12 @@ function Status({ id }: { id: string }) {
   const up = data ? !!data[id] : undefined;
   return <span className="stat" data-up={up === undefined ? undefined : up ? "1" : "0"}><span className="sd" /><span>{up === undefined ? "Checking…" : up ? "Ready" : "Can't reach it"}</span></span>;
 }
-/**
- * The house's power right now and today's totals, from WattsMyPower (when it's connected and its key may read live
- * power): a white card like the others, with WattsMyPower's own colours on its four tiles (amber solar, blue battery).
- */
-function EnergyCard() {
-  const { S } = useHub();
-  const wm = S.config.wattsmypower;
-  const { data: t } = useEnergy("today", "", DEMO || !!wm?.connected);
-  const e = t?.data, p = e?.live?.snapshot, costs = e?.costs;
-  if (!(DEMO || wm?.connected) || !t?.allowed || !p) return null;
-  const ON = 50, kw = (w?: number) => (Math.abs(w ?? 0) / 1000).toFixed(1), kwh = (n?: number) => (n ?? 0).toFixed(1);
-  const pv = p.pv_power ?? 0, bat = p.battery_power ?? 0, grid = p.grid_power ?? 0, soc = Math.max(0, Math.min(100, p.battery_soc ?? 0));
-  const money = (n?: number) => n === undefined || n === null ? "" : `$${Math.abs(n).toFixed(2)}`;
-  const charging = bat < -ON, using = bat > ON;
-  const tiles: { id: string; label: string; value: string; unit: string; note: string }[] = [
-    { id: "solar", label: "Solar", value: kw(pv), unit: "kW", note: `${kwh(p.daily_pv)} kWh today` },
-    { id: "home", label: "Home", value: kw(p.load_power), unit: "kW", note: "using now" },
-    { id: using ? "battery use" : "battery", label: "Battery", value: String(Math.round(soc)), unit: "%", note: charging ? `↑ charging ${kw(bat)} kW` : using ? `↓ using ${kw(bat)} kW` : "resting" },
-    { id: grid < -ON ? "grid sell" : "grid", label: "Grid", value: kw(grid), unit: "kW", note: grid > ON ? "buying" : grid < -ON ? "selling" : "not used" },
-  ];
-  const totals: [string, string][] = [["Made", `${kwh(p.daily_pv)} kWh`], ["Bought", `${kwh(p.daily_import)} kWh`], ["Sold", `${kwh(p.daily_export)} kWh`]];
-  if (costs?.net_cost !== undefined && costs?.net_cost !== null) totals.push([costs.net_cost < 0 ? "Credit" : "Bill", money(costs.net_cost)]);
-  return (
-    <a className="tile-card wm" href={wm?.url} aria-label={`Energy: solar ${kw(pv)} kW, home ${kw(p.load_power)} kW, battery ${Math.round(soc)}%. Open WattsMyPower`}>
-      <div className="wm-head">
-        <span className="wm-mark"><svg width="17" height="17" viewBox="0 0 24 24" fill="#ffb547" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" /></svg></span>
-        <b className="wm-t">Energy</b>
-        <span className="wm-live"><i />Live</span>
-        <span style={{ flex: 1 }} />
-        {costs ? <span className="wm-save">Saved {money(costs.saved)} today</span> : null}
-      </div>
-      <div className="wm-tiles">
-        {tiles.map(x => (
-          <div key={x.label} className={"wm-tile " + x.id}>
-            <small><i />{x.label}</small>
-            <b className="num">{x.value}<em>{x.unit}</em></b>
-            <span>{x.note}</span>
-            {x.label === "Battery" ? <span className="wm-bat"><i style={{ width: soc + "%" }} /></span> : null}
-          </div>
-        ))}
-      </div>
-      <div className="wm-foot">{totals.map(([l, v]) => <span key={l}>{l} <b className="num">{v}</b></span>)}</div>
-    </a>
-  );
-}
-
+/** Apps added by address only get a slim strip; one connected with a key has its own widget above instead. */
 function WidgetCards() {
-  const { S } = useHub();
-  const ws = S.config.widgets.filter(w => w.id === "pocketpals" || w.id === "wattsmypower");
+  const { S, ppOn, wmOn } = useHub();
+  const all = S.config.widgets.filter(w => w.id === "pocketpals" || w.id === "wattsmypower");
+  const ws = all.filter(w => w.id === "pocketpals" ? !ppOn : !wmOn);
+  if (!ws.length && (all.length || ppOn || wmOn)) return null;
   if (!ws.length) return (
     <div className="tile-card" style={{ padding: 22, textAlign: "center" }}>
       <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-.02em" }}>No apps added yet</div>

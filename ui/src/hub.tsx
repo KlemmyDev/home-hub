@@ -56,6 +56,8 @@ type Ctx = {
   sheet: Sheet | null; sheetShown: boolean; openSheet: (s: Sheet | null) => void; closeSheet: () => void;
   toast: string; toastAct: (() => void) | null; soon: (msg?: string, act?: () => void) => void;
   ppOn: boolean;
+  /** WattsMyPower is connected with a key (or ?demo): the Energy page and the Home energy card show. */
+  wmOn: boolean;
 };
 const HubCtx = createContext<Ctx | null>(null);
 export const useHub = () => { const c = useContext(HubCtx); if (!c) throw new Error("no hub"); return c; };
@@ -155,6 +157,7 @@ function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNod
   const refreshState = useCallback(async () => { await qc.fetchQuery({ queryKey: ["state"], queryFn: () => api<HubState>("/api/state"), staleTime: 0 }); }, [qc]);
   // Kids who have a pal in PocketPals wear it: its face for their picture and its colour for theirs, everywhere.
   const ppOn = DEMO || !!S.config.pocketpals?.connected;
+  const wmOn = DEMO || !!S.config.wattsmypower?.connected;
   const { data: palKids } = useQuery({ queryKey: ["pals"], enabled: ppOn && !DEMO, refetchInterval: 300000, staleTime: 60000,
     queryFn: async () => { const d = ymd(nowZ()), r = await api(`/api/chores?from=${d}&to=${d}`); return (r.connected && !r.error ? r.kids : []) as { id: number; name: string; species?: string; pal_url?: string }[]; } });
   const people = useMemo(() => {
@@ -165,7 +168,7 @@ function HubInner({ S, children, probe, dim }: { S: HubState; children: ReactNod
     S, people, h24: !!S.config.hour24, dim, now, refreshState,
     cal, setCal: f => setCalState(f), menuWeek, setMenuWeek, dview, setDview, choreDay, setChoreDay, showDone, setShowDone,
     sheet, sheetShown, openSheet, closeSheet: () => openSheet(null), toast, toastAct, soon,
-    ppOn,
+    ppOn, wmOn,
   }), [S, people, dim, now, refreshState, cal, menuWeek, dview, choreDay, showDone, sheet, sheetShown, openSheet, toast, toastAct, soon]);
   return <HubCtx.Provider value={value}>{children}</HubCtx.Provider>;
 }

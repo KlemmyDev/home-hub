@@ -5,6 +5,7 @@ import { DockIcon } from "../lib/icons";
 import { nowZ, startOfDay } from "../lib/dates";
 import { CalendarPanel } from "./Calendar";
 import { ChoresPanel } from "./Chores";
+import { EnergyPanel } from "./Energy";
 import { Overview } from "./Overview";
 import { PantryPanel } from "./Pantry";
 import { MenuPanel } from "./Dinners";
@@ -49,14 +50,14 @@ function PanelCard({ id, inner, active, edge, children }: { id: string; inner: s
 
 /** The menu along the bottom: every screen one tap away, and Add (a new event) raised in the middle. */
 function Bar() {
-  const { S, ppOn, cal, setDview, openSheet, now } = useHub();
+  const { S, ppOn, wmOn, cal, setDview, openSheet, now } = useHub();
   const page = usePage();
   const { go, openCal } = useNav();
   const url = (id: string) => S.config.widgets.find(w => w.id === id)?.url;
   const left: [string, string, string][] = [["overview", "Home", "page"], ["calendar", "Calendar", "page"], ["menu", "Dinners", "page"]];
   const right: [string, string, string][] = [["pantry", "Pantry", "page"]];
   if (ppOn) right.push(["chores", "Chores", "page"]); else if (url("pocketpals")) right.push(["chores", "Chores", url("pocketpals")!]);
-  if (url("wattsmypower")) right.push(["energy", "Energy", url("wattsmypower")!]);
+  if (wmOn) right.push(["energy", "Energy", "page"]); else if (url("wattsmypower")) right.push(["energy", "Energy", url("wattsmypower")!]);
   right.push(["settings", "Settings", "page"]);
   const open = (id: string) => id === "calendar" ? (page === "calendar" ? undefined : openCal(cal.mode, nowZ())) : id === "menu" ? (page === "menu" ? setDview({ v: "home" }) : go("menu")) : go(id as Page | "settings");
   const item = ([id, name, to]: [string, string, string]) => {
@@ -88,6 +89,7 @@ export function Stage() {
         <PanelCard id="menucard" inner="menuin" active={page === "menu"} edge><MenuPanel /></PanelCard>
         <PanelCard id="shopcard" inner="shopin" active={page === "pantry"} edge><PantryPanel /></PanelCard>
         <PanelCard id="chorecard" inner="chorein" active={page === "chores"} edge><ChoresPanel /></PanelCard>
+        <PanelCard id="energycard" inner="energyin" active={page === "energy"} edge><EnergyPanel /></PanelCard>
         {page === "settings" ? <div id="setlayer"><Settings /></div> : null}
         <Reminders />
         <Bar />

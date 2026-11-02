@@ -1,8 +1,8 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useHub } from "./hub";
 
-export type Page = "overview" | "calendar" | "menu" | "pantry" | "chores" | "settings";
-export const PATHS: Record<Page, string> = { overview: "/", calendar: "/calendar", menu: "/dinners", pantry: "/pantry", chores: "/chores", settings: "/settings" };
+export type Page = "overview" | "calendar" | "menu" | "pantry" | "chores" | "energy" | "settings";
+export const PATHS: Record<Page, string> = { overview: "/", calendar: "/calendar", menu: "/dinners", pantry: "/pantry", chores: "/chores", energy: "/energy", settings: "/settings" };
 
 export function usePage(): Page {
   const p = useRouterState({ select: s => s.location.pathname });

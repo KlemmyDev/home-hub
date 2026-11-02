@@ -55,13 +55,50 @@ export const useShopping = () => useQuery<{ items: ShopItem[] }>({ queryKey: ["s
 /* ---------- WattsMyPower (the house's energy) ---------- */
 export type Energy<T = any> = { connected: boolean; allowed?: boolean; needs?: string; error?: string; data?: T };
 /** A reading from WattsMyPower, through the hub (which holds the key). It's refreshed every half minute while the screen is up. */
-export const useEnergy = <T = any>(what: string, query = "", enabled = true) =>
-  useQuery<Energy<T>>({ queryKey: ["energy", what, query], enabled: enabled && (!DEMO || what === "today"), queryFn: () => DEMO ? Promise.resolve(demoEnergy() as Energy<T>) : api(`/api/energy/${what}${query ? "?" + query : ""}`), refetchInterval: 30000, staleTime: 10000 });
-/** A sunny afternoon for ?demo: solar running the house, filling the battery and selling the rest. */
-const demoEnergy = (): Energy => ({ connected: true, allowed: true, data: {
-  live: { snapshot: { pv_power: 4230, load_power: 1310, battery_power: -2100, battery_soc: 78, grid_power: -820, daily_pv: 18.6, daily_import: 2.1, daily_export: 6.4 } },
-  costs: { saved: 4.2, net_cost: 0.85 },
-} });
+export const useEnergy = <T = any>(what: string, query = "", enabled = true, every = 30000) =>
+  useQuery<Energy<T>>({ queryKey: ["energy", what, query], enabled, queryFn: () => DEMO ? Promise.resolve(demoEnergy(what) as Energy<T>) : api(`/api/energy/${what}${query ? "?" + query : ""}`), refetchInterval: every, staleTime: 10000, placeholderData: prev => prev });
+
+/** One WattsMyPower history series: the times (unix seconds) and each field's readings, null where there's a gap. */
+export type Series = { t: number[] } & Record<string, (number | null)[]>;
+
+/* A sunny day for ?demo: solar running the house, filling the battery and selling the rest. Every reading agrees with the others. */
+const sunAt = (h: number) => h < 6.2 || h > 18.8 ? 0 : 5200 * Math.pow(Math.sin(Math.PI * (h - 6.2) / 12.6), 1.6) * (h > 13.5 && h < 14.2 ? .55 : 1);
+const homeAt = (h: number) => 380 + (h > 6.5 && h < 8.5 ? 1400 : 0) + (h > 17 && h < 20.5 ? 1900 : 0) + (h > 12 && h < 13 ? 900 : 0) + 120 * Math.sin(h * 3);
+function demoDay(upTo: number) {
+  const t: number[] = [], pv: number[] = [], load: number[] = [], bat: number[] = [], grid: number[] = [], soc: number[] = [];
+  const mid = startOfDay(nowZ()).getTime() / 1000;
+  let s = 46, made = 0, imp = 0, exp = 0;
+  for (let m = 0; m <= upTo; m += 10) {
+    const h = m / 60, p = sunAt(h), l = homeAt(h);
+    let b = 0, g = 0, spare = p - l;
+    if (spare > 0) { const room = s < 100 ? Math.min(spare, 3000) : 0; b = -room; g = -(spare - room); }
+    else { const want = -spare, give = s > 12 ? Math.min(want, 2500) : 0; b = give; g = want - give; }
+    s = Math.max(10, Math.min(100, s - b * (10 / 60) / 13500 * 100));
+    made += p / 6000; if (g > 0) imp += g / 6000; else exp -= g / 6000;
+    t.push(mid + m * 60); pv.push(Math.round(p)); load.push(Math.round(l)); bat.push(Math.round(b)); grid.push(Math.round(g)); soc.push(Math.round(s * 10) / 10);
+  }
+  return { t, pv, load, bat, grid, soc, made, imp, exp };
+}
+function demoEnergy(what: string): Energy {
+  const now = nowZ(), mins = now.getHours() * 60 + now.getMinutes(), d = demoDay(mins), i = d.t.length - 1;
+  const snapshot = { pv_power: d.pv[i], load_power: d.load[i], battery_power: d.bat[i], battery_soc: d.soc[i], grid_power: d.grid[i], daily_pv: +d.made.toFixed(1), daily_import: +d.imp.toFixed(1), daily_export: +d.exp.toFixed(1) };
+  const days = (n: number) => Array.from({ length: n }, (_, k) => ymd(addDays(now, k - n + 1)));
+  const wob = (k: number) => [0.92, 0.55, 1.04, 0.81, 0.98, 0.7, 1][k % 7];
+  const today = { date: ymd(now), net_cost: +(d.imp * 0.32 + 1.1 - d.exp * 0.06).toFixed(2), saved: +(d.made * 0.24).toFixed(2), import_kwh: d.imp, export_kwh: d.exp };
+  const data: Record<string, any> = {
+    live: { snapshot },
+    today: { live: { snapshot }, costs: today },
+    history: { bucket: 600, source: "samples", series: { t: d.t, pv_power: d.pv, load_power: d.load, battery_power: d.bat, grid_power: d.grid, battery_soc: d.soc } },
+    daily: days(7).map((date, k) => k === 6 ? { date, daily_pv: snapshot.daily_pv, daily_import: snapshot.daily_import, daily_export: snapshot.daily_export, daily_charge: 6, daily_discharge: 1.5 } : { date, daily_pv: +(31 * wob(k)).toFixed(1), daily_import: +(3 + 6 * (1 - wob(k))).toFixed(1), daily_export: +(14 * wob(k) - 3).toFixed(1), daily_charge: 9, daily_discharge: 8.4 }),
+    costs: { type: "tou", days: days(7).map((date, k) => k === 6 ? today : { date, net_cost: +(1.1 + 3.2 * (1 - wob(k)) - 0.6 * wob(k)).toFixed(2), saved: +(7.4 * wob(k)).toFixed(2) }) },
+    forecast: {
+      summary: { pv_kwh_24h: 24.8, full_at: Math.round(+startOfDay(now) / 1000 + 14.2 * 3600), min_soc_tonight: 31 },
+      days: [0, 1, 2].map(k => ({ date: ymd(addDays(now, k)), pv_kwh: [12.4, 27.9, 15.2][k], load_kwh: [9.6, 17.1, 16.8][k], code: [1, 0, 61][k], temp_min: [14, 13, 12][k], temp_max: [24, 26, 19][k], max_soc: [100, 100, 82][k], min_soc: [31, 28, 30][k], full_at: k === 2 ? null : Math.round(+startOfDay(addDays(now, k)) / 1000 + [14.2, 12.6][k] * 3600) })),
+    },
+    insights: { last30: { days: 30, pv: 812, imp: 96, exp: 402, home: 470, self_pct: 79.6 }, prev30: { days: 30, pv: 701, imp: 131, exp: 330, home: 466, self_pct: 71.9 } },
+  };
+  return { connected: true, allowed: true, data: data[what] };
+}
 
 /* ---------- the pantry ---------- */
 export type Store = { id: string; name: string; color: string };
@@ -79,7 +116,7 @@ function demoPantry(): PantryData {
 
 /* ---------- PocketPals jobs ---------- */
 export type Step = { id: number; title: string; done: boolean };
-export type Job = { kid_id: number; chore_id: number; title: string; status: string | null; tickable?: boolean; steps?: Step[]; steps_left?: number; steps_tickable?: boolean };
+export type Job = { kid_id: number; chore_id: number; title: string; status: string | null; slot?: string; tickable?: boolean; steps?: Step[]; steps_left?: number; steps_tickable?: boolean };
 export type Kid = { id: number; name: string; species?: string; pal_url?: string };
 export type ChoreDay = { date: string; jobs: Job[]; away?: number[] };
 export type Chores = { kids: Kid[]; tick: boolean; error: string; days: Record<string, ChoreDay> };
@@ -88,12 +125,15 @@ export const NO_CHORES: Chores = { kids: [], tick: false, error: "", days: {} };
 /** Sample jobs for ?demo, so the chores screens can be seen without PocketPals. */
 function demoChores(from: Date, to: Date): Chores {
   const kids: Kid[] = [{ id: 1, name: "Kid one", species: "fox" }, { id: 2, name: "Kid two", species: "owl" }, { id: 3, name: "Kid three", species: "frog" }];
-  const plan: [number, string, string | null][][] = [
-    [[1, "Make your bed", "pending"], [1, "Brush teeth", "pending"], [1, "Feed the dog", null], [1, "Set the table", null], [2, "Homework", "approved"], [2, "Pack school bag", "pending"], [2, "Empty the dishwasher", null], [3, "Water the plants", null], [3, "Tidy your room", null]],
+  const plan: [number, string, string | null, string][] = [
+    [1, "Make your bed", "pending", "morning"], [1, "Brush teeth", "pending", "morning"], [1, "Feed the dog", null, "school"], [1, "Set the table", null, "dinner"], [2, "Homework", "approved", "school"], [2, "Pack school bag", "pending", "morning"], [2, "Empty the dishwasher", null, "dinner"], [2, "Lay out pyjamas", null, "bed"], [3, "Water the plants", null, "school"], [3, "Tidy your room", null, "bed"],
   ];
+  const today = startOfDay(nowZ());
   const days: ChoreDay[] = [];
   for (let d = startOfDay(from); d <= startOfDay(to); d = addDays(d, 1)) {
-    const jobs: Job[] = plan[0].map(([kid_id, title, status], i) => ({ kid_id, chore_id: i + 1, title, status, tickable: true, ...(title === "Tidy your room" ? { steps: [{ id: 1, title: "Toys in the box", done: true }, { id: 2, title: "Books on the shelf", done: false }, { id: 3, title: "Clothes in the basket", done: false }], steps_left: 2, steps_tickable: true } : {}) }));
+    const past = d < today, future = d > today, day = d.getDate();
+    // Earlier days are mostly done (one or two left here and there), later ones not started.
+    const jobs: Job[] = plan.map(([kid_id, title, st, slot], i) => ({ kid_id, chore_id: i + 1, title, slot, status: future ? null : past ? ((day + i) % 7 === 0 ? null : "approved") : st, tickable: !future, ...(title === "Tidy your room" ? { steps: [{ id: 1, title: "Toys in the box", done: true }, { id: 2, title: "Books on the shelf", done: false }, { id: 3, title: "Clothes in the basket", done: false }], steps_left: 2, steps_tickable: true } : {}) }));
     days.push({ date: ymd(d), jobs, away: [] });
   }
   return { kids, tick: true, error: "", days: Object.fromEntries(days.map(d => [d.date, d])) };

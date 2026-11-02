@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as ChoresRouteImport } from './routes/chores'
 import { Route as DinnersRouteImport } from './routes/dinners'
+import { Route as EnergyRouteImport } from './routes/energy'
 import { Route as PantryRouteImport } from './routes/pantry'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SetupRouteImport } from './routes/setup'
@@ -36,6 +37,11 @@ const ChoresRoute = ChoresRouteImport.update({
 const DinnersRoute = DinnersRouteImport.update({
   id: '/dinners',
   path: '/dinners',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EnergyRoute = EnergyRouteImport.update({
+  id: '/energy',
+  path: '/energy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PantryRoute = PantryRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof CalendarRoute
   '/chores': typeof ChoresRoute
   '/dinners': typeof DinnersRoute
+  '/energy': typeof EnergyRoute
   '/pantry': typeof PantryRoute
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/calendar': typeof CalendarRoute
   '/chores': typeof ChoresRoute
   '/dinners': typeof DinnersRoute
+  '/energy': typeof EnergyRoute
   '/pantry': typeof PantryRoute
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/calendar': typeof CalendarRoute
   '/chores': typeof ChoresRoute
   '/dinners': typeof DinnersRoute
+  '/energy': typeof EnergyRoute
   '/pantry': typeof PantryRoute
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/chores'
     | '/dinners'
+    | '/energy'
     | '/pantry'
     | '/settings'
     | '/setup'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/chores'
     | '/dinners'
+    | '/energy'
     | '/pantry'
     | '/settings'
     | '/setup'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/chores'
     | '/dinners'
+    | '/energy'
     | '/pantry'
     | '/settings'
     | '/setup'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   CalendarRoute: typeof CalendarRoute
   ChoresRoute: typeof ChoresRoute
   DinnersRoute: typeof DinnersRoute
+  EnergyRoute: typeof EnergyRoute
   PantryRoute: typeof PantryRoute
   SettingsRoute: typeof SettingsRoute
   SetupRoute: typeof SetupRoute
@@ -162,6 +175,13 @@ declare module '@tanstack/react-router' {
       path: '/dinners'
       fullPath: '/dinners'
       preLoaderRoute: typeof DinnersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/energy': {
+      id: '/energy'
+      path: '/energy'
+      fullPath: '/energy'
+      preLoaderRoute: typeof EnergyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pantry': {
@@ -200,6 +220,7 @@ const rootRouteChildren: RootRouteChildren = {
   CalendarRoute: CalendarRoute,
   ChoresRoute: ChoresRoute,
   DinnersRoute: DinnersRoute,
+  EnergyRoute: EnergyRoute,
   PantryRoute: PantryRoute,
   SettingsRoute: SettingsRoute,
   SetupRoute: SetupRoute,
