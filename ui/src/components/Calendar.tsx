@@ -249,19 +249,20 @@ function AllDay({ days, gutter, c }: { days: Date[]; gutter: number; c: Ctx }) {
 
 const busyColours = (c: Ctx, d: Date) => [...new Set(c.list.filter(e => onDay(e, d)).flatMap(e => colorsOf(e, c.data, c.people)))].slice(0, 5);
 
-function DayHead({ days, size, gutter, c }: { days: Date[]; size: number; gutter: number; c: Ctx }) {
-  const { now } = useHub();
+function DayHead({ days, c }: { days: Date[]; c: Ctx }) {
+  const { now, people } = useHub();
   const cal = usePaneCal();
   const sel = startOfDay(cal.date);
   return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(${days.length},minmax(0,1fr))`, marginLeft: gutter, padding: "2px 0 8px" }}>
+    <div className="dstrip">
       {days.map(d => {
-        const today = sameDay(d, now), on = sameDay(d, sel), cs = busyColours(c, d), wk = d.getDay() === 0 || d.getDay() === 6;
+        const today = sameDay(d, now), on = sameDay(d, sel), wk = d.getDay() === 0 || d.getDay() === 6;
+        const who = [...new Set(c.list.filter(e => onDay(e, d)).flatMap(e => peopleOf(e, people).length ? peopleOf(e, people).map(p => p.color) : colorsOf(e, c.data, people)))].slice(0, 5);
         return (
-          <button key={+d} aria-label={longDay(d)} onClick={() => c.morph(x => ({ ...x, mode: "day", date: d }), false)} style={{ border: 0, background: "none", padding: 0, minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: ".06em", color: today || on ? "#101828" : wk ? "#c0392b" : "#5a6478" }}>{d.toLocaleDateString([], { weekday: "short" }).slice(0, 3).toUpperCase()}</span>
-            <span className={"num dnum" + (on && cal.mode === "day" ? " ring" : "") + (today ? " now" : "")} style={{ width: size, height: size, fontSize: Math.round(size / 2) }}>{d.getDate()}</span>
-            <span className="fx" style={{ gap: 3, height: 8, justifyContent: "center" }}>{cs.map(col => <i key={col} className="bz" style={{ background: col }} />)}</span>
+          <button key={+d} className={"dtile" + (on ? " on" : "") + (today && !on ? " now" : "")} aria-label={longDay(d)} aria-pressed={on} onClick={() => c.morph(x => ({ ...x, mode: "day", date: d }))}>
+            <small style={wk && !on ? { color: "#b4321f" } : undefined}>{d.toLocaleDateString([], { weekday: "short" })}</small>
+            <b className="num">{d.getDate()}</b>
+            <span>{who.map(col => <i key={col} style={{ background: col }} />)}</span>
           </button>
         );
       })}
@@ -282,17 +283,14 @@ function schedCols(c: Ctx, day: Date, who: string | null) {
 }
 const deep = (c: string) => `color-mix(in srgb, ${c} 72%, #000)`;
 
+/** The names over the Schedule's columns: just labels (the header's faces choose who to show). */
 function SchedHead({ day, gutter, c }: { day: Date; gutter: number; c: Ctx }) {
-  const { setCal } = useHub();
   const cal = usePaneCal();
   return (
     <div className="sch-head" style={{ paddingLeft: gutter }}>
       {schedCols(c, day, cal.who).map(col => (
         <div key={col.key} className="sch-col" style={{ flexGrow: col.hidden ? .0001 : 1, opacity: col.hidden ? 0 : 1 }}>
-          <button className={"sch-who" + (cal.who === col.key ? " on" : "")} aria-pressed={cal.who === col.key} aria-label={(cal.who === col.key ? "Show everyone" : "Show only " + col.name)} disabled={!col.person}
-            onClick={() => setCal(x => ({ ...x, who: x.who === col.key ? null : col.key }))} style={{ "--ec": col.color } as CSSProperties}>
-            <Ava p={col} size={52} cls="sch-ava" /><b>{col.name}</b>
-          </button>
+          <span className="sch-name" style={{ "--ec": col.color } as CSSProperties}><i />{col.name}</span>
         </div>
       ))}
     </div>
@@ -589,7 +587,7 @@ export function CalendarPanel() {
   const [from, to] = calRange(cal);
   const { data = EMPTY_EVENTS } = useEvents(from, to);
   const [nonce, setNonce] = useState(0);
-  const [vt, setVt] = useState(false);     // true only while views are morphing, so events carry a transition name just then
+  const vt = false;      // events used to carry view-transition names; the views now slide and zoom with plain CSS instead
   const keep = useRef(false);        // set by a swipe, so the hours stay put
   const opening = useRef(true);      // true until the hours have glided down to now, so only opening the calendar glides
   const page = usePage(), onPage = useRef(page === "calendar");
@@ -603,14 +601,16 @@ export function CalendarPanel() {
   const d = startOfDay(cal.date);
   const weekOf = Array.from({ length: 7 }, (_, i) => addDays(weekStart(d), i));
   const anchor = (days: Date[]) => days.some(x => sameDay(x, now)) ? now.getHours() + now.getMinutes() / 60 : 8;
-  /** Changes the view; where the browser can, events glide from their old place to their new one (day to week to month). */
-  const morph = (f: (c: CalView) => CalView, names = true) => {
-    const start = (document as any).startViewTransition?.bind(document);
-    if (!start || matchMedia("(prefers-reduced-motion: reduce)").matches) return setCal(f);
-    flushSync(() => setVt(names));
-    const t = start(() => { flushSync(() => setCal(f)); });
-    t.ready?.catch(() => {}); t.updateCallbackDone?.catch(() => {});      // a transition the browser drops is fine: the view still changes
-    t.finished.catch(() => {}).finally(() => setVt(false));
+  /** Changes the view, with a move to match: along the tabs it slides in from that side, into a day from the week or month it zooms in,
+      and to another day it slides from the side that day is on. Plain CSS, so it runs the same in every browser. */
+  const [anim, setAnim] = useState({ name: "", n: 0 });
+  const morph = (f: (c: CalView) => CalView, _names = true) => {
+    const next = f(cal), order: string[] = ["day", "schedule", "week", "month", "agenda"];
+    let name = "";
+    if (next.mode !== cal.mode) name = next.mode === "day" && ["week", "month", "agenda"].includes(cal.mode) ? "calZoom" : order.indexOf(next.mode) > order.indexOf(cal.mode) ? "calNext" : "calPrev";
+    else if (!sameDay(next.date, cal.date)) name = +next.date > +cal.date ? "calNext" : "calPrev";
+    setCal(f);
+    if (name && !matchMedia("(prefers-reduced-motion: reduce)").matches) setAnim(a => ({ name, n: a.n + 1 }));
   };
   const band: [number, number] = [Math.min(anchor([d]), anchor(weekOf)) - 1, Math.max(anchor([d]), anchor(weekOf)) + 10];
   const c: Ctx = {
@@ -656,10 +656,12 @@ export function CalendarPanel() {
           })}
         </div>
       </div>
-      {cal.mode === "day" ? <DayHead days={weekOf} size={P ? 40 : 44} gutter={0} c={c} /> : null}
+      <div className="calbody" style={anim.name ? { animation: `${anim.name}${anim.n % 2 ? "A" : "B"} .5s cubic-bezier(.2,.8,.2,1) backwards` } : undefined}>
+      {cal.mode === "day" ? <DayHead days={weekOf} c={c} /> : null}
       <SwipePane api={slide} keyOf={off => cal.mode + ymd(stepDate(cal, off))} onStep={n => { keep.current = true; setCal(x => ({ ...x, date: stepDate(x, n) })); }}>
         {off => <Pane off={off} pc={{ ...cal, date: stepDate(cal, off) }} k={{ people, h24, vt, band, morph }} keep={keep} opening={opening} shared={shared} nonce={nonce} />}
       </SwipePane>
+      </div>
       <div style={{ flex: "none", padding: `6px 0 ${(P ? 74 : 104) + dim.sb}px` }}>
         {cals.length ? <div className="fx legend" style={{ gap: 14, flexWrap: "wrap", padding: "6px 4px 0" }}>{cals.map(x => <span key={x.id} className="pp" style={{ fontSize: 15 }}><i style={{ background: x.color }} />{x.name + (x.ok ? "" : " (can't reach)")}</span>)}</div> : null}
       </div>

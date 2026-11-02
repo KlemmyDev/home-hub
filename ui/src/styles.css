@@ -1181,3 +1181,26 @@ html.standby *{animation:none!important;transition:none!important}
 .phone .call{height:40px;padding:0 12px;font-size:14px}
 .phone .chd2{flex-direction:column;align-items:stretch}.phone .cwho{justify-content:flex-start}
 .phone .chd2 .segc{align-self:flex-start}
+
+/* Changing view: slide along the tabs, zoom into a day (A and B are the same move, so a repeat restarts it) */
+.calbody{flex:1;min-height:0;display:flex;flex-direction:column}
+@keyframes calNextA{from{opacity:0;transform:translateX(56px)}to{opacity:1;transform:none}}
+@keyframes calNextB{from{opacity:0;transform:translateX(56px)}to{opacity:1;transform:none}}
+@keyframes calPrevA{from{opacity:0;transform:translateX(-56px)}to{opacity:1;transform:none}}
+@keyframes calPrevB{from{opacity:0;transform:translateX(-56px)}to{opacity:1;transform:none}}
+@keyframes calZoomA{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+@keyframes calZoomB{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+
+/* Day's week strip: white tiles, the chosen day dark, today outlined, a dot for each person who's busy */
+.dstrip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;padding:0 0 12px}
+.dtile{min-height:0;height:70px;padding:0;border:0;border-radius:16px;background:#fff;color:var(--text);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 1px 2px rgba(31,36,48,.05);transition:background-color .3s ease,color .3s ease,box-shadow .3s ease,transform .15s ease}
+.dtile small{font-size:13px;font-weight:600;opacity:.75}.dtile b{font-size:22px;line-height:1;font-weight:700}
+.dtile span{display:flex;gap:3px;height:7px;margin-top:3px}.dtile span i{width:6px;height:6px;border-radius:50%}
+.dtile.on{background:var(--text);color:#fff}.dtile.now{box-shadow:inset 0 0 0 2px var(--text)}
+.dtile:active{transform:scale(.94)}
+.phone .dtile{height:58px;border-radius:13px}.phone .dtile b{font-size:18px}.phone .dtile small{font-size:11px}
+
+/* Schedule's column names: a slim strip of labels, not a filter */
+.calp .sch-head{padding-top:12px;padding-bottom:10px}
+.sch-name{display:flex;align-items:center;justify-content:center;gap:7px;font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sch-name i{width:10px;height:10px;border-radius:50%;flex:none;background:var(--ec)}
