@@ -602,3 +602,6 @@ html.standby *{animation:none!important;transition:none!important}
 .phone #sheet .shf button{min-height:0;height:46px;font-size:15px}
 .phone #sheet .ptscan{width:44px;height:44px;font-size:20px;border-radius:14px}
 .phone #sheet .ptmore{min-height:46px;font-size:15px}
+.phone .pantry .ptrow{gap:8px}.phone .pantry .ptrow>.fico{margin-right:-2px}
+.phone .pantry .stk{gap:8px}
+.pill .fico{margin-left:-6px}

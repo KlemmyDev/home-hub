@@ -8,6 +8,7 @@ import { SHEET_MS, useAutoFocus } from "../lib/focus";
 import { MAIN_UNITS, STARTERS, UNITS, fmtQty, guessUnit, stepFor } from "../lib/units";
 import { planUse } from "../lib/pantrylib";
 import { Pill, SheetFrame } from "./SheetFrame";
+import { ItemIcon } from "../lib/pantryicons";
 import { Scanner, scanProblem } from "./Scanner";
 
 /** A number with big minus and plus buttons, and a box to type it in. */
@@ -68,7 +69,7 @@ function ProductPick({ name, value, onPick }: { name: string; value: Product | n
 
 /** One thing in the pantry. Adding is quick: a name, how much and the least to keep; the shop is one tap; the rest is under "More". */
 export function PantryItemSheet({ id, name: startName }: { id: string | null; name?: string }) {
-  const { closeSheet, soon } = useHub();
+  const { closeSheet, soon, dim } = useHub();
   const qc = useQueryClient();
   const { data: pan = NO_PANTRY } = usePantry();
   const cur = pan.items.find(i => i.id === id);
@@ -101,13 +102,14 @@ export function PantryItemSheet({ id, name: startName }: { id: string | null; na
   const body = (
     <>
       <div className="fx" style={{ gap: 10, marginTop: 14 }}>
+        <ItemIcon name={t.name} aisle={t.aisle} size={dim.phone ? 48 : 72} />
         <input ref={nameRef} value={t.name} onChange={e => rename(e.target.value)} maxLength={50} placeholder="What is it?" aria-label="Name" autoComplete="off" enterKeyHint="done" style={{ flex: 1, minWidth: 0, fontSize: 26, fontWeight: 700, minHeight: 72 }} />
         {!cur ? <button className="ptscan" aria-label="Scan a barcode" onClick={() => { const why = scanProblem(); if (why) { setScanMsg(why); } else { setScanMsg(""); setScan(true); } }}>📷</button> : null}
       </div>
       {scan ? <Scanner onClose={() => setScan(false)} onCode={async code => { setScan(false); try { const r = await api<Product[]>("/api/products/search?q=" + code); found(r.find(p => p.code === code) || { code, name: t.name || "Scanned product", brand: "", quantity: "", image: "" }); } catch { found({ code, name: t.name || "Scanned product", brand: "", quantity: "", image: "" }); } }} /> : null}
       {scanMsg ? <p className="dvnone">{scanMsg}</p> : null}
       {t.product ? <p className="ptprod">📷 {[t.product.brand, t.product.name, t.product.quantity].filter(Boolean).join(" · ")}</p> : null}
-      {!cur && starters.length ? <div className="fx" style={{ gap: 8, flexWrap: "wrap", margin: "10px 0 0" }}>{starters.map(n => <Pill key={n} onClick={() => rename(n)}>{n}</Pill>)}</div> : null}
+      {!cur && starters.length ? <div className="fx" style={{ gap: 8, flexWrap: "wrap", margin: "10px 0 0" }}>{starters.map(n => <Pill key={n} onClick={() => rename(n)}><ItemIcon name={n} size={24} tile={false} />{n}</Pill>)}</div> : null}
 
       <div className="cap" style={{ margin: "26px 0 8px" }}>How much have you got?</div>
       <Stepper value={t.qty} onChange={n => set({ qty: n })} step={step} label="amount" unit={t.unit} />

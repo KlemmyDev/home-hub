@@ -7,6 +7,7 @@ import { useHub } from "../hub";
 import { fmtQty, stepFor } from "../lib/units";
 import { AISLES, PanelTop, wrap } from "./Panels";
 import { Pill } from "./SheetFrame";
+import { ItemIcon } from "../lib/pantryicons";
 
 type Tab = "list" | "stock" | "shops";
 const TABS: [Tab, string][] = [["list", "Shopping list"], ["stock", "Stock"], ["shops", "Shops"]];
@@ -36,7 +37,7 @@ const Dot = ({ s }: { s?: Store }) => <i className="ptdot" style={{ background: 
 
 /* ---------- the shopping list, by shop ---------- */
 function ShoppingTab({ pan, goShops }: { pan: PantryData; goShops: () => void }) {
-  const { openSheet } = useHub();
+  const { openSheet, dim } = useHub(), P = dim.phone;
   const qc = useQueryClient();
   const { data } = useShopping();
   const [text, setText] = useState(""), [err, setErr] = useState(""), [only, setOnly] = useState<string | null>(null);      // null: every shop; "": no shop in particular
@@ -58,6 +59,7 @@ function ShoppingTab({ pan, goShops }: { pan: PantryData; goShops: () => void })
     <div className={"srow" + (x.done ? " done" : "")} key={x.id}>
       <button className="stk" aria-pressed={x.done} onClick={async () => { change(l => l.map(i => i.id === x.id ? { ...i, done: !i.done } : i)); try { await post("/api/shopping/update", { id: x.id, done: !x.done }); reload(); } catch { reload(); } }}>
         <span className="chk" aria-hidden="true">{x.done ? <Check /> : null}</span>
+        <ItemIcon name={x.name} aisle={x.aisle} size={P ? 34 : 44} />
         <span className="sn">{x.name}{x.auto ? <i className="ptauto">low</i> : null}{line(x) ? <small className="snote">{line(x)}</small> : null}</span>
       </button>
       {showShop ? <button className="ptshop" aria-label={`Change where to buy ${x.name}`} onClick={() => openSheet({ mode: "shopitem", id: x.id })}><Dot s={storeOf(pan, x.store)} />{storeOf(pan, x.store)?.name || "Anywhere"}</button> : null}
@@ -106,7 +108,7 @@ function ShoppingTab({ pan, goShops }: { pan: PantryData; goShops: () => void })
 
 /* ---------- what's at home ---------- */
 function StockTab({ pan }: { pan: PantryData }) {
-  const { openSheet, soon } = useHub();
+  const { openSheet, soon, dim } = useHub(), P = dim.phone;
   const qc = useQueryClient();
   const [q, setQ] = useState(""), [show, setShow] = useState<"all" | "low" | "out">("all"), [shop, setShop] = useState<string | null>(null);
   const low = pan.items.filter(i => stockLevel(i) === "low").length, out = pan.items.filter(i => stockLevel(i) === "out").length;
@@ -136,6 +138,7 @@ function StockTab({ pan }: { pan: PantryData }) {
               const lv = stockLevel(i), top = Math.max(i.want || i.min * 2 || i.qty, i.qty, 0.001), s = storeOf(pan, i.store);
               return (
                 <div key={i.id} className={"ptrow " + lv}>
+                  <ItemIcon name={i.name} aisle={i.aisle} size={P ? 44 : 56} />
                   <button className="ptmain" onClick={() => openSheet({ mode: "pitem", id: i.id })} aria-label={`${i.name}: ${fmtQty(i.qty, i.unit)}. Change details`}>
                     <b>{i.name}{lv !== "ok" ? <em className={"ptflag " + lv}>{lv === "out" ? "Out" : "Low"}</em> : null}</b>
                     <span className="ptbar" aria-hidden><i style={{ width: Math.min(100, (i.qty / top) * 100) + "%" }} />{i.min > 0 ? <u style={{ left: Math.min(100, (i.min / top) * 100) + "%" }} /> : null}</span>
