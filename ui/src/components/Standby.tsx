@@ -1,7 +1,7 @@
 import { api } from "../lib/api";
 import { useEffect, useRef, useState } from "react";
 import { focusManager, useQuery } from "@tanstack/react-query";
-import { addDays, clockT, startOfDay } from "../lib/dates";
+import { addDays, clockT, dayDiff, fmtT, startOfDay } from "../lib/dates";
 import { EMPTY_EVENTS, useEvents } from "../data";
 import { queryClient, useHub } from "../hub";
 import { getMode, getSettings, holding, idleMs, inNight, inStandby, setMode, sinceDim, touched, useStandby, wake } from "../lib/power";
@@ -55,7 +55,7 @@ export function Standby() {
 
   const p = getSettings();
   const day = startOfDay(now);
-  const { data: ev = EMPTY_EVENTS } = useEvents(startOfDay(awakeNow), addDays(startOfDay(awakeNow), 2));
+  const { data: ev = EMPTY_EVENTS } = useEvents(startOfDay(awakeNow), addDays(startOfDay(awakeNow), 7));
   const { data: weather } = useQuery<any>({ queryKey: ["weather"], queryFn: () => api<any>("/api/weather"), enabled: false, staleTime: Infinity });
   const next = mode !== "awake" && p.showNext ? ev.list.filter(e => !e.all_day && e.s > now).sort((a, b) => +a.s - +b.s)[0] : undefined;
   if (mode === "awake" && !leaving) return null;
@@ -65,9 +65,18 @@ export function Standby() {
       <div className="sb-in" style={{ transform: `translate(${dx}px, ${dy}px)` }}>
         <div className="sb-time num">{clockT(now, h24)}</div>
         <div className="sb-date">{now.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" })}{p.showWeather && weather && !weather.error && weather.temp !== undefined ? ` · ${Math.round(weather.temp)}°` : ""}</div>
-        {next ? <div className="sb-next">{next.name || next.title} at {clockT(next.s, h24)}</div> : null}
+        {next ? <div className="sb-next">{next.name || next.title}, {whenLabel(next.s, now, h24)}</div> : null}
         <div className="sb-hint">{mode === "sleep" ? "Asleep. Touch the screen to wake it" : "Touch to wake"}</div>
       </div>
     </div>
   );
+}
+
+/** "today at 7:00am", "tomorrow at 7:00am", "Saturday at 7:00am", or "Sat 14 Nov at 7:00am" past this week. */
+function whenLabel(s: Date, now: Date, h24: boolean) {
+  const n = dayDiff(s, now), t = fmtT(s, h24);
+  if (n <= 0) return `today at ${t}`;
+  if (n === 1) return `tomorrow at ${t}`;
+  if (n < 7) return `${s.toLocaleDateString([], { weekday: "long" })} at ${t}`;
+  return `${s.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" })} at ${t}`;
 }
