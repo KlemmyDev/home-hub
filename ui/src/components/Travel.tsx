@@ -205,8 +205,8 @@ const TravelMap = forwardRef<MapHandle, { prog: ReturnType<typeof useProgress>; 
     g.fillStyle = "#dfe8ec"; g.fillRect(0, 0, w, h);
     // Land: the world faint, Australia white.
     g.setTransform(px * k, 0, 0, px * k, px * ox, px * oy);
-    g.fillStyle = "#ece9e2"; g.fill(paths.world);
-    g.fillStyle = "#ffffff"; g.fill(paths.au);
+    g.fillStyle = "#f2f0eb"; g.fill(paths.world);
+    g.fillStyle = "#efe4c8"; g.fill(paths.au);
     // The squares that are in view.
     const x0 = Math.floor(-ox / k), x1 = Math.ceil((w - ox) / k), y0 = Math.max(0, Math.floor(-oy / k)), y1 = Math.min(Z - 1, Math.ceil((h - oy) / k));
     const lines = k >= 5, lineA = Math.min(.16, .04 + (k - 5) * .006);
@@ -220,13 +220,13 @@ const TravelMap = forwardRef<MapHandle, { prog: ReturnType<typeof useProgress>; 
           const id = `10/${x}/${y}`;
           if (prog.done.has(id)) { g.fillStyle = "rgba(52,168,107,.42)"; g.fillRect(x, y, 1, 1); }
           else if (prog.part.has(id)) { g.fillStyle = `rgba(52,168,107,${.1 + prog.part.get(id)! * .18})`; g.fillRect(x, y, 1, 1); }
-          else if (SQUARES[id]) { g.fillStyle = "rgba(245,158,11,.16)"; g.fillRect(x, y, 1, 1); }
+          else if (SQUARES[id]) { g.fillStyle = "rgba(232,140,20,.3)"; g.fillRect(x, y, 1, 1); }
           if (lines) { g.strokeStyle = `rgba(31,36,48,${lineA})`; g.strokeRect(x, y, 1, 1); }
         }
       }
     }
     // Australia's coast, over the squares.
-    g.strokeStyle = "rgba(31,36,48,.32)"; g.lineWidth = 1.1 / k; g.stroke(paths.au);
+    g.strokeStyle = "rgba(120,92,40,.45)"; g.lineWidth = 1.2 / k; g.stroke(paths.au);
     g.strokeStyle = "rgba(31,36,48,.14)"; g.lineWidth = .8 / k; g.stroke(paths.world);
     // The chosen square.
     if (sel) {
