@@ -54,9 +54,9 @@ input:focus{outline:3px solid #101828;outline-offset:2px}
 .cbtn{display:inline-flex;align-items:center;gap:6px;height:52px;min-height:0;padding:0 20px;border-radius:999px;background:#101828;color:#fff;border:0;font-size:17px;font-weight:650}
 .ov{position:absolute;inset:0;padding:40px 24px 130px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;scrollbar-width:none;transition:opacity .25s ease}
 .ov.away{opacity:0;pointer-events:none}
-#calcard,#menucard,#shopcard,#chorecard,#energycard{position:absolute;display:none;overflow:hidden;z-index:3;opacity:0;transition:opacity .25s ease}
-#calcard.show,#menucard.show,#shopcard.show,#chorecard.show,#energycard.show{display:block}
-#calcard.on,#menucard.on,#shopcard.on,#chorecard.on,#energycard.on{opacity:1}
+#calcard,#menucard,#shopcard,#chorecard,#energycard,#travelcard{position:absolute;display:none;overflow:hidden;z-index:3;opacity:0;transition:opacity .25s ease}
+#calcard.show,#menucard.show,#shopcard.show,#chorecard.show,#energycard.show,#travelcard.show{display:block}
+#calcard.on,#menucard.on,#shopcard.on,#chorecard.on,#energycard.on,#travelcard.on{opacity:1}
 #calin,#menuin,#shopin,#chorein{position:absolute;left:0;top:0;width:760px;height:1240px}
 .sg.big{height:48px;font-size:16px;padding:0 17px}
 .evb{position:absolute;box-sizing:border-box;min-height:0;border:0;border-radius:10px;overflow:hidden;text-align:left;color:#101828;display:block;font-family:inherit}
@@ -423,7 +423,7 @@ button:disabled{opacity:.55;pointer-events:none}
 .scanx.photo{background:#c3f23f}
 
 /* Nothing in the stage may be scrolled by focus or scrollIntoView: only the lists inside it scroll. */
-#stage,#sheet,#calcard,#menucard,#shopcard,#chorecard,#energycard{overflow:clip}
+#stage,#sheet,#calcard,#menucard,#shopcard,#chorecard,#energycard,#travelcard{overflow:clip}
 #sheet .shb,#sheet .scroll{overflow-y:auto}
 
 /* pantry */
@@ -1339,3 +1339,65 @@ button.wm{width:100%;min-height:0;border:0;text-align:left;font:inherit;align-it
 .phone .entotals{grid-template-columns:repeat(2,minmax(0,1fr))}.phone .enmonth-b .entotals{grid-template-columns:repeat(3,minmax(0,1fr))}.phone .entotals>span{padding:8px 10px}.phone .entotals b{font-size:20px}
 .phone .enbig>b{font-size:38px}
 .phone .wm-story{font-size:16px}
+
+/* Travel: Australia in squares (components/Travel.tsx) */
+#travelcard.tile-card,.trpage{background:var(--bg)}
+.trpage{padding-bottom:114px!important}
+.trstats{display:flex;align-items:stretch;gap:12px;flex:none;margin-bottom:12px}
+.trstat{background:#fff;border-radius:20px;box-shadow:0 1px 3px rgba(31,36,48,.06);padding:12px 18px;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0}
+.trstat:first-child{flex:1}
+.trstat b{font-size:28px;font-weight:700;letter-spacing:-.03em;line-height:1.1}.trstat b small{font-size:16px;font-weight:600;color:var(--soft);letter-spacing:0}
+.trstat>span{font-size:15px;font-weight:500;color:var(--soft)}
+.trbar{display:block;height:8px;border-radius:4px;background:#edebe6;overflow:hidden;margin-top:6px}
+.trbar>i{display:block;height:100%;border-radius:4px;background:#34a86b;transition:width .4s ease}
+.trbar.big{height:10px;margin:0 20px 4px;flex:none}
+.trgo{display:flex;flex-direction:column;justify-content:center;gap:8px;flex:none}
+.trgo .chip{height:42px}
+.trmapwrap{position:relative;flex:1;min-height:0;border-radius:24px;overflow:hidden;box-shadow:0 1px 3px rgba(31,36,48,.08);background:#dfe8ec}
+.trmap{position:absolute;inset:0}
+.trmap canvas{display:block;touch-action:none;cursor:grab}
+.trzoom{position:absolute;right:14px;top:14px;display:flex;flex-direction:column;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(31,36,48,.12);overflow:hidden}
+.trzoom button{width:52px;height:52px;min-height:0;padding:0;border:0;border-radius:0;background:#fff;font-size:28px;font-weight:500;line-height:1;color:var(--text)}
+.trzoom button+button{border-top:1px solid var(--line)}
+.trlists{position:absolute;left:12px;right:12px;bottom:12px;background:rgba(255,255,255,.96);border-radius:20px;box-shadow:0 4px 16px rgba(31,36,48,.12);padding:12px 0 12px}
+.trlists p{margin:0 16px 8px;font-size:14px;font-weight:600;color:var(--soft)}
+.trlists-row{display:flex;gap:8px;overflow-x:auto;padding:0 12px;scrollbar-width:none}.trlists-row::-webkit-scrollbar{display:none}
+.trlist{flex:none;min-height:0;height:auto;padding:10px 16px;border-radius:16px;border:1.5px solid #f3dcb2;background:#fff8ea;display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left}
+.trlist b{font-size:16px;font-weight:700;white-space:nowrap}.trlist span{font-size:13.5px;font-weight:500;color:var(--soft);white-space:nowrap}
+.trlist.done{border-color:#bfe3cd;background:#eef8f2}.trlist.done span{color:#2b7a57;font-weight:600}
+.trcard{position:absolute;left:10px;right:10px;bottom:10px;max-height:64%;display:flex;flex-direction:column;background:#fff;border-radius:22px;box-shadow:0 6px 24px rgba(31,36,48,.18);animation:trUp .32s cubic-bezier(.2,.8,.2,1)}
+@keyframes trUp{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
+.trcard-h{display:flex;align-items:flex-start;gap:12px;padding:16px 12px 10px 20px;flex:none}
+.trcard-t{flex:1;min-width:0}
+.trcard-t h2{margin:0;font-size:24px;font-weight:700;letter-spacing:-.02em;line-height:1.2}
+.trcard-t span{display:block;font-size:15px;font-weight:500;color:var(--soft);margin-top:2px}
+.trdone{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:18px;background:#e3f4ea;color:#2b7a57;font-size:15px;font-weight:700;flex:none;margin-top:2px}
+.trx{width:48px;height:48px;min-height:0;padding:0;border:0;border-radius:24px;background:#f1f0ec;display:flex;align-items:center;justify-content:center;flex:none}
+.trx svg{width:22px;height:22px}
+.trcard-b{overflow-y:auto;padding:6px 12px 14px;scrollbar-width:none;min-height:0}.trcard-b::-webkit-scrollbar{display:none}
+.trplaces{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.trplace{width:100%;min-height:0;height:auto;padding:10px 12px;border:0;border-radius:16px;background:#f8f7f4;display:flex;align-items:center;gap:14px;text-align:left;transition:background-color .2s ease}
+.trplace.on{background:#eef8f2}
+.trtick{width:40px;height:40px;border-radius:50%;border:2px solid #d6d3cc;background:#fff;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;transition:background-color .2s ease,border-color .2s ease}
+.trtick em{font-style:normal;font-size:15px;font-weight:700;color:var(--soft)}
+.trplace.on .trtick{background:#34a86b;border-color:#34a86b}
+.trplace-m{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.trplace-m b{font-size:18px;font-weight:700;line-height:1.25}
+.trplace-m span{font-size:14.5px;font-weight:500;color:#5b6170;line-height:1.35}
+.trplace.on .trplace-m b{color:#2b7a57}
+.trplace-r{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
+.trplace-r small{font-size:13px;font-weight:600;color:#2b7a57;white-space:nowrap}
+.trkind{font-style:normal;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:9px;background:#efede8;color:#5b6170;white-space:nowrap}
+.trkind.k-park,.trkind.k-nature,.trkind.k-walk{background:#e7f3e3;color:#3f7a33}
+.trkind.k-water,.trkind.k-beach{background:#e2eefb;color:#2c64a8}
+.trkind.k-wildlife{background:#fbeedd;color:#9a5a12}
+.trkind.k-museum,.trkind.k-history,.trkind.k-art{background:#efe8fb;color:#6243a8}
+.trkind.k-lookout,.trkind.k-ride,.trkind.k-sport{background:#fde8e6;color:#a8402f}
+.trnone{margin:2px 8px 12px;font-size:17px;color:#5b6170}
+.trmark{width:100%;margin-top:10px;justify-content:center}
+.phone .trstats{flex-wrap:wrap;gap:8px}
+.phone .trstat{padding:10px 14px}.phone .trstat b{font-size:22px}
+.phone .trgo{flex-direction:row;width:100%}.phone .trgo .chip{flex:1;justify-content:center}
+.phone .trcard{max-height:70%}
+.phone .trplace-r{display:none}
+.phone .trpage{padding-bottom:calc(82px + var(--sb, 0px))!important}

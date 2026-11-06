@@ -8,6 +8,7 @@ mod pantry;
 mod pocketpals;
 mod products;
 mod shopping;
+mod travel;
 mod wattsmypower;
 mod weather;
 
@@ -131,6 +132,7 @@ struct App {
     dinners: RwLock<dinners::Dinners>,
     shopping: RwLock<shopping::Shopping>,
     pantry: RwLock<pantry::Pantry>,
+    travel: RwLock<travel::Travel>,
     /// The last jobs PocketPals sent, for a few seconds, so a screen asking twice doesn't ask PocketPals twice.
     jobs: Mutex<HashMap<String, (Instant, Value)>>,
     /// The last weather Open-Meteo sent, for ten minutes.
@@ -185,7 +187,11 @@ async fn main() {
             p
         }
     };
-    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), pantry: RwLock::new(pantry), jobs: Mutex::new(HashMap::new()), weather: Mutex::new(None), energy: Mutex::new(HashMap::new()), holidays: Mutex::new(HashMap::new()), boot });
+    let travel = match tokio::fs::read(data.join("travel.json")).await {
+        Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
+        Err(_) => travel::Travel::default(),
+    };
+    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), pantry: RwLock::new(pantry), travel: RwLock::new(travel), jobs: Mutex::new(HashMap::new()), weather: Mutex::new(None), energy: Mutex::new(HashMap::new()), holidays: Mutex::new(HashMap::new()), boot });
 
     sync_restock(&app).await;
 
@@ -239,6 +245,9 @@ async fn main() {
         .route("/api/pantry/use", post(pantry_use))
         .route("/api/pantry/stores", post(pantry_stores))
         .route("/api/pantry/settings", post(pantry_settings))
+        .route("/api/travel", get(get_travel))
+        .route("/api/travel/seen", post(travel_seen))
+        .route("/api/travel/square", post(travel_square))
         .route("/api/people", post(save_people))
         .route("/api/hub-event", get(hub_event).post(save_hub_event))
         .route("/api/hub-event/delete", post(delete_hub_event))
@@ -699,6 +708,39 @@ async fn sync_restock(app: &App) {
 
 async fn edit_shopping<T>(app: &App, change: impl FnOnce(&mut shopping::Shopping) -> Result<T, &'static str>) -> Result<T, (StatusCode, String)> {
     edit_json(&app.shopping, app.data.join("shopping.json"), change).await
+}
+
+async fn edit_travel<T>(app: &App, change: impl FnOnce(&mut travel::Travel) -> Result<T, &'static str>) -> Result<T, (StatusCode, String)> {
+    edit_json(&app.travel, app.data.join("travel.json"), change).await
+}
+
+/// What the family has seen on the Travel map.
+async fn get_travel(State(app): Shared) -> Json<travel::Travel> {
+    Json(app.travel.read().await.clone())
+}
+
+#[derive(Deserialize)]
+struct TravelTick {
+    id: String,
+    #[serde(default)]
+    on: bool,
+    /// The day it was ticked, on the family's own calendar.
+    #[serde(default)]
+    date: String,
+}
+
+async fn travel_seen(State(app): Shared, Json(b): Json<TravelTick>) -> impl IntoResponse {
+    match edit_travel(&app, |t| t.set_seen(&b.id, b.on, &b.date)).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+async fn travel_square(State(app): Shared, Json(b): Json<TravelTick>) -> impl IntoResponse {
+    match edit_travel(&app, |t| t.set_square(&b.id, b.on, &b.date)).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
 }
 
 /// The PocketPals link as the screen may see it: whether it's set up, and whether kids can tick. Never the key.

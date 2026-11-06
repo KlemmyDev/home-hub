@@ -18,6 +18,7 @@ import { Route as PantryRouteImport } from './routes/pantry'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as ShoppingRouteImport } from './routes/shopping'
+import { Route as TravelRouteImport } from './routes/travel'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -64,6 +65,11 @@ const ShoppingRoute = ShoppingRouteImport.update({
   path: '/shopping',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TravelRoute = TravelRouteImport.update({
+  id: '/travel',
+  path: '/travel',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
   '/shopping': typeof ShoppingRoute
+  '/travel': typeof TravelRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
   '/shopping': typeof ShoppingRoute
+  '/travel': typeof TravelRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
   '/shopping': typeof ShoppingRoute
+  '/travel': typeof TravelRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/setup'
     | '/shopping'
+    | '/travel'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/setup'
     | '/shopping'
+    | '/travel'
   id:
     | '__root__'
     | '/'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/setup'
     | '/shopping'
+    | '/travel'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -145,6 +157,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SetupRoute: typeof SetupRoute
   ShoppingRoute: typeof ShoppingRoute
+  TravelRoute: typeof TravelRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -212,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShoppingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/travel': {
+      id: '/travel'
+      path: '/travel'
+      fullPath: '/travel'
+      preLoaderRoute: typeof TravelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -225,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SetupRoute: SetupRoute,
   ShoppingRoute: ShoppingRoute,
+  TravelRoute: TravelRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

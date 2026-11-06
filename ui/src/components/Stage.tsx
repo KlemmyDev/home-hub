@@ -6,6 +6,7 @@ import { nowZ, startOfDay } from "../lib/dates";
 import { CalendarPanel } from "./Calendar";
 import { ChoresPanel } from "./Chores";
 import { EnergyPanel } from "./Energy";
+import { TravelPanel } from "./Travel";
 import { Overview } from "./Overview";
 import { PantryPanel } from "./Pantry";
 import { MenuPanel } from "./Dinners";
@@ -58,6 +59,7 @@ function Bar() {
   const right: [string, string, string][] = [["pantry", "Pantry", "page"]];
   if (ppOn) right.push(["chores", "Chores", "page"]); else if (url("pocketpals")) right.push(["chores", "Chores", url("pocketpals")!]);
   if (wmOn) right.push(["energy", "Energy", "page"]); else if (url("wattsmypower")) right.push(["energy", "Energy", url("wattsmypower")!]);
+  right.push(["travel", "Travel", "page"]);
   right.push(["settings", "Settings", "page"]);
   const open = (id: string) => id === "calendar" ? (page === "calendar" ? undefined : openCal(cal.mode, nowZ())) : id === "menu" ? (page === "menu" ? setDview({ v: "home" }) : go("menu")) : go(id as Page | "settings");
   const item = ([id, name, to]: [string, string, string]) => {
@@ -90,6 +92,7 @@ export function Stage() {
         <PanelCard id="shopcard" inner="shopin" active={page === "pantry"} edge><PantryPanel /></PanelCard>
         <PanelCard id="chorecard" inner="chorein" active={page === "chores"} edge><ChoresPanel /></PanelCard>
         <PanelCard id="energycard" inner="energyin" active={page === "energy"} edge><EnergyPanel /></PanelCard>
+        <PanelCard id="travelcard" inner="travelin" active={page === "travel"} edge><TravelPanel /></PanelCard>
         {page === "settings" ? <div id="setlayer"><Settings /></div> : null}
         <Reminders />
         <Bar />
