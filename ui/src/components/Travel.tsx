@@ -202,14 +202,14 @@ const TravelMap = forwardRef<MapHandle, { prog: ReturnType<typeof useProgress>; 
     const { k, cx, cy } = view.current, { prog, sel, data } = live.current;
     const ox = w / 2 - cx * k, oy = h / 2 - cy * k;
     g.setTransform(px, 0, 0, px, 0, 0);
-    g.fillStyle = "#dfe8ec"; g.fillRect(0, 0, w, h);
+    g.fillStyle = "#e9f0f3"; g.fillRect(0, 0, w, h);
     // Land: the world faint, Australia white.
     g.setTransform(px * k, 0, 0, px * k, px * ox, px * oy);
-    g.fillStyle = "#f2f0eb"; g.fill(paths.world);
-    g.fillStyle = "#efe4c8"; g.fill(paths.au);
+    g.fillStyle = "#f4f4f3"; g.fill(paths.world);
+    g.fillStyle = "#dededc"; g.fill(paths.au);
     // The squares that are in view.
     const x0 = Math.floor(-ox / k), x1 = Math.ceil((w - ox) / k), y0 = Math.max(0, Math.floor(-oy / k)), y1 = Math.min(Z - 1, Math.ceil((h - oy) / k));
-    const lines = k >= 5, lineA = Math.min(.16, .04 + (k - 5) * .006);
+    const lines = k >= 5, lineA = Math.min(.24, .08 + (k - 5) * .008);
     g.lineWidth = 1 / k;
     for (let y = y0; y <= y1; y++) {
       const runs = ROWS.get(y);
@@ -226,7 +226,7 @@ const TravelMap = forwardRef<MapHandle, { prog: ReturnType<typeof useProgress>; 
       }
     }
     // Australia's coast, over the squares.
-    g.strokeStyle = "rgba(120,92,40,.45)"; g.lineWidth = 1.2 / k; g.stroke(paths.au);
+    g.strokeStyle = "#7d828c"; g.lineWidth = 1.2 / k; g.stroke(paths.au);
     g.strokeStyle = "rgba(31,36,48,.14)"; g.lineWidth = .8 / k; g.stroke(paths.world);
     // The chosen square.
     if (sel) {
