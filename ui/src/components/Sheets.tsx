@@ -11,6 +11,7 @@ import { EventDetails, EventSheet, QuickAddSheet } from "./EventSheets";
 import { Lab, Pill, SheetFrame } from "./SheetFrame";
 import { StepsSheet } from "./Chores";
 import { FindSheet } from "./Find";
+import { CountdownSheet } from "./Countdowns";
 import { IngredientSheet } from "./Dinners";
 import { DaySheet, PlanMealSheet, RuleSheet } from "./DinnerSheets";
 import { PantryItemSheet, ShopItemSheet, UsePantrySheet } from "./PantrySheets";
@@ -59,6 +60,7 @@ function SheetBody({ sheet }: { sheet: Sheet }) {
     case "shopitem": return <ShopItemSheet id={sheet.id} />;
     case "usepantry": return <UsePantrySheet meal={sheet.meal} factor={sheet.factor} />;
     case "find": return <FindSheet />;
+    case "countdown": return <CountdownSheet id={sheet.id} />;
   }
 }
 

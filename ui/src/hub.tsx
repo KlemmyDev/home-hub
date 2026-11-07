@@ -38,7 +38,8 @@ export type Sheet =
   | { mode: "pitem"; id: string | null; name?: string }
   | { mode: "shopitem"; id: string }
   | { mode: "usepantry"; meal: string; factor: number }
-  | { mode: "find" };
+  | { mode: "find" }
+  | { mode: "countdown"; id: string | null };
 export type EventDraft = {
   id: string; occ?: string; title: string; location: string; allDay: boolean; sd: string; st: string; ned: string; net: string;
   people: string[]; freq: string; interval: number; days: string[]; untilOn: boolean; until: string;

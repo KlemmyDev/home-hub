@@ -10,6 +10,7 @@ import { useHub } from "../hub";
 import { useNav } from "../nav";
 import { ChoresCard } from "./Chores";
 import { EnergyCard } from "./Energy";
+import { CountdownCard } from "./Countdowns";
 import { Avs } from "./Calendar";
 import { Ava } from "./Ava";
 
@@ -199,6 +200,7 @@ export function Overview({ away }: { away: boolean }) {
       <div id="body" style={{ display: "flex", flexDirection: "column", gap: 18, flex: 1, minHeight: 0 }}>
         <DinnerCard />
         <TodayCard />
+        <CountdownCard />
         <ChoresCard />
         <EnergyCard />
         <WidgetCards />

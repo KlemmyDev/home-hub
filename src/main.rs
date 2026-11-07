@@ -1,6 +1,7 @@
 //! Home Hub: one small service that serves the dashboard and keeps its settings in data/config.json.
 
 mod calendar;
+mod countdowns;
 mod dinners;
 mod family;
 mod holidays;
@@ -134,6 +135,7 @@ struct App {
     shopping: RwLock<shopping::Shopping>,
     pantry: RwLock<pantry::Pantry>,
     travel: RwLock<travel::Travel>,
+    countdowns: RwLock<countdowns::Countdowns>,
     /// One Travel picture fetched from Wikimedia at a time (it's polite, and two screens asking don't fetch it twice).
     photo_lock: Mutex<()>,
     /// The last jobs PocketPals sent, for a few seconds, so a screen asking twice doesn't ask PocketPals twice.
@@ -194,7 +196,11 @@ async fn main() {
         Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
         Err(_) => travel::Travel::default(),
     };
-    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), pantry: RwLock::new(pantry), travel: RwLock::new(travel), photo_lock: Mutex::new(()), jobs: Mutex::new(HashMap::new()), weather: Mutex::new(None), energy: Mutex::new(HashMap::new()), holidays: Mutex::new(HashMap::new()), boot });
+    let countdowns = match tokio::fs::read(data.join("countdowns.json")).await {
+        Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
+        Err(_) => countdowns::Countdowns::default(),
+    };
+    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), pantry: RwLock::new(pantry), travel: RwLock::new(travel), countdowns: RwLock::new(countdowns), photo_lock: Mutex::new(()), jobs: Mutex::new(HashMap::new()), weather: Mutex::new(None), energy: Mutex::new(HashMap::new()), holidays: Mutex::new(HashMap::new()), boot });
 
     sync_restock(&app).await;
 
@@ -248,6 +254,9 @@ async fn main() {
         .route("/api/pantry/use", post(pantry_use))
         .route("/api/pantry/stores", post(pantry_stores))
         .route("/api/pantry/settings", post(pantry_settings))
+        .route("/api/countdowns", get(get_countdowns))
+        .route("/api/countdown", post(save_countdown))
+        .route("/api/countdown/delete", post(delete_countdown))
         .route("/api/travel", get(get_travel))
         .route("/api/travel/seen", post(travel_seen))
         .route("/api/travel/square", post(travel_square))
@@ -717,6 +726,36 @@ async fn edit_shopping<T>(app: &App, change: impl FnOnce(&mut shopping::Shopping
 
 async fn edit_travel<T>(app: &App, change: impl FnOnce(&mut travel::Travel) -> Result<T, &'static str>) -> Result<T, (StatusCode, String)> {
     edit_json(&app.travel, app.data.join("travel.json"), change).await
+}
+
+/// Today on the family's own calendar (their time zone when one is set, else the hub's).
+async fn family_today(app: &App) -> chrono::NaiveDate {
+    let zone = app.config.read().await.timezone.clone();
+    match zone.parse::<chrono_tz::Tz>() {
+        Ok(tz) => chrono::Utc::now().with_timezone(&tz).date_naive(),
+        Err(_) => chrono::Local::now().date_naive(),
+    }
+}
+
+/// The Home page's countdowns.
+async fn get_countdowns(State(app): Shared) -> Json<countdowns::Countdowns> {
+    Json(app.countdowns.read().await.clone())
+}
+
+/// Add a countdown, or change one (by its id).
+async fn save_countdown(State(app): Shared, Json(c): Json<countdowns::Countdown>) -> impl IntoResponse {
+    let today = family_today(&app).await;
+    match edit_json(&app.countdowns, app.data.join("countdowns.json"), |l| l.save(c, today)).await {
+        Ok(id) => Json(json!({"id": id})).into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+async fn delete_countdown(State(app): Shared, Json(body): Json<IdBody>) -> impl IntoResponse {
+    match edit_json(&app.countdowns, app.data.join("countdowns.json"), |l| l.remove(&body.id)).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => e.into_response(),
+    }
 }
 
 /// What the family has seen on the Travel map.
