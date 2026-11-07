@@ -3,8 +3,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, post } from "../lib/api";
 import { fromYmd, nowZ, ymd } from "../lib/dates";
 import { Check, XIcon } from "../lib/icons";
-import { AU_CELLS, AU_PATH, AU_RUNS, WORLD_PATH } from "../lib/travelmap";
+import { AU_CELLS, AU_PATH, AU_RUNS, LAKES, RIVERS_MAIN, RIVERS_SMALL, ROADS_MAJOR, ROADS_MINOR, SALT_LAKES, WORLD_PATH } from "../lib/travelmap";
 import { KIND_NAME, PLACES, SQUARES, TOWNS, Z, cellKm, latY, lonX, type Square } from "../lib/travelplaces";
+import { DockIcon } from "../lib/icons";
 import { useHub } from "../hub";
 import { PageHead, wrap } from "./Panels";
 
@@ -14,6 +15,13 @@ import { PageHead, wrap } from "./Panels";
 type TravelData = { seen: Record<string, string>; squares: Record<string, string> };
 const NONE: TravelData = { seen: {}, squares: {} };
 const HOME = "10/946/593";       // Ipswich, for "Near home"
+const HOME_AT = { lat: -27.6145, lon: 152.7600, name: "Ipswich" };
+/** Kilometres between two points, as the crow flies. */
+const kmBetween = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => {
+  const r = Math.PI / 180, x = Math.sin((b.lat - a.lat) * r / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin((b.lon - a.lon) * r / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(x));
+};
+const when = (d: string) => fromYmd(d).toLocaleDateString([], { day: "numeric", month: "short", year: fromYmd(d).getFullYear() === nowZ().getFullYear() ? undefined : "numeric" });
 
 /** Australia's land squares, row by row: y to runs of x (inclusive). */
 const ROWS: Map<number, [number, number][]> = new Map(AU_RUNS.split(";").map(r => {
@@ -68,6 +76,10 @@ export function TravelPanel() {
   const { data = NONE } = useTravel();
   const prog = useProgress(data);
   const [sel, setSel] = useState<string | null>(null);
+  const [place, setPlace] = useState<string | null>(null);
+  const pickSquare = (c: string | null) => { setPlace(null); setSel(c); };
+  /** Open a place's own card (and its square behind it); from a list, the map goes to it too. */
+  const openPlace = (id: string, fly: boolean) => { setPlace(id); setSel(PLACES[id].cell); if (fly) map.current?.flyToPlace(id); };
   const map = useRef<MapHandle>(null);
 
   const patch = (f: (t: TravelData) => void) => {
@@ -98,16 +110,17 @@ export function TravelPanel() {
         <div className="trstat"><b className="num">{prog.seen}</b><span>places seen</span></div>
         <div className="trgo">
           <button className="chip" onClick={() => map.current?.fitAustralia()}>All of Australia</button>
-          <button className="chip" onClick={() => { map.current?.flyTo(HOME, 7); setSel(HOME); }}>Near home</button>
+          <button className="chip" onClick={() => { map.current?.flyTo(HOME, 7); pickSquare(HOME); }}>Near home</button>
         </div>
       </div>
       <div className="trmapwrap">
-        <TravelMap ref={map} prog={prog} sel={sel} onPick={setSel} data={data} />
+        <TravelMap ref={map} prog={prog} sel={sel} place={place} onPick={pickSquare} onPlace={id => openPlace(id, false)} data={data} />
         <div className="trzoom">
           <button aria-label="Zoom in" onClick={() => map.current?.zoomBy(2)}>+</button>
           <button aria-label="Zoom out" onClick={() => map.current?.zoomBy(.5)}>−</button>
         </div>
-        {sel ? <SquareCard cell={sel} data={data} done={prog.done.has(sel)} onClose={() => setSel(null)} onTick={tickPlace} onMark={on => markSquare(sel, on)} />
+        {place ? <PlaceCard id={place} data={data} onClose={() => pickSquare(null)} onBack={() => setPlace(null)} onTick={() => tickPlace(place)} />
+          : sel ? <SquareCard cell={sel} data={data} done={prog.done.has(sel)} onClose={() => pickSquare(null)} onTick={tickPlace} onOpen={id => openPlace(id, true)} onMark={on => markSquare(sel, on)} />
           : (
             <div className="trlists">
               <p>Squares with things to see listed</p>
@@ -115,7 +128,7 @@ export function TravelPanel() {
                 {listed.map(([cell, sq]) => {
                   const n = sq.places.filter(p => data.seen[p.id]).length, done = prog.done.has(cell);
                   return (
-                    <button key={cell} className={"trlist" + (done ? " done" : "")} onClick={() => { map.current?.flyTo(cell, 7); setSel(cell); }}>
+                    <button key={cell} className={"trlist" + (done ? " done" : "")} onClick={() => { map.current?.flyTo(cell, 7); pickSquare(cell); }}>
                       <b>{sq.name}</b><span>{done ? "Done" : `${n} of ${sq.places.length} seen`}</span>
                     </button>
                   );
@@ -129,11 +142,10 @@ export function TravelPanel() {
 }
 
 /** One square: what's in it, ticked off as it's seen. */
-function SquareCard({ cell, data, done, onClose, onTick, onMark }: { cell: string; data: TravelData; done: boolean; onClose: () => void; onTick: (id: string) => void; onMark: (on: boolean) => void }) {
+function SquareCard({ cell, data, done, onClose, onTick, onOpen, onMark }: { cell: string; data: TravelData; done: boolean; onClose: () => void; onTick: (id: string) => void; onOpen: (id: string) => void; onMark: (on: boolean) => void }) {
   const sq = squareInfo(cell), { y } = parseCell(cell);
   const n = sq.places.filter(p => data.seen[p.id]).length;
   const byHand = !!data.squares[cell];
-  const when = (d: string) => fromYmd(d).toLocaleDateString([], { day: "numeric", month: "short", year: fromYmd(d).getFullYear() === nowZ().getFullYear() ? undefined : "numeric" });
   return (
     <div className={"trcard" + (done ? " done" : "")} role="region" aria-label={sq.name}>
       <div className="trcard-h">
@@ -152,14 +164,16 @@ function SquareCard({ cell, data, done, onClose, onTick, onMark }: { cell: strin
               const seen = data.seen[p.id];
               return (
                 <li key={p.id}>
-                  <button className={"trplace" + (seen ? " on" : "")} aria-pressed={!!seen} onClick={() => onTick(p.id)}>
-                    <span className="trtick">{seen ? <Check /> : <em>{i + 1}</em>}</span>
-                    <span className="trplace-m">
-                      <b>{p.name}</b>
-                      <span>{p.about}</span>
-                    </span>
-                    <span className="trplace-r"><em className={"trkind k-" + p.kind}>{KIND_NAME[p.kind]}</em>{seen ? <small>Seen {when(seen)}</small> : null}</span>
-                  </button>
+                  <div className={"trplace" + (seen ? " on" : "")}>
+                    <button className="trtick" aria-pressed={!!seen} aria-label={(seen ? "Seen: " : "Mark as seen: ") + p.name} onClick={() => onTick(p.id)}>{seen ? <Check /> : <em>{i + 1}</em>}</button>
+                    <button className="trplace-open" onClick={() => onOpen(p.id)}>
+                      <span className="trplace-m">
+                        <b>{p.name}</b>
+                        <span>{p.about}</span>
+                      </span>
+                      <span className="trplace-r"><em className={"trkind k-" + p.kind}>{KIND_NAME[p.kind]}</em>{seen ? <small>Seen {when(seen)}</small> : null}</span>
+                    </button>
+                  </div>
                 </li>
               );
             })}
@@ -172,9 +186,42 @@ function SquareCard({ cell, data, done, onClose, onTick, onMark }: { cell: strin
   );
 }
 
+/** One place: what it is, where, and a big button to mark it as seen. */
+function PlaceCard({ id, data, onClose, onBack, onTick }: { id: string; data: TravelData; onClose: () => void; onBack: () => void; onTick: () => void }) {
+  const p = PLACES[id], sq = SQUARES[p.cell], seen = data.seen[id];
+  const km = kmBetween(HOME_AT, p), i = sq.places.findIndex(x => x.id === id);
+  const away = km < 1 ? `In ${HOME_AT.name}` : `About ${km < 10 ? km.toFixed(1) : Math.round(km)} km from ${HOME_AT.name}`;
+  return (
+    <div className={"trcard trpc" + (seen ? " done" : "")} role="region" aria-label={p.name}>
+      <div className="trcard-h">
+        <button className="trback" onClick={onBack} aria-label={"Back to " + sq.name}><span aria-hidden="true">‹</span>{sq.name}</button>
+        <span style={{ flex: 1 }} />
+        <button className="trx" aria-label="Close" onClick={onClose}><XIcon /></button>
+      </div>
+      <div className="trcard-b">
+        <div className="trpc-top">
+          <em className={"trkind k-" + p.kind}>{KIND_NAME[p.kind]}</em>
+          <span>Number {i + 1} of {sq.places.length} in {sq.name}</span>
+        </div>
+        <h2 className="trpc-name">{p.name}</h2>
+        <p className="trpc-about">{p.about}</p>
+        <div className="trpc-facts">
+          <span><small>Distance</small><b>{away}</b></span>
+          <span><small>Square</small><b>{sq.name}, {sq.region}</b></span>
+        </div>
+        <div className="trpc-act">
+          {seen ? <button className="trpc-seen on" onClick={onTick}><Check />Seen on {when(seen)}<small>Undo</small></button>
+            : <button className="trpc-seen" onClick={onTick}><Check />Mark as seen</button>}
+          <a className="dvbtn trpc-dir" href={`https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}`} target="_blank" rel="noreferrer"><DockIcon name="travel" size={18} />Directions</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- the map ---------- */
 
-type MapHandle = { flyTo: (cell: string, k?: number) => void; fitAustralia: () => void; zoomBy: (f: number) => void };
+type MapHandle = { flyTo: (cell: string, k?: number) => void; flyToPlace: (id: string) => void; fitAustralia: () => void; zoomBy: (f: number) => void };
 const K_MIN = 0.55, K_MAX = 420;
 const clampV = (v: View, w: number, h: number): View => {
   const k = Math.min(K_MAX, Math.max(K_MIN, v.k));
@@ -185,21 +232,24 @@ const clampV = (v: View, w: number, h: number): View => {
   return { k, cx, cy };
 };
 
-const TravelMap = forwardRef<MapHandle, { prog: ReturnType<typeof useProgress>; sel: string | null; onPick: (c: string | null) => void; data: TravelData }>(function TravelMap({ prog, sel, onPick, data }, ref) {
+const TravelMap = forwardRef<MapHandle, { prog: ReturnType<typeof useProgress>; sel: string | null; place: string | null; onPick: (c: string | null) => void; onPlace: (id: string) => void; data: TravelData }>(function TravelMap({ prog, sel, place, onPick, onPlace, data }, ref) {
   const box = useRef<HTMLDivElement>(null), cv = useRef<HTMLCanvasElement>(null);
   const view = useRef<View>({ k: 6, cx: (AU_BOX.x0 + AU_BOX.x1) / 2, cy: (AU_BOX.y0 + AU_BOX.y1) / 2 });
   const size = useRef({ w: 0, h: 0, px: 1 });
   const anim = useRef(0), frame = useRef(0), late = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const live = useRef({ prog, sel, data });
-  live.current = { prog, sel, data };
-  const paths = useMemo(() => typeof Path2D === "undefined" ? null : { au: new Path2D(AU_PATH), world: new Path2D(WORLD_PATH) }, []);
+  const live = useRef({ prog, sel, place, data });
+  live.current = { prog, sel, place, data };
+  const paths = useMemo(() => typeof Path2D === "undefined" ? null : {
+    au: new Path2D(AU_PATH), world: new Path2D(WORLD_PATH), roads: new Path2D(ROADS_MAJOR), minor: new Path2D(ROADS_MINOR),
+    rivers: new Path2D(RIVERS_MAIN), creeks: new Path2D(RIVERS_SMALL), lakes: new Path2D(LAKES), salt: new Path2D(SALT_LAKES),
+  }, []);
 
   const draw = () => {
     frame.current = 0;
     const c = cv.current, { w, h, px } = size.current;
     if (!c || !w || !paths) return;
     const g = c.getContext("2d")!;
-    const { k, cx, cy } = view.current, { prog, sel, data } = live.current;
+    const { k, cx, cy } = view.current, { prog, sel, place, data } = live.current;
     const ox = w / 2 - cx * k, oy = h / 2 - cy * k;
     g.setTransform(px, 0, 0, px, 0, 0);
     g.fillStyle = "#e9f0f3"; g.fillRect(0, 0, w, h);
@@ -207,6 +257,13 @@ const TravelMap = forwardRef<MapHandle, { prog: ReturnType<typeof useProgress>; 
     g.setTransform(px * k, 0, 0, px * k, px * ox, px * oy);
     g.fillStyle = "#f4f4f3"; g.fill(paths.world);
     g.fillStyle = "#dededc"; g.fill(paths.au);
+    // Water: lakes and dams, the salt lakes paler, then rivers (the smaller ones only close in).
+    const WATER = "#a9c6d6";
+    g.fillStyle = "#e6e8e6"; g.fill(paths.salt);
+    g.fillStyle = WATER; g.fill(paths.lakes);
+    g.lineCap = "round"; g.lineJoin = "round";
+    if (k >= 3) { g.strokeStyle = WATER; g.lineWidth = Math.min(2.6, .6 + k * .02) / k; g.stroke(paths.rivers); }
+    if (k >= 24) { g.strokeStyle = WATER; g.lineWidth = Math.min(1.8, .5 + k * .008) / k; g.stroke(paths.creeks); }
     // The squares that are in view.
     const x0 = Math.floor(-ox / k), x1 = Math.ceil((w - ox) / k), y0 = Math.max(0, Math.floor(-oy / k)), y1 = Math.min(Z - 1, Math.ceil((h - oy) / k));
     const lines = k >= 5, lineA = Math.min(.24, .08 + (k - 5) * .008);
@@ -225,6 +282,16 @@ const TravelMap = forwardRef<MapHandle, { prog: ReturnType<typeof useProgress>; 
         }
       }
     }
+    // Roads: grey lines from afar; close in, white roads with a grey edge, the main ones wider.
+    if (k >= 3) {
+      const road = (path: Path2D, w: number, edge: string) => {
+        if (k < 9) { g.strokeStyle = edge; g.lineWidth = w * .55 / k; g.stroke(path); return; }
+        g.strokeStyle = edge; g.lineWidth = (w + 1.6) / k; g.stroke(path);
+        g.strokeStyle = "#ffffff"; g.lineWidth = w / k; g.stroke(path);
+      };
+      if (k >= 9) road(paths.minor, Math.min(3, 1.2 + k * .01), "#a3a8b1");
+      road(paths.roads, Math.min(4.6, 1.8 + k * .016), "#8c929c");
+    }
     // Australia's coast, over the squares.
     g.strokeStyle = "#7d828c"; g.lineWidth = 1.2 / k; g.stroke(paths.au);
     g.strokeStyle = "rgba(31,36,48,.14)"; g.lineWidth = .8 / k; g.stroke(paths.world);
@@ -241,10 +308,11 @@ const TravelMap = forwardRef<MapHandle, { prog: ReturnType<typeof useProgress>; 
         const X = sx(p.lon), Y = sy(p.lat);
         if (X < -40 || X > w + 40 || Y < -20 || Y > h + 20) continue;
         const seen = !!data.seen[p.id];
-        g.beginPath(); g.arc(X, Y, k >= 120 ? 7 : 5, 0, Math.PI * 2);
+        if (p.id === place) { g.beginPath(); g.arc(X, Y, 15, 0, Math.PI * 2); g.fillStyle = seen ? "rgba(47,155,98,.25)" : "rgba(31,36,48,.18)"; g.fill(); }
+        g.beginPath(); g.arc(X, Y, p.id === place ? 9 : k >= 120 ? 7 : 5, 0, Math.PI * 2);
         g.fillStyle = seen ? "#2f9b62" : "#1f2430"; g.fill();
         g.lineWidth = 2; g.strokeStyle = "#fff"; g.stroke();
-        if (k >= 150) label(g, p.name, X + 11, Y + 5, 14, seen ? "#2b7a57" : "#1f2430", 600);
+        if (k >= 320 || p.id === place) label(g, p.name, X + 12, Y + 5, 14, seen ? "#2b7a57" : "#1f2430", p.id === place ? 700 : 600);
       }
     }
     const rank = k >= 60 ? 3 : k >= 18 ? 2 : k >= 8 ? 1 : k >= 2.5 ? 0 : -1;
@@ -285,6 +353,10 @@ const TravelMap = forwardRef<MapHandle, { prog: ReturnType<typeof useProgress>; 
   };
   useImperativeHandle(ref, () => ({
     flyTo, fitAustralia: fitAu,
+    flyToPlace: id => {
+      const p = PLACES[id], { h } = size.current, k = Math.max(view.current.k, 160);
+      glide({ k, cx: lonX(p.lon), cy: latY(p.lat) + (h / 2 - h * .2) / k });
+    },
     zoomBy: f => { const v = view.current; glide({ ...v, k: v.k * f }, 300); },
   }));
 
@@ -309,7 +381,7 @@ const TravelMap = forwardRef<MapHandle, { prog: ReturnType<typeof useProgress>; 
     ro.observe(el); fit();
     return () => { ro.disconnect(); cancelAnimationFrame(frame.current); cancelAnimationFrame(anim.current); clearTimeout(late.current); };
   }, []);
-  useEffect(redraw, [prog, sel, data]);
+  useEffect(redraw, [prog, sel, place, data]);
   // Touch: one finger drags, two pinch; a tap picks a square, a double tap zooms in. The mouse wheel zooms.
   useEffect(() => {
     const c = cv.current!;
@@ -356,11 +428,26 @@ const TravelMap = forwardRef<MapHandle, { prog: ReturnType<typeof useProgress>; 
       const now = performance.now();
       if (now - lastTap < 300) { lastTap = 0; glideZoom(p.x, p.y); return; }
       lastTap = now;
+      // A place's dot first (once they're drawn), then the square under the finger.
+      const v = view.current, { w, h } = size.current;
+      if (v.k >= 40) {
+        let best = "", bd = 22;
+        for (const pl of Object.values(PLACES)) {
+          const d = Math.hypot(w / 2 + (lonX(pl.lon) - v.cx) * v.k - p.x, h / 2 + (latY(pl.lat) - v.cy) * v.k - p.y);
+          if (d < bd) { bd = d; best = pl.id; }
+        }
+        if (best) {
+          onPlaceRef.current(best);
+          const top = h / 2 + (latY(PLACES[best].lat) - v.cy) * v.k, mid = h * .2;
+          if (top > mid * 1.6) glide({ ...v, cy: v.cy + (top - mid) / v.k }, 450);
+          return;
+        }
+      }
       const { x, y } = toCell(p.x, p.y), id = `10/${x}/${y}`;
-      const pick = isLand(x, y) && live.current.sel !== id;
+      const pick = isLand(x, y) && (live.current.sel !== id || !!live.current.place);
       onPickRef.current(pick ? id : null);
       // A square picked low on the map slides up, out from under its card.
-      const v = view.current, top = (y + .5) * v.k + size.current.h / 2 - v.cy * v.k, mid = size.current.h * .22;
+      const top = (y + .5) * v.k + h / 2 - v.cy * v.k, mid = h * .22;
       if (pick && top > mid * 1.6) glide({ ...v, cy: v.cy + (top - mid) / v.k }, 450);
     };
     const glideZoom = (x: number, y: number) => {
@@ -375,6 +462,7 @@ const TravelMap = forwardRef<MapHandle, { prog: ReturnType<typeof useProgress>; 
     return () => { c.removeEventListener("pointerdown", down); c.removeEventListener("pointermove", move); c.removeEventListener("pointerup", up); c.removeEventListener("pointercancel", up); c.removeEventListener("wheel", wheel); };
   }, []);
   const onPickRef = useRef(onPick); onPickRef.current = onPick;
+  const onPlaceRef = useRef(onPlace); onPlaceRef.current = onPlace;
 
   return <div ref={box} className="trmap"><canvas ref={cv} aria-label="Map of Australia in squares. Tap a square to see what's in it." role="img" /></div>;
 });

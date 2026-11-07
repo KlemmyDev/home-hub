@@ -1,10 +1,13 @@
 // Builds ui/src/lib/travelmap.ts: the world's land outline, Australia's coastline and Australia's land squares.
-// Run from ui/: node scripts/travelgrid.mjs   (needs the world-atlas and topojson-client dev dependencies)
+// Run from ui/: node scripts/travelgrid.mjs <folder>   (needs the world-atlas and topojson-client dev dependencies)
+// <folder> holds Natural Earth's 1:10m roads, rivers and lakes as GeoJSON, from
+// https://github.com/nvkelso/natural-earth-vector/tree/master/geojson : ne_10m_roads, ne_10m_rivers_lake_centerlines,
+// ne_10m_rivers_australia, ne_10m_lakes and ne_10m_lakes_australia (.geojson).
 //
 // The squares are the world's map tiles at zoom 10 (Web Mercator): 1024 x 1024 of them round the world.
 // Near Ipswich one is about 35 km across; they are about 38 km in Darwin and 29 km in Hobart.
 // A square counts as land when any part of it touches land in Natural Earth's 1:10m coastline.
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { feature } from "topojson-client";
 
 const Z = 1024;
@@ -33,6 +36,20 @@ function path(ringsList, tol, keep = () => true) {
     for (const p of pts.slice(1)) { const q = out[out.length - 1]; if (Math.hypot(p[0] - q[0], p[1] - q[1]) >= tol) out.push(p); }
     if (out.length < 3) continue;
     d += "M" + out.map(p => n(p[0]) + " " + n(p[1])).join("L") + "Z";
+  }
+  return d;
+}
+
+/** Lines (roads, rivers) as an SVG path, without closing them. */
+function lines(list, tol) {
+  let d = "";
+  for (const line of list) {
+    const pts = line.map(([lo, la]) => [X(lo), Y(la)]);
+    const out = [pts[0]];
+    for (const p of pts.slice(1, -1)) { const q = out[out.length - 1]; if (Math.hypot(p[0] - q[0], p[1] - q[1]) >= tol) out.push(p); }
+    out.push(pts[pts.length - 1]);
+    if (out.length < 2 || (out.length === 2 && Math.hypot(out[0][0] - out[1][0], out[0][1] - out[1][1]) < tol)) continue;
+    d += "M" + out.map(p => n(p[0]) + " " + n(p[1])).join("L");
   }
   return d;
 }
@@ -77,6 +94,26 @@ const worldLand = { type: "MultiPolygon", coordinates: (wl.features || [wl]).fla
 // The world without Australia (drawn on its own, finer) and without Antarctica.
 const worldDraw = path(rings(worldLand), 0.5, pts => !pts.every(([x, y]) => near(x, y)) && !pts.every(([, y]) => y > Y(-60)));
 
+// --- roads, rivers and lakes (Natural Earth 1:10m) ---
+const NE = process.argv[2];
+if (!NE || !existsSync(`${NE}/ne_10m_roads.geojson`)) { console.error("Give the folder with Natural Earth's roads, rivers and lakes (see the top of this file)."); process.exit(1); }
+const geo = f => existsSync(`${NE}/${f}.geojson`) ? JSON.parse(readFileSync(`${NE}/${f}.geojson`)).features : [];
+const inAu = ([lo, la]) => near(X(lo), Y(la));
+const linesOf = g => !g ? [] : g.type === "LineString" ? [g.coordinates] : g.type === "MultiLineString" ? g.coordinates : [];
+const auLines = fs => fs.flatMap(f => linesOf(f.geometry).filter(l => l.some(inAu)).map(l => ({ l, p: f.properties })));
+const roads = auLines(geo("ne_10m_roads")).filter(({ p }) => p.continent === "Oceania" && p.type !== "Ferry Route");
+const big = ({ p }) => p.type === "Major Highway" || p.expressway === 1;
+const roadsMajor = lines(roads.filter(big).map(r => r.l), 0.07);
+const roadsMinor = lines(roads.filter(r => !big(r)).map(r => r.l), 0.05);
+// Rivers: the main ones always, the smaller ones (a higher scalerank) only close in.
+const rivers = [...auLines(geo("ne_10m_rivers_lake_centerlines")), ...auLines(geo("ne_10m_rivers_australia"))].filter(({ p }) => p.featurecla !== "Lake Centerline");
+const riversMain = lines(rivers.filter(({ p }) => (p.scalerank ?? 9) <= 6).map(r => r.l), 0.05);
+const riversSmall = lines(rivers.filter(({ p }) => (p.scalerank ?? 9) > 6).map(r => r.l), 0.12);
+const lakes = [...geo("ne_10m_lakes"), ...geo("ne_10m_lakes_australia")].filter(f => f.geometry && rings(f.geometry).some(r => r.some(inAu)));
+const salt = f => /alkaline|intermittent|salt/i.test(`${f.properties.featurecla} ${f.properties.name || ""}`);
+const lakesFresh = path(lakes.filter(f => !salt(f)).flatMap(f => rings(f.geometry)), 0.05);
+const lakesSalt = path(lakes.filter(salt).flatMap(f => rings(f.geometry)), 0.08);
+
 const out = `// Made by ui/scripts/travelgrid.mjs from Natural Earth (public domain, through world-atlas). Don't edit by hand.
 // Coordinates are map tiles at zoom 10 (Web Mercator): x and y run 0 to 1024 round the world.
 export const AU_CELLS = ${cells.length};
@@ -86,6 +123,15 @@ export const AU_RUNS = "${runs}";
 export const AU_PATH = "${auDraw}";
 /** The rest of the world's land (1:110m), for context. */
 export const WORLD_PATH = "${worldDraw}";
+/** Australia's highways (1:10m): the main ones, then the others. */
+export const ROADS_MAJOR = "${roadsMajor}";
+export const ROADS_MINOR = "${roadsMinor}";
+/** Rivers: the main ones, then the smaller ones. */
+export const RIVERS_MAIN = "${riversMain}";
+export const RIVERS_SMALL = "${riversSmall}";
+/** Lakes and dams, then the salt lakes that are mostly dry. */
+export const LAKES = "${lakesFresh}";
+export const SALT_LAKES = "${lakesSalt}";
 `;
 writeFileSync(new URL("../src/lib/travelmap.ts", import.meta.url), out);
 console.log(cells.length, "squares;", Math.round(out.length / 1024), "KB");
