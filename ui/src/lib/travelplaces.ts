@@ -81,6 +81,42 @@ export const SQUARES: Record<string, Square> = {
   },
 };
 
+/** A photo for each place: a file on Wikimedia Commons (freely licensed; the hub fetches and keeps a copy, and shows
+    who took it). Find one at commons.wikimedia.org; leave a place out if there's no good one and it gets a plain tile. */
+export const PHOTOS: Record<string, string> = {
+  "ips-queens-park": "Nerima Gardens Boardwalk.jpg",
+  "ips-nature-centre": "Spotted-tail-Quoll Queens-Park-IpswichI.jpg",
+  "ips-workshops": "Workshops Rail Museum (01).jpg",
+  "ips-art-gallery": "Ipswich Art Gallery, Queensland, 2021.jpg",
+  "ips-amberley": "A41-213 taking off from RAAF Base Amberley.jpg",
+  "ips-colleges-crossing": "Colleges Crossing over the Brisbane River, Queensland, 2022, 01.jpg",
+  "ips-rail-trail": "Brisbane Valley Rail Trail Fernvale 2009.JPG",
+  "bne-south-bank": "Streets Beach at South Bank Parklands, Brisbane 03.jpg",
+  "bne-cultural-centre": "Patagonian dinosaur Queensland Museum Cultural Centre South Brisbane P1001262.jpg",
+  "bne-lone-pine": "Lone Pine Koala Sanctuary, Fig Tree Pocket, Brisbane, Austrálie 01.jpg",
+  "bne-coot-tha": "Mt Coot-tha Lookout view of Brisbane 005.jpg",
+  "bne-botanic": "Tropical Display Dome, Brisbane Botanic Gardens, Mount Coot-tha 08.jpg",
+  "bne-story-bridge": "BNE-StoryBridge-fromCityCat.jpg",
+  "bne-citycat": "CityCat Binkinba Town Reach Brisbane River P1090249.jpg",
+  "bne-manly": "Manly Boat Harbour, Queensland, 2020, 01.jpg",
+  "lkv-transport-museum": "Restored truck, Queensland Transport Museum, Gatton, 2024 01.jpg",
+  "lkv-lake-apex": "Lake Apex Park, Gatton, 2022 01.jpg",
+  "lkv-pioneer-village": "Laidley Pioneer Village council chamber and chapel April 2022.jpg",
+  "lkv-lake-dyer": "Lake Dyer Laidley April 2022.jpg",
+  "lkv-grandchester": "Grandchester-railway-station-queensland.JPG",
+  "lkv-atkinson": "Atkinson Dam shoreline.jpg",
+  "spr-robelle": "Robelle Domain Springfield Central Parklands.jpg",
+  "spr-flinders-peak": "Flinders Peak from Ipswich, Queensland.jpg",
+  "spr-hardings": "Picnic facilities at Hardings Paddock Picnic Area Goolman.jpg",
+  "spr-qld-raceway": "Romano WE84 at Queensland raceway, July 2025.jpg",
+  "nsi-north-gorge": "NorthGorgeLookingEast.jpg",
+  "nsi-cylinder": "Cylinder Headland - panoramio.jpg",
+  "nsi-brown-lake": "Brown Lake (North Stradbroke Island).JPG",
+  "nsi-blue-lake": "Blue Lake.jpg",
+  "nsi-amity": "Bottlenose Dolphins, Amity Point, Stradbroke Island, 2021.jpg",
+  "spr-white-rock": "Atop White Rock, looking east - panoramio.jpg",
+};
+
 /** Every place, by id. */
 export const PLACES: Record<string, Place & { cell: string }> = Object.fromEntries(
   Object.entries(SQUARES).flatMap(([cell, s]) => s.places.map(p => [p.id, { ...p, cell }])));

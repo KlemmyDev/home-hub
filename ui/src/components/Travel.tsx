@@ -4,7 +4,7 @@ import { api, post } from "../lib/api";
 import { fromYmd, nowZ, ymd } from "../lib/dates";
 import { Check, XIcon } from "../lib/icons";
 import { AU_CELLS, AU_PATH, AU_RUNS, LAKES, RIVERS_MAIN, RIVERS_SMALL, ROADS_MAJOR, ROADS_MINOR, SALT_LAKES, WORLD_PATH } from "../lib/travelmap";
-import { KIND_NAME, PLACES, SQUARES, TOWNS, Z, cellKm, latY, lonX, type Square } from "../lib/travelplaces";
+import { KIND_NAME, PHOTOS, PLACES, SQUARES, TOWNS, Z, cellKm, latY, lonX, type Square } from "../lib/travelplaces";
 import { DockIcon } from "../lib/icons";
 import { useHub } from "../hub";
 import { PageHead, wrap } from "./Panels";
@@ -167,6 +167,7 @@ function SquareCard({ cell, data, done, onClose, onTick, onOpen, onMark }: { cel
                   <div className={"trplace" + (seen ? " on" : "")}>
                     <button className="trtick" aria-pressed={!!seen} aria-label={(seen ? "Seen: " : "Mark as seen: ") + p.name} onClick={() => onTick(p.id)}>{seen ? <Check /> : <em>{i + 1}</em>}</button>
                     <button className="trplace-open" onClick={() => onOpen(p.id)}>
+                      <PlacePhoto id={p.id} />
                       <span className="trplace-m">
                         <b>{p.name}</b>
                         <span>{p.about}</span>
@@ -186,6 +187,32 @@ function SquareCard({ cell, data, done, onClose, onTick, onOpen, onMark }: { cel
   );
 }
 
+type Photo = { img: string; credit: string; licence: string; page: string; error?: string };
+/** A place's photo, through the hub (which fetches it from Wikimedia Commons once and keeps it). */
+function usePhoto(id: string) {
+  const file = PHOTOS[id];
+  return useQuery<Photo>({ queryKey: ["photo", file], enabled: !!file, staleTime: Infinity, gcTime: Infinity, queryFn: () => api(`/api/travel/photo?file=${encodeURIComponent(file)}`) });
+}
+/** The photo, in a box that keeps its size while it loads (so nothing jumps), or a plain tile in the place's colour. */
+function PlacePhoto({ id, big }: { id: string; big?: boolean }) {
+  const { data } = usePhoto(id);
+  const [shown, setShown] = useState(false);
+  const p = PLACES[id];
+  return (
+    <span className={(big ? "trph" : "trthumb") + " k-" + p.kind}>
+      {data?.img ? <img src={data.img} alt="" draggable={false} className={shown ? "on" : ""} onLoad={() => setShown(true)} /> : null}
+      {big && !PHOTOS[id] ? <em>{KIND_NAME[p.kind]}</em> : null}
+    </span>
+  );
+}
+/** Who took the photo, and its licence (Wikimedia Commons asks for this). */
+function PhotoCredit({ id }: { id: string }) {
+  const { data } = usePhoto(id);
+  if (!PHOTOS[id]) return null;
+  const words = data?.img ? ["Photo", data.credit, data.licence, "Wikimedia Commons"].filter(Boolean).join(" · ").replace("Photo · ", "Photo: ") : data?.error ? "No photo right now" : "\u00a0";
+  return <p className="trph-credit">{words}</p>;
+}
+
 /** One place: what it is, where, and a big button to mark it as seen. */
 function PlaceCard({ id, data, onClose, onBack, onTick }: { id: string; data: TravelData; onClose: () => void; onBack: () => void; onTick: () => void }) {
   const p = PLACES[id], sq = SQUARES[p.cell], seen = data.seen[id];
@@ -199,6 +226,8 @@ function PlaceCard({ id, data, onClose, onBack, onTick }: { id: string; data: Tr
         <button className="trx" aria-label="Close" onClick={onClose}><XIcon /></button>
       </div>
       <div className="trcard-b">
+        <PlacePhoto id={id} big />
+        <PhotoCredit id={id} />
         <div className="trpc-top">
           <em className={"trkind k-" + p.kind}>{KIND_NAME[p.kind]}</em>
           <span>Number {i + 1} of {sq.places.length} in {sq.name}</span>

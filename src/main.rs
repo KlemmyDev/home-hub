@@ -5,6 +5,7 @@ mod dinners;
 mod family;
 mod holidays;
 mod pantry;
+mod photos;
 mod pocketpals;
 mod products;
 mod shopping;
@@ -13,7 +14,7 @@ mod wattsmypower;
 mod weather;
 
 use axum::{
-    extract::{Query, State},
+    extract::{Path as AxPath, Query, State},
     http::{header, StatusCode},
     response::IntoResponse,
     routing::{get, post},
@@ -133,6 +134,8 @@ struct App {
     shopping: RwLock<shopping::Shopping>,
     pantry: RwLock<pantry::Pantry>,
     travel: RwLock<travel::Travel>,
+    /// One Travel picture fetched from Wikimedia at a time (it's polite, and two screens asking don't fetch it twice).
+    photo_lock: Mutex<()>,
     /// The last jobs PocketPals sent, for a few seconds, so a screen asking twice doesn't ask PocketPals twice.
     jobs: Mutex<HashMap<String, (Instant, Value)>>,
     /// The last weather Open-Meteo sent, for ten minutes.
@@ -191,7 +194,7 @@ async fn main() {
         Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
         Err(_) => travel::Travel::default(),
     };
-    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), pantry: RwLock::new(pantry), travel: RwLock::new(travel), jobs: Mutex::new(HashMap::new()), weather: Mutex::new(None), energy: Mutex::new(HashMap::new()), holidays: Mutex::new(HashMap::new()), boot });
+    let app = Arc::new(App { data, config: RwLock::new(config), latest: Mutex::new(None), cals: RwLock::new(HashMap::new()), family: RwLock::new(family), dinners: RwLock::new(dinners), shopping: RwLock::new(shopping), pantry: RwLock::new(pantry), travel: RwLock::new(travel), photo_lock: Mutex::new(()), jobs: Mutex::new(HashMap::new()), weather: Mutex::new(None), energy: Mutex::new(HashMap::new()), holidays: Mutex::new(HashMap::new()), boot });
 
     sync_restock(&app).await;
 
@@ -248,6 +251,8 @@ async fn main() {
         .route("/api/travel", get(get_travel))
         .route("/api/travel/seen", post(travel_seen))
         .route("/api/travel/square", post(travel_square))
+        .route("/api/travel/photo", get(travel_photo))
+        .route("/api/travel/img/{name}", get(travel_img))
         .route("/api/people", post(save_people))
         .route("/api/hub-event", get(hub_event).post(save_hub_event))
         .route("/api/hub-event/delete", post(delete_hub_event))
@@ -740,6 +745,33 @@ async fn travel_square(State(app): Shared, Json(b): Json<TravelTick>) -> impl In
     match edit_travel(&app, |t| t.set_square(&b.id, b.on, &b.date)).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => e.into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct PhotoQuery {
+    file: String,
+}
+
+/// A place's picture from Wikimedia Commons: where to get it from the hub, and its credit.
+async fn travel_photo(State(app): Shared, Query(q): Query<PhotoQuery>) -> impl IntoResponse {
+    if !photos::file_ok(&q.file) {
+        return (StatusCode::BAD_REQUEST, "That isn't a picture's name.").into_response();
+    }
+    let _one = app.photo_lock.lock().await;
+    Json(photos::get(&app.data, &q.file).await).into_response()
+}
+
+/// A picture the hub has kept.
+async fn travel_img(State(app): Shared, AxPath(name): AxPath<String>) -> impl IntoResponse {
+    let (k, ext) = name.split_once('.').unwrap_or((&name, ""));
+    let kind = match ext { "jpg" => "image/jpeg", "png" => "image/png", "webp" => "image/webp", _ => "" };
+    if !photos::key_ok(k) || kind.is_empty() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    match tokio::fs::read(photos::dir(&app.data).join(format!("{k}.{ext}"))).await {
+        Ok(bytes) => ([(header::CONTENT_TYPE, kind), (header::CACHE_CONTROL, "public, max-age=2592000")], bytes).into_response(),
+        Err(_) => StatusCode::NOT_FOUND.into_response(),
     }
 }
 
